@@ -1,124 +1,30 @@
-mod desktop_infra;
+mod commands;
 mod dto;
-mod emitter;
-mod followup;
-mod project_registry;
 mod runtime;
+
+mod bridge {
+    pub mod desktop_infra;
+    pub mod emitter;
+    pub mod followup;
+}
+
+mod persistence {
+    pub mod project_store;
+}
+
+#[cfg(test)]
+mod test_support;
 
 use std::sync::Arc;
 
-use dto::{
-    FollowupResponseDto, HistoricalConversationDto, RuntimeStatusDto, SendPromptInput,
-    SendPromptResultDto, WorkspaceConversationGroupDto,
+use bridge::emitter::TauriEventEmitter;
+use commands::{
+    get_runtime_status, list_projects, load_conversation, open_workspace, pick_workspace,
+    reset_chat, respond_followup, send_prompt,
 };
-use emitter::TauriEventEmitter;
-use project_registry::ProjectRegistry;
+use persistence::project_store::ProjectStore;
 use runtime::DesktopState;
 use tauri::Manager;
-use tauri_plugin_dialog::{DialogExt, FilePath};
-
-#[tauri::command]
-async fn pick_workspace(app: tauri::AppHandle) -> Result<Option<String>, String> {
-    let selected = app
-        .dialog()
-        .file()
-        .set_title("Open project folder")
-        .blocking_pick_folder();
-
-    Ok(selected.and_then(file_path_to_string))
-}
-
-#[tauri::command]
-async fn open_workspace(
-    path: String,
-    state: tauri::State<'_, DesktopState>,
-) -> Result<RuntimeStatusDto, String> {
-    state
-        .manager
-        .open_workspace(path.into())
-        .await
-        .map_err(|error| error.to_string())
-}
-
-#[tauri::command]
-async fn get_runtime_status(
-    state: tauri::State<'_, DesktopState>,
-) -> Result<RuntimeStatusDto, String> {
-    state
-        .manager
-        .get_runtime_status()
-        .await
-        .map_err(|error| error.to_string())
-}
-
-#[tauri::command]
-async fn send_prompt(
-    input: SendPromptInput,
-    state: tauri::State<'_, DesktopState>,
-) -> Result<SendPromptResultDto, String> {
-    state
-        .manager
-        .send_prompt(input)
-        .await
-        .map_err(|error| error.to_string())
-}
-
-#[tauri::command]
-async fn list_projects(
-    state: tauri::State<'_, DesktopState>,
-) -> Result<Vec<WorkspaceConversationGroupDto>, String> {
-    state
-        .manager
-        .list_projects()
-        .await
-        .map_err(|error| error.to_string())
-}
-
-#[tauri::command]
-async fn load_conversation(
-    conversation_id: String,
-    state: tauri::State<'_, DesktopState>,
-) -> Result<HistoricalConversationDto, String> {
-    state
-        .manager
-        .load_conversation(conversation_id)
-        .await
-        .map_err(|error| error.to_string())
-}
-
-#[tauri::command]
-async fn respond_followup(
-    response: FollowupResponseDto,
-    state: tauri::State<'_, DesktopState>,
-) -> Result<(), String> {
-    state
-        .manager
-        .respond_followup(response)
-        .await
-        .map_err(|error| error.to_string())
-}
-
-#[tauri::command]
-async fn reset_chat(
-    state: tauri::State<'_, DesktopState>,
-) -> Result<dto::ResetChatResultDto, String> {
-    state
-        .manager
-        .reset_chat()
-        .await
-        .map_err(|error| error.to_string())
-}
-
-fn file_path_to_string(path: FilePath) -> Option<String> {
-    match path {
-        FilePath::Path(path) => Some(path.to_string_lossy().into_owned()),
-        FilePath::Url(url) => url
-            .to_file_path()
-            .ok()
-            .map(|path| path.to_string_lossy().into_owned())
-            .or_else(|| Some(url.to_string())),
-    }
-}
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -137,8 +43,8 @@ pub fn run() {
                 .path()
                 .app_data_dir()
                 .map_err(|error| anyhow::anyhow!(error.to_string()))?;
-            let registry = Arc::new(ProjectRegistry::new(app_dir.join("projects.db"))?);
-            app.manage(DesktopState::new(emitter, registry));
+            let projects = Arc::new(ProjectStore::new(app_dir.join("projects.db"))?);
+            app.manage(DesktopState::new(emitter, projects));
             Ok(())
         })
         .on_window_event(|window, event| {

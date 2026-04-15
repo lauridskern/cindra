@@ -4,19 +4,19 @@ use std::path::{Path, PathBuf};
 use anyhow::Context;
 use diesel::connection::SimpleConnection;
 use diesel::prelude::*;
-use diesel::sql_types::{BigInt, Text};
+use diesel::sql_types::Text;
 use diesel::{QueryableByName, RunQueryDsl, SqliteConnection, sql_query};
 
 #[derive(Debug)]
-pub struct ProjectRegistry {
+pub struct ProjectStore {
     db_path: PathBuf,
 }
 
-impl ProjectRegistry {
+impl ProjectStore {
     pub fn new(db_path: PathBuf) -> anyhow::Result<Self> {
-        let registry = Self { db_path };
-        registry.init()?;
-        Ok(registry)
+        let store = Self { db_path };
+        store.init()?;
+        Ok(store)
     }
 
     pub fn add_project(&self, path: &Path) -> anyhow::Result<()> {
@@ -36,9 +36,9 @@ impl ProjectRegistry {
 
     pub fn list_projects(&self) -> anyhow::Result<Vec<PathBuf>> {
         let mut connection = self.open()?;
-        let rows: Vec<ProjectRow> = sql_query(
+        let rows: Vec<ProjectPathRow> = sql_query(
             "
-            SELECT path, last_opened_at
+            SELECT path
             FROM opened_projects
             ORDER BY last_opened_at DESC, path ASC
             ",
@@ -85,12 +85,9 @@ impl ProjectRegistry {
 }
 
 #[derive(QueryableByName)]
-struct ProjectRow {
+struct ProjectPathRow {
     #[diesel(sql_type = Text)]
     path: String,
-    #[diesel(sql_type = BigInt)]
-    #[allow(dead_code)]
-    last_opened_at: i64,
 }
 
 fn canonicalize_project_path(path: &Path) -> anyhow::Result<String> {
@@ -114,13 +111,13 @@ mod tests {
         let b = root.path().join("b");
         fs::create_dir_all(&a).expect("a");
         fs::create_dir_all(&b).expect("b");
-        let registry = ProjectRegistry::new(root.path().join("registry.db")).expect("registry");
+        let store = ProjectStore::new(root.path().join("registry.db")).expect("store");
 
-        registry.add_project(&a).expect("add a");
+        store.add_project(&a).expect("add a");
         std::thread::sleep(std::time::Duration::from_secs(1));
-        registry.add_project(&b).expect("add b");
+        store.add_project(&b).expect("add b");
 
-        let projects = registry.list_projects().expect("list");
+        let projects = store.list_projects().expect("list");
         assert_eq!(
             projects,
             vec![b.canonicalize().unwrap(), a.canonicalize().unwrap()]
@@ -134,15 +131,15 @@ mod tests {
         let b = root.path().join("b");
         fs::create_dir_all(&a).expect("a");
         fs::create_dir_all(&b).expect("b");
-        let registry = ProjectRegistry::new(root.path().join("registry.db")).expect("registry");
+        let store = ProjectStore::new(root.path().join("registry.db")).expect("store");
 
-        registry.add_project(&a).expect("add a");
+        store.add_project(&a).expect("add a");
         std::thread::sleep(std::time::Duration::from_secs(1));
-        registry.add_project(&b).expect("add b");
+        store.add_project(&b).expect("add b");
         std::thread::sleep(std::time::Duration::from_secs(1));
-        registry.add_project(&a).expect("reopen a");
+        store.add_project(&a).expect("reopen a");
 
-        let projects = registry.list_projects().expect("list");
+        let projects = store.list_projects().expect("list");
         assert_eq!(
             projects,
             vec![b.canonicalize().unwrap(), a.canonicalize().unwrap()]

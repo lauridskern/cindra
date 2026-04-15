@@ -1,94 +1,47 @@
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::Arc;
 
 use anyhow::Context;
-use forge_api::{API, ForgeAPI};
-use forge_app::AgentRegistry;
-use forge_config::ForgeConfig;
-use forge_domain::{AgentId, ChatRequest, ChatResponse, Conversation, ConversationId, Event};
-use forge_infra::ForgeInfra;
-use forge_repo::ForgeRepo;
-use forge_services::ForgeServices;
+use forge_api::API;
+use forge_domain::{ChatRequest, ChatResponse, ConversationId, Event};
 use futures::StreamExt;
 use tokio::sync::Mutex;
 use uuid::Uuid;
 
-use crate::desktop_infra::DesktopInfra;
+use crate::bridge::emitter::UiEventEmitter;
+use crate::bridge::followup::FollowupBridge;
 use crate::dto::{
-    ChatEventDto, ChatEventKind, FollowupResponseDto, HistoricalConversationDto,
+    ChatEventDto, ChatEventKind, ConversationTranscriptDto, FollowupResponseDto, ProjectSummaryDto,
     ResetChatResultDto, RuntimeStatusDto, SendPromptInput, SendPromptResultDto,
-    WorkspaceConversationGroupDto,
 };
-use crate::emitter::UiEventEmitter;
-use crate::followup::FollowupBridge;
-use crate::project_registry::ProjectRegistry;
+use crate::persistence::project_store::ProjectStore;
 
-type DesktopRepo = ForgeRepo<DesktopInfra>;
-type DesktopServices = ForgeServices<DesktopRepo>;
-type DesktopApi = ForgeAPI<DesktopServices, DesktopRepo>;
-const MISSING_SESSION_MESSAGE: &str =
-    "No Forge session is configured. Configure Forge in the terminal first.";
-
-#[derive(Clone)]
-struct ForgeRuntime {
-    api: Arc<DesktopApi>,
-    config: ForgeConfig,
-    configuration_error: Option<String>,
-}
-
-impl ForgeRuntime {
-    async fn status(&self, workspace_path: Option<&Path>) -> anyhow::Result<RuntimeStatusDto> {
-        let configured = self.config.session.is_some();
-
-        Ok(RuntimeStatusDto::new(
-            workspace_path,
-            configured,
-            configuration_error_message(configured, self.configuration_error.clone()),
-        ))
-    }
-}
-
-#[derive(Clone, Default)]
-struct RuntimeState {
-    workspace_path: Option<PathBuf>,
-    runtime: Option<ForgeRuntime>,
-    conversation_id: Option<ConversationId>,
-    active_request_id: Option<String>,
-}
+use super::{
+    ForgeRuntime, RuntimeFactory, RuntimeState, configuration_error_message,
+    create_conversation_record, read_config, resolve_conversation_id, shared_runtime_state,
+};
 
 #[derive(Clone)]
 pub struct RuntimeManager {
     emitter: Arc<dyn UiEventEmitter>,
     followups: Arc<FollowupBridge>,
-    registry: Arc<ProjectRegistry>,
+    projects: Arc<ProjectStore>,
     state: Arc<Mutex<RuntimeState>>,
-}
-
-pub struct DesktopState {
-    pub manager: Arc<RuntimeManager>,
-}
-
-impl DesktopState {
-    pub fn new(emitter: Arc<dyn UiEventEmitter>, registry: Arc<ProjectRegistry>) -> Self {
-        let followups = Arc::new(FollowupBridge::new(emitter.clone()));
-        let manager = RuntimeManager::new(emitter, followups, registry);
-        Self {
-            manager: Arc::new(manager),
-        }
-    }
+    factory: Arc<RuntimeFactory>,
 }
 
 impl RuntimeManager {
-    pub fn new(
+    pub(crate) fn new(
         emitter: Arc<dyn UiEventEmitter>,
         followups: Arc<FollowupBridge>,
-        registry: Arc<ProjectRegistry>,
+        projects: Arc<ProjectStore>,
     ) -> Self {
         Self {
             emitter,
-            followups,
-            registry,
-            state: Arc::new(Mutex::new(RuntimeState::default())),
+            followups: followups.clone(),
+            projects,
+            state: shared_runtime_state(),
+            factory: Arc::new(RuntimeFactory::new(followups)),
         }
     }
 
@@ -98,22 +51,19 @@ impl RuntimeManager {
             .await
     }
 
-    pub async fn open_workspace_with_config(
+    pub(crate) async fn open_workspace_with_config(
         &self,
         path: PathBuf,
-        config: ForgeConfig,
+        config: forge_config::ForgeConfig,
         configuration_error: Option<String>,
     ) -> anyhow::Result<RuntimeStatusDto> {
         self.followups.cancel_all().await;
-        self.registry.add_project(path.as_path())?;
+        self.projects.add_project(path.as_path())?;
 
-        let runtime = build_runtime(
-            path.clone(),
-            config,
-            configuration_error,
-            self.followups.clone(),
-        )
-        .await?;
+        let runtime = self
+            .factory
+            .build_runtime(path.clone(), config, configuration_error)
+            .await?;
         let status = runtime.status(Some(path.as_path())).await?;
 
         let mut state = self.state.lock().await;
@@ -139,7 +89,7 @@ impl RuntimeManager {
         ))
     }
 
-    pub async fn list_projects(&self) -> anyhow::Result<Vec<WorkspaceConversationGroupDto>> {
+    pub async fn list_projects(&self) -> anyhow::Result<Vec<ProjectSummaryDto>> {
         let (runtime, current_path, config, configuration_error) = {
             let state = self.state.lock().await;
             let runtime = state.runtime.clone();
@@ -153,29 +103,26 @@ impl RuntimeManager {
             (runtime, current_path, config, configuration_error)
         };
 
-        let project_paths = self.registry.list_projects()?;
+        let project_paths = self.projects.list_projects()?;
         let project_groups =
             futures::future::join_all(project_paths.into_iter().map(|workspace_path| {
                 let config = config.clone();
                 let configuration_error = configuration_error.clone();
-                let followups = self.followups.clone();
                 let current_runtime = runtime.clone();
                 let current_path = current_path.clone();
+                let factory = self.factory.clone();
+
                 async move {
                     let project_runtime = if current_path.as_ref() == Some(&workspace_path) {
                         current_runtime
                     } else {
-                        build_runtime(
-                            workspace_path.clone(),
-                            config,
-                            configuration_error,
-                            followups,
-                        )
-                        .await
-                        .ok()
+                        factory
+                            .build_runtime(workspace_path.clone(), config, configuration_error)
+                            .await
+                            .ok()
                     }?;
                     let conversations = project_runtime.api.get_conversations(None).await.ok()?;
-                    Some(WorkspaceConversationGroupDto::new(
+                    Some(ProjectSummaryDto::new(
                         workspace_path.as_path(),
                         &conversations,
                     ))
@@ -189,7 +136,7 @@ impl RuntimeManager {
     pub async fn load_conversation(
         &self,
         conversation_id: String,
-    ) -> anyhow::Result<HistoricalConversationDto> {
+    ) -> anyhow::Result<ConversationTranscriptDto> {
         let parsed = ConversationId::parse(&conversation_id)?;
         let runtime = {
             let state = self.state.lock().await;
@@ -208,7 +155,7 @@ impl RuntimeManager {
         let mut state = self.state.lock().await;
         state.conversation_id = Some(parsed);
 
-        Ok(HistoricalConversationDto::from_conversation(&conversation))
+        Ok(ConversationTranscriptDto::from_conversation(&conversation))
     }
 
     pub async fn send_prompt(&self, input: SendPromptInput) -> anyhow::Result<SendPromptResultDto> {
@@ -231,10 +178,10 @@ impl RuntimeManager {
             if runtime.config.session.is_none() {
                 anyhow::bail!(
                     "{}",
-                    runtime.configuration_error.clone().unwrap_or_else(|| {
-                        "No Forge session is configured. Configure Forge in the terminal first."
-                            .to_string()
-                    })
+                    runtime
+                        .configuration_error
+                        .clone()
+                        .unwrap_or_else(|| { super::MISSING_SESSION_MESSAGE.to_string() })
                 );
             }
 
@@ -287,12 +234,7 @@ impl RuntimeManager {
                 .clone()
                 .context("Open a workspace before starting a new chat.")?;
 
-            let conversation = Conversation::generate();
-            let conversation_id = conversation.id;
-            runtime.api.upsert_conversation_record(conversation).await?;
-            state.conversation_id = Some(conversation_id);
-
-            conversation_id
+            create_conversation_record(runtime.api.as_ref(), &mut state.conversation_id).await?
         };
 
         Ok(ResetChatResultDto {
@@ -386,116 +328,16 @@ impl RuntimeManager {
     }
 }
 
-fn read_config() -> (ForgeConfig, Option<String>) {
-    match ForgeConfig::read() {
-        Ok(config) => (config, None),
-        Err(error) => (ForgeConfig::default(), Some(error.to_string())),
-    }
-}
-
-async fn build_runtime(
-    workspace_path: PathBuf,
-    config: ForgeConfig,
-    configuration_error: Option<String>,
-    followups: Arc<FollowupBridge>,
-) -> anyhow::Result<ForgeRuntime> {
-    let infra = Arc::new(DesktopInfra::new(
-        ForgeInfra::new(workspace_path, config.clone()),
-        followups,
-    ));
-    let repo = Arc::new(ForgeRepo::new(infra));
-    let services = Arc::new(ForgeServices::new(repo.clone()));
-    services.set_active_agent_id(AgentId::default()).await?;
-    let api = Arc::new(ForgeAPI::new(services.clone(), repo));
-
-    Ok(ForgeRuntime {
-        api,
-        config,
-        configuration_error,
-    })
-}
-
-fn configuration_error_message(
-    configured: bool,
-    configuration_error: Option<String>,
-) -> Option<String> {
-    if configured {
-        configuration_error
-    } else {
-        Some(configuration_error.unwrap_or_else(|| MISSING_SESSION_MESSAGE.to_string()))
-    }
-}
-
-#[async_trait::async_trait]
-trait ConversationUpserter {
-    async fn upsert_conversation_record(&self, conversation: Conversation) -> anyhow::Result<()>;
-}
-
-#[async_trait::async_trait]
-impl ConversationUpserter for DesktopApi {
-    async fn upsert_conversation_record(&self, conversation: Conversation) -> anyhow::Result<()> {
-        self.upsert_conversation(conversation).await
-    }
-}
-
-async fn resolve_conversation_id<A: ConversationUpserter + Sync>(
-    api: &A,
-    current: &mut Option<ConversationId>,
-    requested: Option<&str>,
-) -> anyhow::Result<ConversationId> {
-    if let Some(requested) = requested {
-        let parsed = ConversationId::parse(requested)?;
-        *current = Some(parsed);
-        return Ok(parsed);
-    }
-
-    if let Some(existing) = current {
-        return Ok(*existing);
-    }
-
-    let conversation = Conversation::generate();
-    let conversation_id = conversation.id;
-    api.upsert_conversation_record(conversation).await?;
-    *current = Some(conversation_id);
-    Ok(conversation_id)
-}
-
 #[cfg(test)]
 mod tests {
-    use std::path::Path;
-    use std::sync::{Mutex as StdMutex, MutexGuard};
-
     use forge_config::{ForgeConfig, ModelConfig};
+    use forge_domain::{Conversation, ConversationId};
     use tempfile::TempDir;
     use tokio::sync::Mutex;
 
     use super::*;
-    use crate::emitter::MemoryEventEmitter;
-    use crate::project_registry::ProjectRegistry;
-
-    static ENV_MUTEX: StdMutex<()> = StdMutex::new(());
-
-    struct EnvGuard {
-        _lock: MutexGuard<'static, ()>,
-    }
-
-    impl EnvGuard {
-        fn set_config_dir(path: &Path) -> Self {
-            let lock = ENV_MUTEX.lock().expect("env mutex");
-            unsafe { std::env::set_var("FORGE_CONFIG", path) };
-            Self { _lock: lock }
-        }
-    }
-
-    impl Drop for EnvGuard {
-        fn drop(&mut self) {
-            unsafe { std::env::remove_var("FORGE_CONFIG") };
-        }
-    }
-
-    fn registry(root: &TempDir) -> Arc<ProjectRegistry> {
-        Arc::new(ProjectRegistry::new(root.path().join("projects.db")).expect("registry"))
-    }
+    use crate::bridge::emitter::MemoryEventEmitter;
+    use crate::test_support::{EnvGuard, create_project_store};
 
     #[derive(Default)]
     struct FakeConversationApi {
@@ -503,7 +345,7 @@ mod tests {
     }
 
     #[async_trait::async_trait]
-    impl ConversationUpserter for FakeConversationApi {
+    impl super::super::factory::ConversationUpserter for FakeConversationApi {
         async fn upsert_conversation_record(
             &self,
             conversation: Conversation,
@@ -536,7 +378,7 @@ mod tests {
         let _guard = EnvGuard::set_config_dir(forge_home.path());
         let emitter = Arc::new(MemoryEventEmitter::default());
         let followups = Arc::new(FollowupBridge::new(emitter.clone()));
-        let manager = RuntimeManager::new(emitter, followups, registry(&forge_home));
+        let manager = RuntimeManager::new(emitter, followups, create_project_store(&forge_home));
         let config = ForgeConfig {
             session: Some(ModelConfig::new("openai", "gpt-4.1")),
             ..Default::default()
@@ -564,7 +406,7 @@ mod tests {
         let _guard = EnvGuard::set_config_dir(forge_home.path());
         let emitter = Arc::new(MemoryEventEmitter::default());
         let followups = Arc::new(FollowupBridge::new(emitter.clone()));
-        let manager = RuntimeManager::new(emitter, followups, registry(&forge_home));
+        let manager = RuntimeManager::new(emitter, followups, create_project_store(&forge_home));
 
         manager
             .open_workspace_with_config(
@@ -585,14 +427,14 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn list_projects_returns_opened_projects_from_registry() {
+    async fn list_projects_returns_opened_projects_from_store() {
         let forge_home = TempDir::new().expect("forge home");
         let workspace_one = TempDir::new().expect("workspace one");
         let workspace_two = TempDir::new().expect("workspace two");
         let _guard = EnvGuard::set_config_dir(forge_home.path());
         let emitter = Arc::new(MemoryEventEmitter::default());
         let followups = Arc::new(FollowupBridge::new(emitter.clone()));
-        let manager = RuntimeManager::new(emitter, followups, registry(&forge_home));
+        let manager = RuntimeManager::new(emitter, followups, create_project_store(&forge_home));
 
         manager
             .open_workspace_with_config(

@@ -6,8 +6,8 @@ use anyhow::Context;
 use tokio::sync::{Mutex, oneshot};
 use uuid::Uuid;
 
+use crate::bridge::emitter::UiEventEmitter;
 use crate::dto::{FollowupKind, FollowupOptionDto, FollowupRequestDto, FollowupResponseDto};
-use crate::emitter::UiEventEmitter;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct FollowupResolution {
@@ -45,21 +45,7 @@ impl FollowupBridge {
     where
         T: Clone + Display + Send + 'static,
     {
-        let mapped = options
-            .into_iter()
-            .enumerate()
-            .map(|(index, option)| {
-                (
-                    format!("option-{index}"),
-                    FollowupOptionDto {
-                        id: format!("option-{index}"),
-                        label: option.to_string(),
-                    },
-                    option,
-                )
-            })
-            .collect::<Vec<_>>();
-
+        let mapped = map_options(options);
         let response = self
             .request(
                 FollowupKind::Single,
@@ -89,21 +75,7 @@ impl FollowupBridge {
     where
         T: Clone + Display + Send + 'static,
     {
-        let mapped = options
-            .into_iter()
-            .enumerate()
-            .map(|(index, option)| {
-                (
-                    format!("option-{index}"),
-                    FollowupOptionDto {
-                        id: format!("option-{index}"),
-                        label: option.to_string(),
-                    },
-                    option,
-                )
-            })
-            .collect::<Vec<_>>();
-
+        let mapped = map_options(options);
         let response = self
             .request(
                 FollowupKind::Multi,
@@ -179,6 +151,27 @@ impl FollowupBridge {
 
         Ok(receiver.await.unwrap_or_else(|_| cancelled_resolution()))
     }
+}
+
+fn map_options<T>(options: Vec<T>) -> Vec<(String, FollowupOptionDto, T)>
+where
+    T: Clone + Display + Send + 'static,
+{
+    options
+        .into_iter()
+        .enumerate()
+        .map(|(index, option)| {
+            let id = format!("option-{index}");
+            (
+                id.clone(),
+                FollowupOptionDto {
+                    id,
+                    label: option.to_string(),
+                },
+                option,
+            )
+        })
+        .collect()
 }
 
 fn cancelled_resolution() -> FollowupResolution {
