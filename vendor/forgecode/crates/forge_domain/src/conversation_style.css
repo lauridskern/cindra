@@ -1,0 +1,313 @@
+body {
+  font-family: "JetBrainsMono Nerd Font", "JetBrains Mono", "Fira Code", "Cascadia Code", "Consolas", "Menlo", "Monaco", monospace;
+  line-height: 1.6;
+  color: #333;
+  font-size: 1em;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+summary {
+  cursor: pointer;
+}
+
+h1,
+h2,
+h3 {
+  color: #2c3e50;
+}
+
+h1 {
+  border-bottom: 2px solid #eee;
+  padding-bottom: 10px;
+}
+
+.section {
+  padding: 20px;
+  background-color: #f9f9f9;
+  border: 1px solid #eee;
+}
+
+.agent,
+.event,
+.variable {
+  padding: 15px;
+  background-color: white;
+  border: 1px solid #ddd;
+}
+
+.agent-header,
+.event-header {
+  display: flex;
+  justify-content: space-between;
+  padding-bottom: 5px;
+  border-bottom: 1px solid #eee;
+}
+
+pre {
+  padding: 10px;
+  overflow-x: auto;
+}
+
+code, pre {
+  font-family: "JetBrainsMono Nerd Font", "JetBrains Mono", "Fira Code", "Cascadia Code", "Consolas", "Menlo", "Monaco", monospace;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th,
+td {
+  padding: 8px;
+  text-align: left;
+}
+
+th {
+  background-color: #f2f2f2;
+  font-weight: 600;
+  width: 30%;
+}
+
+td {
+  background-color: #ffffff;
+}
+
+.section table {
+  margin-top: 10px;
+  border: 1px solid #ddd;
+}
+
+.section table th {
+  border-bottom: 1px solid #ddd;
+}
+
+.section table tr:not(:last-child) td {
+  border-bottom: 1px solid #eee;
+}
+
+.message-card {
+  padding: 15px;
+  border: 1px solid #ddd;
+}
+
+.message-system {
+  background-color: #f8f9fa;
+}
+
+.message-user {
+  background-color: #e9f5ff;
+}
+
+.message-assistant {
+  background-color: #f0f7e6;
+}
+
+.message-tool {
+  background-color: #fff8e6;
+}
+
+.tool-call,
+.tool-result {
+  background-color: #f5f5f5;
+}
+
+.tool-choice {
+  padding: 5px 10px;
+  background-color: #eef;
+  display: inline-block;
+}
+
+img {
+  max-width: 100%;
+}
+
+/* Reasoning styles */
+.reasoning-section {
+  margin: 12px 0;
+  padding: 16px;
+  background-color: #f0f4f8;
+  border-left: 4px solid #7c3aed;  
+}
+
+.reasoning-content {
+  margin-bottom: 12px;
+}
+
+.reasoning-content strong {
+  color: #7c3aed;
+  font-weight: 600;
+}
+
+.reasoning-content pre {
+  margin-top: 8px;
+  padding: 12px;
+  background-color: #faf5ff;
+  border: 1px solid #e9d5ff;  
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  font-size: 0.95em;
+  color: #6b7280;
+  font-style: italic;
+  line-height: 1.6;
+}
+
+.main-content {
+  margin: 12px 0;
+}
+
+.main-content strong {
+  color: #1f2937;
+  font-weight: 600;
+}
+
+.main-content pre {
+  margin-top: 8px;
+  padding: 12px;
+  background-color: #ffffff;
+  border: 1px solid #e5e7eb;  
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  font-size: 0.95em;
+  color: #1f2937;
+  line-height: 1.6;
+}
+
+.reasoning-indicator {
+  margin-left: 8px;
+  color: #7c3aed;
+  font-size: 0.9em;
+}
+
+/* Usage Section Styles */
+.usage-section {
+  background-color: #f8f9fa;
+  border-left: 3px solid #6c757d;
+  padding: 8px 12px;
+  margin-top: 12px;
+  font-size: 0.9em;
+}
+
+.usage-section strong {
+  display: block;
+  margin-bottom: 6px;
+  color: #495057;
+}
+
+.usage-details {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.usage-item {
+  color: #6c757d;
+  font-weight: 500;
+}
+
+.usage-cost {
+  color: #28a745;
+  font-weight: 600;
+}
+
+/* Tool Call Error Styles */
+.tool-call-error {
+  background-color: #fff5f5;
+  border-left: 4px solid #ef4444;
+  padding: 16px;
+  margin: 12px 0;
+  border-radius: 4px;
+}
+
+.tool-call-error .error-cause {
+  color: #dc2626;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.tool-call-error .error-reflection {
+  background-color: #fee2e2;
+  padding: 12px;
+  border-radius: 4px;
+  margin-top: 8px;
+  font-size: 0.9em;
+  color: #7f1d1d;
+}
+
+/* Agent Conversation Link Styles */
+.agent-conversation {
+  background-color: #f0f9ff;
+  border-left: 4px solid #3b82f6;
+  padding: 16px;
+  margin: 12px 0;
+  border-radius: 4px;
+}
+
+.agent-conversation p {
+  margin: 0 0 12px 0;
+}
+
+.agent-conversation strong {
+  color: #1e40af;
+  font-weight: 600;
+}
+
+.agent-conversation a {
+  color: #2563eb;
+  text-decoration: none;
+  font-weight: 600;
+  padding: 2px 6px;
+  background-color: #dbeafe;
+  border-radius: 3px;
+  transition: background-color 0.2s;
+}
+
+.agent-conversation a:hover {
+  background-color: #bfdbfe;
+  text-decoration: underline;
+}
+
+.agent-conversation pre {
+  margin-top: 8px;
+  padding: 12px;
+  background-color: #ffffff;
+  border: 1px solid #e0f2fe;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  font-size: 0.95em;
+  color: #1e293b;
+  line-height: 1.6;
+}
+
+/* Related Conversation Styles */
+.related-conversation {
+  margin-top: 40px;
+  padding-top: 20px;
+  border-top: 3px solid #3b82f6;
+  scroll-margin-top: 20px;
+}
+
+.back-to-main {
+  margin-bottom: 20px;
+  padding: 10px;
+  background-color: #f0f9ff;
+  border-radius: 4px;
+  text-align: center;
+}
+
+.back-to-main a {
+  color: #2563eb;
+  text-decoration: none;
+  font-weight: 600;
+  padding: 8px 16px;
+  background-color: #dbeafe;
+  border-radius: 4px;
+  display: inline-block;
+  transition: background-color 0.2s;
+}
+
+.back-to-main a:hover {
+  background-color: #bfdbfe;
+  text-decoration: none;
+}

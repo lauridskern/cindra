@@ -1,0 +1,22 @@
+[package]
+name = "forge_display"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+derive_setters.workspace = true
+
+
+similar.workspace = true
+console.workspace = true
+regex.workspace = true
+termimad.workspace = true
+syntect.workspace = true
+terminal-colorsaurus = "1.0.3"
+two-face = "0.5.1"
+
+[dev-dependencies]
+insta.workspace = true
+pretty_assertions.workspace = true
+strip-ansi-escapes.workspace = true

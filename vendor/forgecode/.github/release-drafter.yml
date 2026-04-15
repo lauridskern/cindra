@@ -1,0 +1,116 @@
+name-template: "v$RESOLVED_VERSION"
+tag-template: "v$RESOLVED_VERSION"
+categories:
+  - title: "🚀 Features"
+    labels:
+      - "type: feature"
+
+  - title: "📝 Documentation"
+    labels:
+      - "type: docs"
+
+  - title: "🐛 Bug Fixes"
+    labels:
+      - "type: bug"
+      - "type: fix"
+
+  - title: "🚀 Performance"
+    labels:
+      - "type: performance"
+
+  - title: "🧰 Maintenance"
+    labels:
+      - "type: chore"
+      - "type: testing"
+      - "type: refactor"
+      - "ratatui"
+
+  - title: "💥 Breaking Changes"
+    labels:
+      - "release: breaking"
+
+  - title: "🔒 Security"
+    labels:
+      - "type: security"
+
+change-template: "- $TITLE @$AUTHOR (#$NUMBER)"
+change-title-escapes: '\<*_&' # You can add # and @ to disable mentions, and add ` to disable code blocks.
+
+version-resolver:
+  major:
+    labels:
+      - "release: breaking"
+  minor:
+    labels:
+      - "type: feature"
+    # Add direct commit message pattern matching for features
+    commits:
+      - "feat:"
+      - "feature:"
+  patch:
+    labels:
+      - "type: fix"
+      - "type: performance"
+      - "type: chore"
+      - "type: docs"
+      - "type: bug"
+      - "type: testing"
+      - "type: refactor"
+    # Add direct commit message pattern matching for patches
+    commits:
+      - "fix:"
+      - "perf:"
+      - "chore:"
+      - "docs:"
+      - "refactor:"
+  default: patch
+
+exclude-labels:
+  - "release: skip changelog"
+
+template: |
+  ## Changes
+
+  $CHANGES
+autolabeler:
+  - label: "type: chore"
+    title:
+      - /chore/i
+
+  - label: "type: refactor"
+    title:
+      - /refactor/i
+      - /refactoring/i
+
+  - label: "type: fix"
+    title:
+      - /fix/i
+      - /hotfix/i
+      - /bugfix/i
+      - /patch/i
+
+  - label: "type: feature"
+    title:
+      - /feat/i
+      - /feature/i
+      - /enhancement/i
+      - /new/i
+
+  - label: "type: docs"
+    title:
+      - /doc/i
+      - /docs/i
+
+  - label: "type: performance"
+    title:
+      - /perf/i
+
+  - label: "ci: benchmark"
+    title:
+      - /perf/i
+    files:
+      - "/benches/"
+
+  - label: "update: provider"
+    files:
+      - "provider.json"

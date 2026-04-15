@@ -1,0 +1,17 @@
+[package]
+name = "forge_spinner"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+colored.workspace = true
+tokio.workspace = true
+forge_domain.workspace = true
+indicatif = "0.18.4"
+rand = "0.10.0"
+
+[dev-dependencies]
+pretty_assertions.workspace = true
+tokio = { workspace = true, features = ["test-util"] }
