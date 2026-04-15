@@ -13,7 +13,7 @@ import {
   openRuntimeStatus,
 } from '../test/fixtures'
 
-const desktopClient = vi.hoisted(() => {
+const mockedDesktopClient = vi.hoisted(() => {
   let chatHandler: ((payload: ChatEventEnvelope) => void) | null = null
   let followupHandler: ((payload: FollowupRequest) => void) | null = null
 
@@ -46,19 +46,27 @@ const desktopClient = vi.hoisted(() => {
 })
 
 vi.mock('@legendapp/list/react', () => createLegendListModule())
-vi.mock('../services/desktop/client', () => createDesktopClientModule(desktopClient))
+vi.mock('../services/desktop/client', () =>
+  createDesktopClientModule(mockedDesktopClient),
+)
 
 import App from './App'
 
 describe('App', () => {
   beforeEach(() => {
-    resetDesktopClientMock(desktopClient)
-    desktopClient.listProjects.mockResolvedValue([])
+    resetDesktopClientMock(mockedDesktopClient)
+    mockedDesktopClient.listProjects.mockResolvedValue([])
   })
 
+  async function emitFollowup(payload: FollowupRequest) {
+    await act(async () => {
+      mockedDesktopClient.followup.emit(payload)
+    })
+  }
+
   it('shows remembered Forge projects on startup without opening a workspace', async () => {
-    desktopClient.getRuntimeStatus.mockResolvedValue(emptyRuntimeStatus)
-    desktopClient.listProjects.mockResolvedValue([
+    mockedDesktopClient.getRuntimeStatus.mockResolvedValue(emptyRuntimeStatus)
+    mockedDesktopClient.listProjects.mockResolvedValue([
       createProjectGroup('/tmp/demo', 'demo', [
         {
           conversationId: 'conv-history',
@@ -78,8 +86,8 @@ describe('App', () => {
   })
 
   it('opens another workspace before loading its conversation', async () => {
-    desktopClient.getRuntimeStatus.mockResolvedValue(openRuntimeStatus)
-    desktopClient.listProjects.mockResolvedValueOnce([
+    mockedDesktopClient.getRuntimeStatus.mockResolvedValue(openRuntimeStatus)
+    mockedDesktopClient.listProjects.mockResolvedValueOnce([
       createProjectGroup('/tmp/demo', 'demo', []),
       createProjectGroup('/tmp/other-project', 'other-project', [
         {
@@ -89,12 +97,12 @@ describe('App', () => {
         },
       ]),
     ])
-    desktopClient.openWorkspace.mockResolvedValue({
+    mockedDesktopClient.openWorkspace.mockResolvedValue({
       ...openRuntimeStatus,
       workspacePath: '/tmp/other-project',
       workspaceName: 'other-project',
     })
-    desktopClient.listProjects.mockResolvedValueOnce([
+    mockedDesktopClient.listProjects.mockResolvedValueOnce([
       createProjectGroup('/tmp/other-project', 'other-project', [
         {
           conversationId: 'conv-other',
@@ -104,7 +112,7 @@ describe('App', () => {
       ]),
       createProjectGroup('/tmp/demo', 'demo', []),
     ])
-    desktopClient.loadConversation.mockResolvedValue({
+    mockedDesktopClient.loadConversation.mockResolvedValue({
       conversationId: 'conv-other',
       messages: [],
     })
@@ -116,7 +124,7 @@ describe('App', () => {
     )
 
     await waitFor(() => {
-      expect(desktopClient.openWorkspace).toHaveBeenCalledWith('/tmp/other-project')
+      expect(mockedDesktopClient.openWorkspace).toHaveBeenCalledWith('/tmp/other-project')
     })
 
     fireEvent.click(
@@ -124,13 +132,13 @@ describe('App', () => {
     )
 
     await waitFor(() => {
-      expect(desktopClient.loadConversation).toHaveBeenCalledWith('conv-other')
+      expect(mockedDesktopClient.loadConversation).toHaveBeenCalledWith('conv-other')
     })
   })
 
   it('coalesces streamed assistant markdown into one bubble', async () => {
-    desktopClient.getRuntimeStatus.mockResolvedValue(openRuntimeStatus)
-    desktopClient.sendPrompt.mockResolvedValue({
+    mockedDesktopClient.getRuntimeStatus.mockResolvedValue(openRuntimeStatus)
+    mockedDesktopClient.sendPrompt.mockResolvedValue({
       requestId: 'req-1',
       conversationId: 'conv-1',
     })
@@ -143,16 +151,16 @@ describe('App', () => {
     fireEvent.click(screen.getByRole('button', { name: /send/i }))
 
     await waitFor(() => {
-      expect(desktopClient.sendPrompt).toHaveBeenCalled()
+      expect(mockedDesktopClient.sendPrompt).toHaveBeenCalled()
     })
 
     await act(async () => {
-      desktopClient.chat.emit({
+      mockedDesktopClient.chat.emit({
         requestId: 'req-1',
         conversationId: 'conv-1',
         event: { type: 'assistant_markdown', text: 'Hello' },
       })
-      desktopClient.chat.emit({
+      mockedDesktopClient.chat.emit({
         requestId: 'req-1',
         conversationId: 'conv-1',
         event: { type: 'assistant_markdown', text: ', world' },
@@ -165,22 +173,20 @@ describe('App', () => {
   })
 
   it('submits follow-up selections back to the backend', async () => {
-    desktopClient.getRuntimeStatus.mockResolvedValue(openRuntimeStatus)
-    desktopClient.respondFollowup.mockResolvedValue(undefined)
+    mockedDesktopClient.getRuntimeStatus.mockResolvedValue(openRuntimeStatus)
+    mockedDesktopClient.respondFollowup.mockResolvedValue(undefined)
 
     render(<App />)
 
     await screen.findAllByText('demo')
-    await act(async () => {
-      desktopClient.followup.emit({
-        followupId: 'follow-1',
-        kind: 'single',
-        question: 'How would you like to proceed?',
-        options: [
-          { id: 'a', label: 'Accept' },
-          { id: 'b', label: 'Reject' },
-        ],
-      })
+    await emitFollowup({
+      followupId: 'follow-1',
+      kind: 'single',
+      question: 'How would you like to proceed?',
+      options: [
+        { id: 'a', label: 'Accept' },
+        { id: 'b', label: 'Reject' },
+      ],
     })
 
     await screen.findByRole('dialog')
@@ -188,11 +194,43 @@ describe('App', () => {
     fireEvent.click(screen.getByRole('button', { name: /continue/i }))
 
     await waitFor(() => {
-      expect(desktopClient.respondFollowup).toHaveBeenCalledWith({
+      expect(mockedDesktopClient.respondFollowup).toHaveBeenCalledWith({
         followupId: 'follow-1',
         cancelled: false,
         selectedOptionIds: ['a'],
       })
     })
+  })
+
+  it('clears previous follow-up selections when a new request arrives', async () => {
+    mockedDesktopClient.getRuntimeStatus.mockResolvedValue(openRuntimeStatus)
+
+    render(<App />)
+
+    await screen.findAllByText('demo')
+    await emitFollowup({
+      followupId: 'follow-1',
+      kind: 'single',
+      question: 'How would you like to proceed?',
+      options: [
+        { id: 'a', label: 'Accept' },
+        { id: 'b', label: 'Reject' },
+      ],
+    })
+
+    fireEvent.click(await screen.findByLabelText(/accept/i))
+    expect(screen.getByRole('button', { name: /continue/i })).toBeEnabled()
+
+    await emitFollowup({
+      followupId: 'follow-2',
+      kind: 'single',
+      question: 'Pick the next action',
+      options: [
+        { id: 'c', label: 'Retry' },
+        { id: 'd', label: 'Stop' },
+      ],
+    })
+
+    expect(screen.getByRole('button', { name: /continue/i })).toBeDisabled()
   })
 })
