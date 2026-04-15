@@ -25,6 +25,8 @@ import {
 export function useSessionActions() {
   const store = useStore()
 
+  const getSessionState = useCallback(() => store.get(sessionStateAtom), [store])
+
   const dispatchSession = useCallback(
     (action: SessionAction) => {
       store.set(sessionStateAtom, action)
@@ -73,6 +75,53 @@ export function useSessionActions() {
     store.set(promptInputAtom, '')
   }, [store])
 
+  const createProjectWorkflowContext = useCallback(
+    () => ({
+      client: desktopClient,
+      dispatch: dispatchSession,
+      sessionState: getSessionState(),
+      ensureProjectExpanded,
+      toggleProjectExpanded,
+      setIsOpeningProject,
+    }),
+    [
+      dispatchSession,
+      ensureProjectExpanded,
+      getSessionState,
+      setIsOpeningProject,
+      toggleProjectExpanded,
+    ],
+  )
+
+  const createPromptWorkflowContext = useCallback(
+    () => ({
+      client: desktopClient,
+      dispatch: dispatchSession,
+      sessionState: getSessionState(),
+      isSubmitting: store.get(isSubmittingAtom),
+      clearPromptInput,
+      setIsSubmitting,
+    }),
+    [
+      clearPromptInput,
+      dispatchSession,
+      getSessionState,
+      setIsSubmitting,
+      store,
+    ],
+  )
+
+  const createFollowupWorkflowContext = useCallback(
+    () => ({
+      client: desktopClient,
+      dispatch: dispatchSession,
+      sessionState: getSessionState(),
+      followupText: store.get(followupTextAtom),
+      selectedOptionIds: store.get(selectedOptionIdsAtom),
+    }),
+    [dispatchSession, getSessionState, store],
+  )
+
   const openWorkspacePicker = useCallback(async () => {
     try {
       const selectedPath = await desktopClient.pickWorkspace()
@@ -80,111 +129,43 @@ export function useSessionActions() {
         return
       }
 
-      await openProjectWorkflow(
-        {
-          client: desktopClient,
-          dispatch: dispatchSession,
-          sessionState: store.get(sessionStateAtom),
-          ensureProjectExpanded,
-          toggleProjectExpanded,
-          setIsOpeningProject,
-        },
-        selectedPath,
-      )
+      await openProjectWorkflow(createProjectWorkflowContext(), selectedPath)
     } catch (error) {
       dispatchSession({ type: 'ui_error', message: formatError(error) })
     }
-  }, [
-    dispatchSession,
-    ensureProjectExpanded,
-    setIsOpeningProject,
-    store,
-    toggleProjectExpanded,
-  ])
+  }, [createProjectWorkflowContext, dispatchSession])
 
   const openProject = useCallback(
     async (workspacePath: string) => {
-      await openProjectWorkflow(
-        {
-          client: desktopClient,
-          dispatch: dispatchSession,
-          sessionState: store.get(sessionStateAtom),
-          ensureProjectExpanded,
-          toggleProjectExpanded,
-          setIsOpeningProject,
-        },
-        workspacePath,
-      )
+      await openProjectWorkflow(createProjectWorkflowContext(), workspacePath)
     },
-    [
-      dispatchSession,
-      ensureProjectExpanded,
-      setIsOpeningProject,
-      store,
-      toggleProjectExpanded,
-    ],
+    [createProjectWorkflowContext],
   )
 
   const startNewChat = useCallback(
     async (workspacePath?: string) => {
-      await startNewChatWorkflow(
-        {
-          client: desktopClient,
-          dispatch: dispatchSession,
-          sessionState: store.get(sessionStateAtom),
-          ensureProjectExpanded,
-          toggleProjectExpanded,
-          setIsOpeningProject,
-        },
-        workspacePath,
-      )
+      await startNewChatWorkflow(createProjectWorkflowContext(), workspacePath)
     },
-    [
-      dispatchSession,
-      ensureProjectExpanded,
-      setIsOpeningProject,
-      store,
-      toggleProjectExpanded,
-    ],
+    [createProjectWorkflowContext],
   )
 
   const selectConversation = useCallback(
     async (workspacePath: string, conversationId: string) => {
       await selectConversationWorkflow(
-        {
-          client: desktopClient,
-          dispatch: dispatchSession,
-          sessionState: store.get(sessionStateAtom),
-          ensureProjectExpanded,
-          toggleProjectExpanded,
-          setIsOpeningProject,
-        },
+        createProjectWorkflowContext(),
         workspacePath,
         conversationId,
       )
     },
-    [
-      dispatchSession,
-      ensureProjectExpanded,
-      setIsOpeningProject,
-      store,
-      toggleProjectExpanded,
-    ],
+    [createProjectWorkflowContext],
   )
 
   const submitPrompt = useCallback(async () => {
     await submitPromptWorkflow(
-      {
-        client: desktopClient,
-        dispatch: dispatchSession,
-        sessionState: store.get(sessionStateAtom),
-        isSubmitting: store.get(isSubmittingAtom),
-        clearPromptInput,
-        setIsSubmitting,
-      },
+      createPromptWorkflowContext(),
       store.get(promptInputAtom),
     )
-  }, [clearPromptInput, dispatchSession, setIsSubmitting, store])
+  }, [createPromptWorkflowContext, store])
 
   const toggleFollowupOption = useCallback(
     (optionId: string) => {
@@ -211,18 +192,9 @@ export function useSessionActions() {
 
   const submitFollowup = useCallback(
     async (cancelled: boolean) => {
-      await submitFollowupWorkflow(
-        {
-          client: desktopClient,
-          dispatch: dispatchSession,
-          sessionState: store.get(sessionStateAtom),
-          followupText: store.get(followupTextAtom),
-          selectedOptionIds: store.get(selectedOptionIdsAtom),
-        },
-        cancelled,
-      )
+      await submitFollowupWorkflow(createFollowupWorkflowContext(), cancelled)
     },
-    [dispatchSession, store],
+    [createFollowupWorkflowContext],
   )
 
   return {
