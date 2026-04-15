@@ -1,0 +1,58 @@
+@import "tailwindcss";
+
+@font-face {
+  font-family: "Geist Mono";
+  src: url("./assets/fonts/GeistMono-Variable.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+@theme {
+  --font-sans: "Geist Mono", ui-monospace, SFMono-Regular, SF Mono, Menlo, Monaco, Consolas, monospace;
+  --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, SF Mono, Menlo, Monaco, Consolas, monospace;
+}
+
+@layer base {
+  :root {
+    color-scheme: light dark;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  html,
+  body,
+  #root {
+    @apply min-h-screen overflow-hidden bg-transparent text-neutral-700 antialiased dark:text-neutral-300;
+    user-select: none;
+  }
+
+  body {
+    @apply m-0 font-sans;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  button,
+  textarea,
+  input {
+    font: inherit;
+  }
+
+  textarea,
+  input {
+    user-select: text;
+  }
+
+  code,
+  pre {
+    font-family: "Geist Mono", ui-monospace, SFMono-Regular, SF Mono, Menlo, Monaco, Consolas, monospace;
+  }
+
+  a {
+    @apply text-inherit;
+  }
+}
