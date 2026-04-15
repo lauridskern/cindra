@@ -31,7 +31,7 @@ describe('session workflows', () => {
   })
 
   function ensureProjectExpanded(workspacePath: string) {
-    if (expandedProjectPaths.includes(workspacePath) === false) {
+    if (!expandedProjectPaths.includes(workspacePath)) {
       expandedProjectPaths.push(workspacePath)
     }
   }

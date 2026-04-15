@@ -99,19 +99,16 @@ export async function selectConversation(
 
   context.ensureProjectExpanded(workspacePath)
 
-  if (shouldOpenProject === true) {
+  if (shouldOpenProject) {
     context.setIsOpeningProject(true)
   }
 
   try {
-    if (shouldOpenProject === true) {
+    if (shouldOpenProject) {
       await openProjectAndRefresh(context, workspacePath)
     }
 
-    if (
-      shouldOpenProject === true ||
-      context.sessionState.transcripts[conversationId] == null
-    ) {
+    if (shouldOpenProject || context.sessionState.transcripts[conversationId] == null) {
       const transcript = await context.client.loadConversation(conversationId)
       context.dispatch({ type: 'conversation_loaded', item: transcript })
       return
@@ -121,7 +118,7 @@ export async function selectConversation(
   } catch (error) {
     dispatchUiError(context.dispatch, error)
   } finally {
-    if (shouldOpenProject === true) {
+    if (shouldOpenProject) {
       context.setIsOpeningProject(false)
     }
   }
@@ -141,19 +138,16 @@ export async function startNewChat(
   const shouldOpenProject =
     context.sessionState.runtimeStatus?.workspacePath !== targetWorkspacePath
 
-  if (
-    shouldOpenProject === false &&
-    context.sessionState.activeRequestId != null
-  ) {
+  if (!shouldOpenProject && context.sessionState.activeRequestId != null) {
     return
   }
 
-  if (shouldOpenProject === true) {
+  if (shouldOpenProject) {
     context.setIsOpeningProject(true)
   }
 
   try {
-    if (shouldOpenProject === true) {
+    if (shouldOpenProject) {
       await openProjectAndRefresh(context, targetWorkspacePath)
     }
 
@@ -163,7 +157,7 @@ export async function startNewChat(
   } catch (error) {
     dispatchUiError(context.dispatch, error)
   } finally {
-    if (shouldOpenProject === true) {
+    if (shouldOpenProject) {
       context.setIsOpeningProject(false)
     }
   }
@@ -178,11 +172,11 @@ export async function submitPrompt(
   const hasWorkspace = runtimeStatus?.workspacePath != null
   const canCompose =
     hasWorkspace &&
-    runtimeStatus?.configured === true &&
-    context.sessionState.activeRequestId === null &&
-    context.isSubmitting === false
+    runtimeStatus?.configured &&
+    context.sessionState.activeRequestId == null &&
+    !context.isSubmitting
 
-  if (trimmedPrompt === '' || canCompose === false) {
+  if (trimmedPrompt === '' || !canCompose) {
     return
   }
 
@@ -222,7 +216,7 @@ export async function submitFollowup(
     cancelled,
   }
 
-  if (cancelled === false) {
+  if (!cancelled) {
     if (followupRequest.kind === 'text') {
       response.text = context.followupText
     } else {

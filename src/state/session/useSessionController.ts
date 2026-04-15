@@ -60,7 +60,7 @@ export function useSessionController() {
   }
 
   useEffect(() => {
-    const lifecycle = { mounted: true }
+    let mounted = true
     let stopChat: (() => void) | null = null
     let stopFollowups: (() => void) | null = null
 
@@ -75,7 +75,7 @@ export function useSessionController() {
           }),
         ])
 
-        if (lifecycle.mounted === false) {
+        if (!mounted) {
           chatCleanup()
           followupCleanup()
           return
@@ -88,14 +88,14 @@ export function useSessionController() {
           dispatch,
         })
       } catch (error) {
-        if (lifecycle.mounted === true) {
+        if (mounted) {
           dispatch({ type: 'ui_error', message: formatError(error) })
         }
       }
     })()
 
     return () => {
-      lifecycle.mounted = false
+      mounted = false
       stopChat?.()
       stopFollowups?.()
     }
@@ -111,9 +111,9 @@ export function useSessionController() {
   const isBusy = sessionState.activeRequestId != null
   const canCompose =
     hasCurrentWorkspace &&
-    runtimeStatus?.configured === true &&
-    isBusy === false &&
-    isSubmitting === false
+    runtimeStatus?.configured &&
+    !isBusy &&
+    !isSubmitting
 
   async function openWorkspacePicker() {
     try {

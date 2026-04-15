@@ -45,7 +45,7 @@ export function selectProjectSummaries(state: AppState): ProjectSummary[] {
   const currentWorkspaceName = state.runtimeStatus?.workspaceName ?? 'Workspace'
   const shouldAddCurrentWorkspace =
     currentWorkspacePath != null &&
-    state.projects.some((project) => project.workspacePath === currentWorkspacePath) === false
+    !state.projects.some((project) => project.workspacePath === currentWorkspacePath)
   const projects =
     shouldAddCurrentWorkspace
       ? [
