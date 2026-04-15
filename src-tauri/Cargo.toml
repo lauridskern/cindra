@@ -1,17 +1,17 @@
 [package]
-name = "app"
+name = "agent_ui"
 version = "0.1.0"
 description = "Forge-backed Tauri chat prototype"
-authors = ["you"]
-license = ""
-repository = ""
+authors = ["Laurids"]
+license = "UNLICENSED"
+repository = "https://github.com/laurids/agent-ui"
 edition = "2024"
 rust-version = "1.94"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [lib]
-name = "app_lib"
+name = "agent_ui_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
