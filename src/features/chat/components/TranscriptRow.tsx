@@ -1,7 +1,8 @@
 import ReactMarkdown from 'react-markdown'
 
-import type { TranscriptMessage } from '../contracts'
-import { cn, statusToneClass } from '../ui'
+import { cn } from '../../../lib/cn'
+import type { TranscriptMessage } from '../../../services/desktop/contracts'
+import { statusToneClass } from '../../../styles/classes'
 
 interface TranscriptRowProps {
   message: TranscriptMessage

@@ -3,7 +3,7 @@ import {
   type LegendListRenderItemProps,
 } from '@legendapp/list/react'
 
-import type { TranscriptMessage } from '../contracts'
+import type { TranscriptMessage } from '../../../services/desktop/contracts'
 import { TranscriptRow } from './TranscriptRow'
 
 interface TranscriptProps {

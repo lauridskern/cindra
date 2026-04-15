@@ -6,7 +6,7 @@ import type {
   TranscriptMessage,
   ConversationTranscript,
   StatusCategory,
-} from './contracts'
+} from '../../services/desktop/contracts'
 
 export interface AppState {
   runtimeStatus: RuntimeStatus | null
@@ -15,15 +15,15 @@ export interface AppState {
   currentConversationId: string | null
   activeRequestId: string | null
   followup: FollowupRequest | null
-  bootError: string | null
+  uiError: string | null
 }
 
-export type AppAction =
+export type SessionAction =
   | { type: 'runtime_status_loaded'; status: RuntimeStatus }
   | { type: 'workspace_opened'; status: RuntimeStatus }
-  | { type: 'project_history_loaded'; items: ProjectConversationGroup[] }
+  | { type: 'projects_loaded'; items: ProjectConversationGroup[] }
   | { type: 'conversation_loaded'; item: ConversationTranscript }
-  | { type: 'runtime_error'; message: string }
+  | { type: 'ui_error'; message: string }
   | {
       type: 'prompt_queued'
       conversationId: string
@@ -36,14 +36,14 @@ export type AppAction =
   | { type: 'conversation_selected'; conversationId: string }
   | { type: 'chat_reset'; conversationId: string }
 
-export const initialState: AppState = {
+export const initialSessionState: AppState = {
   runtimeStatus: null,
   projects: [],
   transcripts: {},
   currentConversationId: null,
   activeRequestId: null,
   followup: null,
-  bootError: null,
+  uiError: null,
 }
 
 function assertNever(value: never): never {
@@ -57,7 +57,7 @@ function getTranscript(
   return transcripts[conversationId] ?? []
 }
 
-function replaceTranscript(
+function withTranscript(
   state: AppState,
   conversationId: string,
   messages: TranscriptMessage[],
@@ -76,7 +76,7 @@ function updateTranscript(
   conversationId: string,
   updater: (messages: TranscriptMessage[]) => TranscriptMessage[],
 ): AppState {
-  return replaceTranscript(
+  return withTranscript(
     state,
     conversationId,
     updater(getTranscript(state.transcripts, conversationId)),
@@ -245,10 +245,10 @@ function applyChatEvent(state: AppState, payload: ChatEventEnvelope): AppState {
   }
 }
 
-export function appReducer(state: AppState, action: AppAction): AppState {
+export function sessionReducer(state: AppState, action: SessionAction): AppState {
   switch (action.type) {
     case 'runtime_status_loaded':
-      return { ...state, runtimeStatus: action.status, bootError: null }
+      return { ...state, runtimeStatus: action.status, uiError: null }
     case 'workspace_opened':
       return {
         ...state,
@@ -257,9 +257,9 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         currentConversationId: null,
         activeRequestId: null,
         followup: null,
-        bootError: null,
+        uiError: null,
       }
-    case 'project_history_loaded':
+    case 'projects_loaded':
       return { ...state, projects: action.items }
     case 'conversation_loaded':
       return {
@@ -270,8 +270,8 @@ export function appReducer(state: AppState, action: AppAction): AppState {
           [action.item.conversationId]: action.item.messages,
         },
       }
-    case 'runtime_error':
-      return { ...state, bootError: action.message }
+    case 'ui_error':
+      return { ...state, uiError: action.message }
     case 'prompt_queued':
       return appendTranscriptMessage(
         {

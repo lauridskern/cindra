@@ -1,10 +1,13 @@
-import type { FollowupRequest } from '../contracts'
-import { ghostButtonClass, primaryButtonClass } from '../ui'
+import type { FollowupRequest } from '../../../services/desktop/contracts'
+import {
+  ghostButtonClass,
+  primaryButtonClass,
+} from '../../../styles/classes'
 
 interface FollowupDialogProps {
-  followup: FollowupRequest | null
+  followupRequest: FollowupRequest | null
   followupText: string
-  selectedIds: string[]
+  selectedOptionIds: string[]
   onTextChange: (value: string) => void
   onToggleOption: (optionId: string) => void
   onCancel: () => void
@@ -12,22 +15,22 @@ interface FollowupDialogProps {
 }
 
 export function FollowupDialog({
-  followup,
+  followupRequest,
   followupText,
-  selectedIds,
+  selectedOptionIds,
   onTextChange,
   onToggleOption,
   onCancel,
   onContinue,
 }: FollowupDialogProps) {
-  if (!followup) {
+  if (followupRequest == null) {
     return null
   }
 
   const canContinue =
-    followup.kind === 'text'
+    followupRequest.kind === 'text'
       ? followupText.trim().length > 0
-      : selectedIds.length > 0
+      : selectedOptionIds.length > 0
 
   return (
     <div
@@ -47,10 +50,10 @@ export function FollowupDialog({
           id="followup-title"
           className="select-text text-base font-semibold leading-6 text-neutral-900 dark:text-neutral-100"
         >
-          {followup.question}
+          {followupRequest.question}
         </h2>
 
-        {followup.kind === 'text' ? (
+        {followupRequest.kind === 'text' ? (
           <textarea
             className="mt-4 min-h-[120px] w-full resize-none rounded-2xl border border-neutral-200 bg-neutral-50/80 p-3.5 text-[0.97rem] leading-[1.55] text-neutral-900 outline-none placeholder:text-neutral-400 dark:border-white/10 dark:bg-neutral-950/60 dark:text-neutral-100 dark:placeholder:text-neutral-500"
             value={followupText}
@@ -59,15 +62,15 @@ export function FollowupDialog({
           />
         ) : (
           <div className="mt-4 grid gap-2.5">
-            {followup.options?.map((option) => {
-              const checked = selectedIds.includes(option.id)
+            {followupRequest.options?.map((option) => {
+              const checked = selectedOptionIds.includes(option.id)
               return (
                 <label
                   key={option.id}
                   className="flex items-center gap-2.5 rounded-2xl border border-neutral-200 bg-neutral-50/80 px-3.5 py-3 text-sm text-neutral-700 dark:border-white/10 dark:bg-neutral-950/60 dark:text-neutral-200"
                 >
                   <input
-                    type={followup.kind === 'single' ? 'radio' : 'checkbox'}
+                    type={followupRequest.kind === 'single' ? 'radio' : 'checkbox'}
                     name="followup-option"
                     checked={checked}
                     onChange={() => onToggleOption(option.id)}

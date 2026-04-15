@@ -1,44 +1,48 @@
 import type { ReactNode } from 'react'
 
-import { cn, interactiveBaseClass } from '../ui'
-import type { RuntimeStatus, TranscriptMessage } from '../contracts'
+import { cn } from '../../../lib/cn'
+import { interactiveBaseClass } from '../../../styles/classes'
+import type {
+  RuntimeStatus,
+  TranscriptMessage,
+} from '../../../services/desktop/contracts'
 import { Transcript } from './Transcript'
 
 interface ConversationPanelProps {
-  bootError: string | null
+  activeWorkspaceLabel: string
   children: ReactNode
   hasCurrentWorkspace: boolean
-  isOpeningWorkspace: boolean
-  mainTitle: string
+  isOpeningProject: boolean
   messages: TranscriptMessage[]
   runtimeStatus: RuntimeStatus | null
-  onPickWorkspace: () => void
+  uiError: string | null
+  onOpenWorkspacePicker: () => void
 }
 
 export function ConversationPanel({
-  bootError,
+  activeWorkspaceLabel,
   children,
   hasCurrentWorkspace,
-  isOpeningWorkspace,
-  mainTitle,
+  isOpeningProject,
   messages,
   runtimeStatus,
-  onPickWorkspace,
+  uiError,
+  onOpenWorkspacePicker,
 }: ConversationPanelProps) {
   return (
     <section className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden rounded-[28px] border border-white/60 bg-white/80 shadow-xl shadow-neutral-950/5 backdrop-blur-xl dark:border-white/10 dark:bg-neutral-900/78 dark:shadow-black/20">
       <header className="flex min-h-13 items-center px-6 pt-7 select-none max-[720px]:px-4">
         <span className="text-[0.82rem] font-semibold tracking-[-0.01em] text-neutral-500 dark:text-neutral-400">
-          {mainTitle}
+          {activeWorkspaceLabel}
         </span>
       </header>
 
-      {bootError ? (
+      {uiError ? (
         <div
           className="mx-6 mt-2.5 text-sm leading-6 text-red-700 max-[720px]:mx-4 dark:text-red-400"
           role="alert"
         >
-          {bootError}
+          {uiError}
         </div>
       ) : null}
 
@@ -65,10 +69,10 @@ export function ConversationPanel({
                   interactiveBaseClass,
                   'rounded-full bg-white/90 px-4 py-2.5 text-sm text-neutral-950 shadow-lg shadow-neutral-950/5 hover:-translate-y-px dark:bg-neutral-800/90 dark:text-neutral-100 dark:shadow-black/20',
                 )}
-                onClick={onPickWorkspace}
-                disabled={isOpeningWorkspace}
+                onClick={onOpenWorkspacePicker}
+                disabled={isOpeningProject}
               >
-                {isOpeningWorkspace ? 'Opening…' : 'Open project'}
+                {isOpeningProject ? 'Opening…' : 'Open project'}
               </button>
             </div>
           </div>

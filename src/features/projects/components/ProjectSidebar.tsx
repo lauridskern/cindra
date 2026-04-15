@@ -6,41 +6,39 @@ import {
   Pencil,
 } from 'lucide-react'
 
-import type { ProjectSummary } from '../selectors'
+import { formatRelativeTimestamp } from '../../../lib/time'
+import { cn } from '../../../lib/cn'
+import type { ProjectSummary } from '../../../state/session/selectors'
 import {
-  cn,
   navRowClass,
   projectActionButtonClass,
   threadRowClass,
   interactiveBaseClass,
-} from '../ui'
-import { formatRelativeTimestamp } from '../selectors'
+} from '../../../styles/classes'
 
-interface SidebarProps {
+interface ProjectSidebarProps {
   hasCurrentWorkspace: boolean
-  expandedProjects: string[]
+  expandedProjectPaths: string[]
   isBusy: boolean
-  isOpeningWorkspace: boolean
+  isOpeningProject: boolean
   projects: ProjectSummary[]
-  onPickWorkspace: () => void
-  onProjectNewChat: (workspacePath: string) => void
-  onResetChat: () => void
+  onOpenWorkspacePicker: () => void
+  onOpenProject: (workspacePath: string) => void
   onSelectConversation: (workspacePath: string, conversationId: string) => void
-  onSelectProject: (workspacePath: string) => void
+  onStartNewChat: (workspacePath?: string) => void
 }
 
-export function Sidebar({
-  expandedProjects,
+export function ProjectSidebar({
+  expandedProjectPaths,
   hasCurrentWorkspace,
   isBusy,
-  isOpeningWorkspace,
+  isOpeningProject,
   projects,
-  onPickWorkspace,
-  onProjectNewChat,
-  onResetChat,
+  onOpenWorkspacePicker,
+  onOpenProject,
   onSelectConversation,
-  onSelectProject,
-}: SidebarProps) {
+  onStartNewChat,
+}: ProjectSidebarProps) {
   return (
     <aside className="min-h-0 overflow-hidden bg-transparent">
       <div className="grid h-full grid-rows-[auto_minmax(0,1fr)] overflow-hidden px-1.5 pb-2.5 pt-1.5 [&_*]:select-none max-[720px]:p-2.5">
@@ -48,7 +46,7 @@ export function Sidebar({
           <button
             type="button"
             className={navRowClass}
-            onClick={onResetChat}
+            onClick={() => void onStartNewChat()}
             disabled={!hasCurrentWorkspace || isBusy}
           >
             <Pencil className="size-3.5 shrink-0" />
@@ -57,11 +55,11 @@ export function Sidebar({
           <button
             type="button"
             className={navRowClass}
-            onClick={onPickWorkspace}
-            disabled={isOpeningWorkspace}
+            onClick={onOpenWorkspacePicker}
+            disabled={isOpeningProject}
           >
             <Folder className="size-3.5 shrink-0" />
-            <span>{isOpeningWorkspace ? 'Opening…' : 'Open project'}</span>
+            <span>{isOpeningProject ? 'Opening…' : 'Open project'}</span>
           </button>
         </nav>
 
@@ -77,7 +75,7 @@ export function Sidebar({
               </p>
             ) : (
               projects.map((project) => {
-                const isExpanded = expandedProjects.includes(project.workspacePath)
+                const isExpanded = expandedProjectPaths.includes(project.workspacePath)
                 const newChatDisabled = project.isCurrent && isBusy
 
                 return (
@@ -97,7 +95,7 @@ export function Sidebar({
                           interactiveBaseClass,
                           'flex min-w-0 flex-1 items-center gap-1.5 rounded-md px-1 py-0.5 text-left text-neutral-600 dark:text-neutral-200',
                         )}
-                        onClick={() => void onSelectProject(project.workspacePath)}
+                        onClick={() => void onOpenProject(project.workspacePath)}
                       >
                         <span className="relative flex size-4 shrink-0 items-center justify-center text-neutral-400 dark:text-neutral-500">
                           <Folder
@@ -124,7 +122,7 @@ export function Sidebar({
                         className={projectActionButtonClass}
                         aria-label={`Start a new chat in ${project.workspaceName}`}
                         title="New chat"
-                        onClick={() => void onProjectNewChat(project.workspacePath)}
+                        onClick={() => void onStartNewChat(project.workspacePath)}
                         disabled={newChatDisabled}
                       >
                         <PenSquare className="size-3 shrink-0" />
@@ -141,7 +139,7 @@ export function Sidebar({
 
                             return (
                               <button
-                                key={`${project.workspacePath}:${conversation.id}`}
+                                key={`${project.workspacePath}:${conversation.conversationId}`}
                                 type="button"
                                 className={cn(
                                   threadRowClass,
@@ -152,7 +150,7 @@ export function Sidebar({
                                 onClick={() =>
                                   void onSelectConversation(
                                     conversation.workspacePath,
-                                    conversation.id,
+                                    conversation.conversationId,
                                   )}
                               >
                                 <span className="min-w-0 truncate pr-2 text-[0.74rem] leading-5 text-neutral-800 dark:text-neutral-100">

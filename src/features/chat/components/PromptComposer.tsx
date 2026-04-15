@@ -1,27 +1,29 @@
-import type { FormEventHandler } from 'react'
+import { cn } from '../../../lib/cn'
+import { primaryButtonClass } from '../../../styles/classes'
 
-import { cn, primaryButtonClass } from '../ui'
-
-interface ComposerProps {
-  prompt: string
+interface PromptComposerProps {
   canCompose: boolean
   isBusy: boolean
-  onPromptChange: (value: string) => void
-  onSubmit: FormEventHandler<HTMLFormElement>
+  promptInput: string
+  onPromptInputChange: (value: string) => void
+  onSubmit: () => void
 }
 
-export function Composer({
-  prompt,
+export function PromptComposer({
   canCompose,
   isBusy,
-  onPromptChange,
+  promptInput,
+  onPromptInputChange,
   onSubmit,
-}: ComposerProps) {
+}: PromptComposerProps) {
   return (
     <div className="px-6 pb-6 pt-3.5 max-[720px]:px-4">
       <form
         className="mx-auto w-full max-w-[760px] rounded-[24px] border border-neutral-200/70 bg-white/90 px-[18px] pb-3.5 pt-4 shadow-xl shadow-neutral-950/5 backdrop-blur-lg dark:border-white/10 dark:bg-neutral-900/88 dark:shadow-black/20"
-        onSubmit={onSubmit}
+        onSubmit={(event) => {
+          event.preventDefault()
+          onSubmit()
+        }}
       >
         <label className="sr-only" htmlFor="prompt">
           Prompt
@@ -30,8 +32,8 @@ export function Composer({
           id="prompt"
           className="min-h-[74px] w-full resize-none bg-transparent text-[0.97rem] leading-[1.55] text-neutral-900 outline-none placeholder:text-neutral-400 disabled:text-neutral-400 dark:text-neutral-100 dark:placeholder:text-neutral-500 dark:disabled:text-neutral-500"
           placeholder="Ask Forge to inspect or change this workspace…"
-          value={prompt}
-          onChange={(event) => onPromptChange(event.target.value)}
+          value={promptInput}
+          onChange={(event) => onPromptInputChange(event.target.value)}
           disabled={!canCompose}
           rows={3}
         />
@@ -43,7 +45,7 @@ export function Composer({
             type="submit"
             className={cn(primaryButtonClass, 'px-[15px]')}
             aria-label="Send"
-            disabled={!canCompose || prompt.trim().length === 0}
+            disabled={!canCompose || promptInput.trim().length === 0}
           >
             Send
           </button>

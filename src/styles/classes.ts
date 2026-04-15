@@ -1,27 +1,6 @@
-import { getCurrentWindow } from '@tauri-apps/api/window'
-import type { MouseEvent } from 'react'
+import type { StatusCategory } from '../services/desktop/contracts'
 
-import type { StatusCategory } from './contracts'
-
-export function formatError(error: unknown): string {
-  if (error instanceof Error) {
-    return error.message
-  }
-
-  return String(error)
-}
-
-export function cn(...values: Array<string | false | null | undefined>): string {
-  return values.filter(Boolean).join(' ')
-}
-
-export function handleWindowDragStart(event: MouseEvent<HTMLElement>): void {
-  if (event.button !== 0) {
-    return
-  }
-
-  void getCurrentWindow().startDragging()
-}
+import { cn } from '../lib/cn'
 
 export const interactiveBaseClass =
   'appearance-none font-inherit transition duration-150 ease-out disabled:cursor-not-allowed disabled:opacity-45'
