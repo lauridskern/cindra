@@ -11,6 +11,7 @@ export interface RuntimeStatus {
   workspaceName: string | null
   gitRepoName: string | null
   gitBranchName: string | null
+  gitBranches: string[]
   configured: boolean
   configurationError: string | null
 }

@@ -8,6 +8,7 @@ export const emptyRuntimeStatus: RuntimeStatus = {
   workspaceName: null,
   gitRepoName: null,
   gitBranchName: null,
+  gitBranches: [],
   configured: true,
   configurationError: null,
 }
@@ -17,6 +18,7 @@ export const openRuntimeStatus: RuntimeStatus = {
   workspaceName: 'demo',
   gitRepoName: 'laurids/demo',
   gitBranchName: 'origin/main',
+  gitBranches: ['main', 'feature/header', 'origin/main'],
   configured: true,
   configurationError: null,
 }

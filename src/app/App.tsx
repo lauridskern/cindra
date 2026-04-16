@@ -14,7 +14,6 @@ import { SidebarProvider, useSidebar } from "../components/ui/sidebar";
 import { TooltipProvider } from "../components/ui/tooltip";
 import { useIsMobile } from "../hooks/use-mobile";
 import { useConversationSession, useSessionActions } from "../hooks/useSession";
-import { handleWindowDragStart } from "../utils/window";
 import { SessionProvider } from "./SessionProvider";
 
 const DEFAULT_SIDEBAR_WIDTH = 320;
@@ -77,7 +76,7 @@ function AppSidebarToggle({
         onToggleDesktopSidebar();
       }}
     >
-      <PanelLeftIcon strokeWidth={2.5} className="size-3.5" />
+      <PanelLeftIcon strokeWidth={2} className="size-3.5" />
       <span className="sr-only">
         {isMobile
           ? "Toggle sidebar"
@@ -137,16 +136,10 @@ function AppShell() {
               }}
               disabled={!hasCurrentWorkspace}
             >
-              <PenSquare strokeWidth={2.5} className="size-3.5" />
+              <PenSquare strokeWidth={2} className="size-3.5" />
               <span className="sr-only">New chat</span>
             </Button>
           ) : null}
-
-          <div
-            className="absolute inset-x-0 left-20 top-0 z-10 h-10 cursor-grab select-none active:cursor-grabbing"
-            onMouseDown={handleWindowDragStart}
-          />
-
           {isMobile ? (
             <>
               <ProjectSidebar />

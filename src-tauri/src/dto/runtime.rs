@@ -10,6 +10,7 @@ pub struct RuntimeStatusDto {
     pub workspace_name: Option<String>,
     pub git_repo_name: Option<String>,
     pub git_branch_name: Option<String>,
+    pub git_branches: Vec<String>,
     pub configured: bool,
     pub configuration_error: Option<String>,
 }
@@ -30,7 +31,12 @@ impl RuntimeStatusDto {
             git_repo_name: git_details
                 .as_ref()
                 .and_then(|details| details.repo_name.clone()),
-            git_branch_name: git_details.and_then(|details| details.branch_name),
+            git_branch_name: git_details
+                .as_ref()
+                .and_then(|details| details.branch_name.clone()),
+            git_branches: git_details
+                .map(|details| details.branch_names)
+                .unwrap_or_default(),
             configured,
             configuration_error,
         }
@@ -41,6 +47,7 @@ impl RuntimeStatusDto {
 struct GitWorkspaceDetails {
     repo_name: Option<String>,
     branch_name: Option<String>,
+    branch_names: Vec<String>,
 }
 
 fn read_git_workspace_details(workspace_path: &Path) -> Option<GitWorkspaceDetails> {
@@ -51,18 +58,33 @@ fn read_git_workspace_details(workspace_path: &Path) -> Option<GitWorkspaceDetai
         &["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"],
     )
     .or_else(|| run_git_command(workspace_path, &["rev-parse", "--abbrev-ref", "HEAD"]));
+    let branch_names = run_git_lines_command(
+        workspace_path,
+        &["for-each-ref", "--format=%(refname:short)", "refs/heads", "refs/remotes"],
+    )
+    .into_iter()
+    .flatten()
+    .filter(|branch_name| !branch_name.ends_with("/HEAD"))
+    .collect::<Vec<_>>();
 
-    if repo_name.is_none() && branch_name.is_none() {
+    if repo_name.is_none() && branch_name.is_none() && branch_names.is_empty() {
         return None;
     }
 
     Some(GitWorkspaceDetails {
         repo_name,
         branch_name,
+        branch_names,
     })
 }
 
 fn run_git_command(workspace_path: &Path, args: &[&str]) -> Option<String> {
+    let mut values = run_git_lines_command(workspace_path, args)?;
+    values.retain(|value| value != "HEAD");
+    values.into_iter().next()
+}
+
+fn run_git_lines_command(workspace_path: &Path, args: &[&str]) -> Option<Vec<String>> {
     let output = Command::new("git")
         .args(args)
         .current_dir(workspace_path)
@@ -73,12 +95,17 @@ fn run_git_command(workspace_path: &Path, args: &[&str]) -> Option<String> {
     }
 
     let value = String::from_utf8(output.stdout).ok()?;
-    let trimmed = value.trim();
-    if trimmed.is_empty() || trimmed == "HEAD" {
+    let values = value
+        .lines()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned)
+        .collect::<Vec<_>>();
+    if values.is_empty() {
         return None;
     }
 
-    Some(trimmed.to_string())
+    Some(values)
 }
 
 fn parse_git_remote_name(remote_url: &str) -> Option<String> {
