@@ -2,7 +2,6 @@ import { useContext, type Context } from 'react'
 
 import {
   ConversationStateContext,
-  FollowupStateContext,
   PromptDraftContext,
   SessionActionsContext,
   SidebarStateContext,
@@ -24,10 +23,6 @@ export function useConversationSession() {
 
 export function useSidebarSession() {
   return useRequiredContext(SidebarStateContext, 'useSidebarSession')
-}
-
-export function useFollowupSession() {
-  return useRequiredContext(FollowupStateContext, 'useFollowupSession')
 }
 
 export function usePromptDraft() {

@@ -16,10 +16,10 @@ import { useSessionBootstrap } from '../hooks/useSessionBootstrap'
 import { formatError } from '../utils/errors'
 import {
   ConversationStateContext,
-  FollowupStateContext,
   PromptDraftContext,
   SessionActionsContext,
   SidebarStateContext,
+  type SessionActionsContextValue,
 } from './SessionContext'
 import {
   initialSessionState,
@@ -72,13 +72,46 @@ function getPromptDraftKey(
   return null
 }
 
-function setPromptDraftValue(
-  drafts: Record<string, string>,
+interface PromptDraftEntry {
+  value: string
+  isPending: boolean
+}
+
+type PromptDraftStore = Record<string, PromptDraftEntry>
+
+interface PromptDraftStoreApi {
+  clearPromptDraft: (key: string) => void
+  draftsRef: MutableRefObject<PromptDraftStore>
+  isSendingPrompt: boolean
+  movePromptDraft: (fromKey: string | null, toKey: string | null) => void
+  promptDraft: string
+  setPromptDraft: (value: string) => void
+  setPromptDraftPending: (key: string, isPending: boolean) => void
+}
+
+interface WorkspaceActionsApi
+  extends Pick<SessionActionsContextValue, 'openProject' | 'openWorkspacePicker'> {
+  ensureWorkspaceIsOpen: (workspacePath: string) => Promise<boolean>
+}
+
+function getPromptDraftEntry(
+  drafts: PromptDraftStore,
   key: string,
-  value: string,
-): Record<string, string> {
-  if (value === '') {
-    if (!(key in drafts)) {
+): PromptDraftEntry | null {
+  return drafts[key] ?? null
+}
+
+function writePromptDraftEntry(
+  drafts: PromptDraftStore,
+  key: string,
+  entry: PromptDraftEntry | null,
+): PromptDraftStore {
+  const current = drafts[key] ?? null
+  const nextEntry =
+    entry == null || (entry.value === '' && !entry.isPending) ? null : entry
+
+  if (nextEntry == null) {
+    if (current == null) {
       return drafts
     }
 
@@ -87,108 +120,71 @@ function setPromptDraftValue(
     return nextDrafts
   }
 
-  if (drafts[key] === value) {
+  if (
+    current?.value === nextEntry.value &&
+    current?.isPending === nextEntry.isPending
+  ) {
     return drafts
   }
 
   return {
     ...drafts,
-    [key]: value,
+    [key]: nextEntry,
   }
 }
 
-function clearPromptDraft(
-  drafts: Record<string, string>,
+function setPromptDraftEntryValue(
+  drafts: PromptDraftStore,
   key: string,
-): Record<string, string> {
-  if (!(key in drafts)) {
-    return drafts
+  value: string,
+): PromptDraftStore {
+  const current = getPromptDraftEntry(drafts, key) ?? {
+    value: '',
+    isPending: false,
   }
 
-  const nextDrafts = { ...drafts }
-  delete nextDrafts[key]
-  return nextDrafts
+  return writePromptDraftEntry(drafts, key, { ...current, value })
 }
 
-function movePromptDraft(
-  drafts: Record<string, string>,
+function setPromptDraftEntryPending(
+  drafts: PromptDraftStore,
+  key: string,
+  isPending: boolean,
+): PromptDraftStore {
+  const current = getPromptDraftEntry(drafts, key) ?? {
+    value: '',
+    isPending: false,
+  }
+
+  return writePromptDraftEntry(drafts, key, { ...current, isPending })
+}
+
+function movePromptDraftEntry(
+  drafts: PromptDraftStore,
   fromKey: string | null,
   toKey: string | null,
-): Record<string, string> {
+): PromptDraftStore {
   if (fromKey == null || toKey == null || fromKey === toKey) {
     return drafts
   }
 
-  const draft = drafts[fromKey]
-  if (draft == null || draft === '') {
+  const draft = getPromptDraftEntry(drafts, fromKey)
+  if (draft == null) {
     return drafts
   }
 
-  const nextDrafts = { ...drafts, [toKey]: draft }
+  const nextDrafts = {
+    ...writePromptDraftEntry(drafts, toKey, draft),
+  }
   delete nextDrafts[fromKey]
   return nextDrafts
 }
 
-function setPromptDraftPending(
-  pendingDrafts: Record<string, true>,
-  key: string,
-  isPending: boolean,
-): Record<string, true> {
-  if (isPending) {
-    return key in pendingDrafts ? pendingDrafts : { ...pendingDrafts, [key]: true }
-  }
-
-  if (!(key in pendingDrafts)) {
-    return pendingDrafts
-  }
-
-  const nextPendingDrafts = { ...pendingDrafts }
-  delete nextPendingDrafts[key]
-  return nextPendingDrafts
-}
-
-export function SessionProvider({ children }: { children: ReactNode }) {
-  const [sessionState, dispatch] = useReducer(sessionReducer, initialSessionState)
-  const [isOpeningProject, setIsOpeningProject] = useState(false)
-  const [promptDrafts, setPromptDrafts] = useState<Record<string, string>>({})
-  const [pendingPromptDraftKeys, setPendingPromptDraftKeys] = useState<
-    Record<string, true>
-  >({})
-  const sessionStateRef = useLatestRef<AppState>(sessionState)
-  const promptDraftsRef = useLatestRef(promptDrafts)
-  const pendingPromptDraftKeysRef = useLatestRef(pendingPromptDraftKeys)
-
-  useSessionBootstrap({ dispatch })
-
-  const runtimeStatus = sessionState.runtimeStatus
-  const projectSummaries = selectProjectSummaries(sessionState)
-  const messages = selectVisibleMessages(sessionState)
-  const uiError = sessionState.uiError
-  const followupRequest = sessionState.followup
-  const isCurrentConversationRunning = selectIsConversationRunning(
-    sessionState,
-    sessionState.currentConversationId,
-  )
-  const hasCurrentWorkspace = runtimeStatus?.workspacePath != null
-  const activeWorkspaceLabel = selectActiveWorkspaceLabel(sessionState)
-  const currentPromptDraftKey = useMemo(
-    () =>
-      getPromptDraftKey(
-        runtimeStatus?.workspacePath ?? null,
-        sessionState.currentConversationId,
-      ),
-    [runtimeStatus?.workspacePath, sessionState.currentConversationId],
-  )
-  const promptDraft =
-    currentPromptDraftKey == null ? '' : promptDrafts[currentPromptDraftKey] ?? ''
-  const isSendingPrompt =
-    currentPromptDraftKey != null && pendingPromptDraftKeys[currentPromptDraftKey] === true
-  const canCompose = Boolean(
-    hasCurrentWorkspace &&
-      runtimeStatus?.configured &&
-      !isCurrentConversationRunning &&
-      !isSendingPrompt,
-  )
+function usePromptDraftStore(currentPromptDraftKey: string | null): PromptDraftStoreApi {
+  const [drafts, setDrafts] = useState<PromptDraftStore>({})
+  const draftsRef = useLatestRef(drafts)
+  const currentEntry =
+    currentPromptDraftKey == null ? null : getPromptDraftEntry(drafts, currentPromptDraftKey)
 
   const setPromptDraft = useCallback(
     (value: string) => {
@@ -196,17 +192,49 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         return
       }
 
-      setPromptDrafts((current) =>
-        setPromptDraftValue(current, currentPromptDraftKey, value),
+      setDrafts((current) =>
+        setPromptDraftEntryValue(current, currentPromptDraftKey, value),
       )
     },
     [currentPromptDraftKey],
   )
 
+  const clearPromptDraft = useCallback((key: string) => {
+    setDrafts((current) => setPromptDraftEntryValue(current, key, ''))
+  }, [])
+
+  const movePromptDraft = useCallback((fromKey: string | null, toKey: string | null) => {
+    setDrafts((current) => movePromptDraftEntry(current, fromKey, toKey))
+  }, [])
+
+  const setPromptDraftPending = useCallback((key: string, isPending: boolean) => {
+    setDrafts((current) => setPromptDraftEntryPending(current, key, isPending))
+  }, [])
+
+  return {
+    clearPromptDraft,
+    draftsRef,
+    isSendingPrompt: currentEntry?.isPending ?? false,
+    movePromptDraft,
+    promptDraft: currentEntry?.value ?? '',
+    setPromptDraft,
+    setPromptDraftPending,
+  }
+}
+
+function useWorkspaceActions({
+  dispatch,
+  sessionStateRef,
+  setIsOpeningProject,
+}: {
+  dispatch: Dispatch<SessionAction>
+  sessionStateRef: MutableRefObject<AppState>
+  setIsOpeningProject: (isOpeningProject: boolean) => void
+}): WorkspaceActionsApi {
   const refreshProjects = useCallback(async () => {
     const projects = await desktopClient.listProjects()
     dispatch({ type: 'projects_loaded', items: projects })
-  }, [])
+  }, [dispatch])
 
   const openProjectAndRefresh = useCallback(
     async (workspacePath: string) => {
@@ -214,7 +242,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       dispatch({ type: 'workspace_opened', status })
       await refreshProjects()
     },
-    [refreshProjects],
+    [dispatch, refreshProjects],
   )
 
   const ensureWorkspaceIsOpen = useCallback(
@@ -232,7 +260,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         setIsOpeningProject(false)
       }
     },
-    [openProjectAndRefresh, sessionStateRef],
+    [openProjectAndRefresh, sessionStateRef, setIsOpeningProject],
   )
 
   const openProject = useCallback(
@@ -243,7 +271,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         dispatchUiError(dispatch, error)
       }
     },
-    [ensureWorkspaceIsOpen],
+    [dispatch, ensureWorkspaceIsOpen],
   )
 
   const openWorkspacePicker = useCallback(async () => {
@@ -262,8 +290,35 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
     await openProject(selectedPath)
     return selectedPath
-  }, [openProject])
+  }, [dispatch, openProject])
 
+  return {
+    ensureWorkspaceIsOpen,
+    openProject,
+    openWorkspacePicker,
+  }
+}
+
+function useConversationActions({
+  clearPromptDraft,
+  dispatch,
+  draftsRef,
+  ensureWorkspaceIsOpen,
+  movePromptDraft,
+  sessionStateRef,
+  setPromptDraftPending,
+}: {
+  clearPromptDraft: (key: string) => void
+  dispatch: Dispatch<SessionAction>
+  draftsRef: MutableRefObject<PromptDraftStore>
+  ensureWorkspaceIsOpen: (workspacePath: string) => Promise<boolean>
+  movePromptDraft: (fromKey: string | null, toKey: string | null) => void
+  sessionStateRef: MutableRefObject<AppState>
+  setPromptDraftPending: (key: string, isPending: boolean) => void
+}): Pick<
+  SessionActionsContextValue,
+  'selectConversation' | 'startNewChat' | 'submitFollowup' | 'submitPrompt'
+> {
   const selectConversation = useCallback(
     async (workspacePath: string, conversationId: string) => {
       try {
@@ -280,7 +335,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         dispatchUiError(dispatch, error)
       }
     },
-    [ensureWorkspaceIsOpen, sessionStateRef],
+    [dispatch, ensureWorkspaceIsOpen, sessionStateRef],
   )
 
   const startNewChat = useCallback(
@@ -311,12 +366,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         const result = await desktopClient.resetChat()
 
         if (originConversationId == null) {
-          setPromptDrafts((current) =>
-            movePromptDraft(
-              current,
-              getPromptDraftKey(targetWorkspacePath, null),
-              getPromptDraftKey(targetWorkspacePath, result.conversationId),
-            ),
+          movePromptDraft(
+            getPromptDraftKey(targetWorkspacePath, null),
+            getPromptDraftKey(targetWorkspacePath, result.conversationId),
           )
         }
 
@@ -330,7 +382,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         dispatchUiError(dispatch, error)
       }
     },
-    [ensureWorkspaceIsOpen, sessionStateRef],
+    [dispatch, ensureWorkspaceIsOpen, movePromptDraft, sessionStateRef],
   )
 
   const submitPrompt = useCallback(async () => {
@@ -339,8 +391,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     const workspacePath = getCurrentWorkspacePath(state)
     const originConversationId = state.currentConversationId
     const draftKey = getPromptDraftKey(workspacePath, originConversationId)
-    const trimmedPrompt =
-      draftKey == null ? '' : (promptDraftsRef.current[draftKey] ?? '').trim()
+    const draftEntry =
+      draftKey == null ? null : getPromptDraftEntry(draftsRef.current, draftKey)
+    const trimmedPrompt = draftEntry?.value.trim() ?? ''
 
     if (
       workspacePath == null ||
@@ -348,12 +401,12 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       trimmedPrompt === '' ||
       !currentRuntimeStatus?.configured ||
       selectIsConversationRunning(state, originConversationId) ||
-      pendingPromptDraftKeysRef.current[draftKey] === true
+      draftEntry?.isPending === true
     ) {
       return
     }
 
-    setPendingPromptDraftKeys((current) => setPromptDraftPending(current, draftKey, true))
+    setPromptDraftPending(draftKey, true)
 
     try {
       const result = await desktopClient.sendPrompt({
@@ -370,15 +423,13 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         prompt: trimmedPrompt,
       })
 
-      if (draftKey != null) {
-        setPromptDrafts((current) => clearPromptDraft(current, draftKey))
-      }
+      clearPromptDraft(draftKey)
     } catch (error) {
       dispatchUiError(dispatch, error)
     } finally {
-      setPendingPromptDraftKeys((current) => setPromptDraftPending(current, draftKey, false))
+      setPromptDraftPending(draftKey, false)
     }
-  }, [pendingPromptDraftKeysRef, promptDraftsRef, sessionStateRef])
+  }, [clearPromptDraft, dispatch, draftsRef, sessionStateRef, setPromptDraftPending])
 
   const submitFollowup = useCallback(
     async (input: {
@@ -411,14 +462,70 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         dispatchUiError(dispatch, error)
       }
     },
-    [sessionStateRef],
+    [dispatch, sessionStateRef],
   )
+
+  return {
+    selectConversation,
+    startNewChat,
+    submitFollowup,
+    submitPrompt,
+  }
+}
+
+export function SessionProvider({ children }: { children: ReactNode }) {
+  const [sessionState, dispatch] = useReducer(sessionReducer, initialSessionState)
+  const [isOpeningProject, setIsOpeningProject] = useState(false)
+  const sessionStateRef = useLatestRef<AppState>(sessionState)
+
+  useSessionBootstrap({ dispatch })
+
+  const runtimeStatus = sessionState.runtimeStatus
+  const projectSummaries = selectProjectSummaries(sessionState)
+  const messages = selectVisibleMessages(sessionState)
+  const uiError = sessionState.uiError
+  const followupRequest = sessionState.followup
+  const hasCurrentWorkspace = runtimeStatus?.workspacePath != null
+  const activeWorkspaceLabel = selectActiveWorkspaceLabel(sessionState)
+  const currentPromptDraftKey = getPromptDraftKey(
+    runtimeStatus?.workspacePath ?? null,
+    sessionState.currentConversationId,
+  )
+  const {
+    clearPromptDraft,
+    draftsRef,
+    isSendingPrompt,
+    movePromptDraft,
+    promptDraft,
+    setPromptDraft,
+    setPromptDraftPending,
+  } = usePromptDraftStore(currentPromptDraftKey)
+  const canCompose = Boolean(
+    hasCurrentWorkspace &&
+      runtimeStatus?.configured &&
+      !selectIsConversationRunning(sessionState, sessionState.currentConversationId) &&
+      !isSendingPrompt,
+  )
+  const { ensureWorkspaceIsOpen, openProject, openWorkspacePicker } = useWorkspaceActions({
+    dispatch,
+    sessionStateRef,
+    setIsOpeningProject,
+  })
+  const { selectConversation, startNewChat, submitFollowup, submitPrompt } =
+    useConversationActions({
+      clearPromptDraft,
+      dispatch,
+      draftsRef,
+      ensureWorkspaceIsOpen,
+      movePromptDraft,
+      sessionStateRef,
+      setPromptDraftPending,
+    })
 
   const conversationState = useMemo(
     () => ({
       activeWorkspaceLabel,
       hasCurrentWorkspace,
-      isBusy: isCurrentConversationRunning,
       isOpeningProject,
       messages,
       runtimeStatus,
@@ -427,7 +534,6 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     [
       activeWorkspaceLabel,
       hasCurrentWorkspace,
-      isCurrentConversationRunning,
       isOpeningProject,
       messages,
       runtimeStatus,
@@ -444,21 +550,15 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     [hasCurrentWorkspace, isOpeningProject, projectSummaries],
   )
 
-  const followupState = useMemo(
-    () => ({
-      followupRequest,
-    }),
-    [followupRequest],
-  )
-
   const promptDraftState = useMemo(
     () => ({
       canCompose,
+      followupRequest,
       isSendingPrompt,
       promptDraft,
       setPromptDraft,
     }),
-    [canCompose, isSendingPrompt, promptDraft, setPromptDraft],
+    [canCompose, followupRequest, isSendingPrompt, promptDraft, setPromptDraft],
   )
 
   const actions = useMemo(
@@ -485,9 +585,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       <SidebarStateContext.Provider value={sidebarState}>
         <ConversationStateContext.Provider value={conversationState}>
           <PromptDraftContext.Provider value={promptDraftState}>
-            <FollowupStateContext.Provider value={followupState}>
-              {children}
-            </FollowupStateContext.Provider>
+            {children}
           </PromptDraftContext.Provider>
         </ConversationStateContext.Provider>
       </SidebarStateContext.Provider>

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 
 import type { FollowupRequest } from '../services/desktop/contracts'
-import { useFollowupSession, usePromptDraft, useSessionActions } from '../hooks/useSession'
+import { usePromptDraft, useSessionActions } from '../hooks/useSession'
 import {
   ghostButtonClass,
   primaryButtonClass,
@@ -9,9 +9,14 @@ import {
 import { cn } from '../utils/cn'
 
 export function PromptComposer() {
-  const { followupRequest } = useFollowupSession()
   const { submitPrompt } = useSessionActions()
-  const { canCompose, isSendingPrompt, promptDraft, setPromptDraft } = usePromptDraft()
+  const {
+    canCompose,
+    followupRequest,
+    isSendingPrompt,
+    promptDraft,
+    setPromptDraft,
+  } = usePromptDraft()
 
   return (
     <div className="px-6 pb-6 pt-3.5 max-md:px-4">

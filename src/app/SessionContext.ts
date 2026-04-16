@@ -10,7 +10,6 @@ import type { ProjectSummary } from './sessionReducer'
 export interface ConversationStateContextValue {
   activeWorkspaceLabel: string
   hasCurrentWorkspace: boolean
-  isBusy: boolean
   isOpeningProject: boolean
   messages: TranscriptMessage[]
   runtimeStatus: RuntimeStatus | null
@@ -23,12 +22,9 @@ export interface SidebarStateContextValue {
   projectSummaries: ProjectSummary[]
 }
 
-export interface FollowupStateContextValue {
-  followupRequest: FollowupRequest | null
-}
-
 export interface PromptDraftContextValue {
   canCompose: boolean
+  followupRequest: FollowupRequest | null
   isSendingPrompt: boolean
   promptDraft: string
   setPromptDraft: (value: string) => void
@@ -52,9 +48,6 @@ export const ConversationStateContext =
 
 export const SidebarStateContext =
   createContext<SidebarStateContextValue | null>(null)
-
-export const FollowupStateContext =
-  createContext<FollowupStateContextValue | null>(null)
 
 export const PromptDraftContext =
   createContext<PromptDraftContextValue | null>(null)
