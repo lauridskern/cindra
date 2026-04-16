@@ -2,11 +2,6 @@ import { useState } from 'react'
 
 import type { FollowupRequest } from '../services/desktop/contracts'
 import { usePromptDraft, useSessionActions } from '../hooks/useSession'
-import {
-  ghostButtonClass,
-  primaryButtonClass,
-} from '../styles/classes'
-import { cn } from '../utils/cn'
 
 export function PromptComposer() {
   const { submitPrompt } = useSessionActions()
@@ -55,7 +50,7 @@ export function PromptComposer() {
             </span>
             <button
               type="submit"
-              className={cn(primaryButtonClass, 'px-4')}
+              className="appearance-none font-inherit transition duration-150 ease-out disabled:cursor-not-allowed disabled:opacity-45 rounded-full bg-neutral-950 px-4 py-2.5 text-sm font-semibold text-white dark:bg-neutral-100 dark:text-neutral-900"
               aria-label="Send"
               disabled={!canCompose || promptDraft.trim().length === 0}
             >
@@ -137,14 +132,14 @@ function InlineFollowupComposer({
       <div className="mt-4 flex items-center justify-between gap-4 max-md:flex-col max-md:items-stretch">
         <button
           type="button"
-          className={ghostButtonClass}
+          className="appearance-none font-inherit transition duration-150 ease-out disabled:cursor-not-allowed disabled:opacity-45 rounded-full border border-neutral-200 bg-white/85 px-4 py-2.5 text-sm text-neutral-700 dark:border-white/10 dark:bg-neutral-900/80 dark:text-neutral-200"
           onClick={() => void submitFollowup({ cancelled: true })}
         >
           Cancel
         </button>
         <button
           type="button"
-          className={primaryButtonClass}
+          className="appearance-none font-inherit transition duration-150 ease-out disabled:cursor-not-allowed disabled:opacity-45 rounded-full bg-neutral-950 px-4 py-2.5 text-sm font-semibold text-white dark:bg-neutral-100 dark:text-neutral-900"
           onClick={() =>
             void submitFollowup({
               cancelled: false,

@@ -2,8 +2,6 @@ import {
   useConversationSession,
   useSessionActions,
 } from '../hooks/useSession'
-import { cn } from '../utils/cn'
-import { interactiveBaseClass } from '../styles/classes'
 import { ChatThread } from './ChatThread'
 import { PromptComposer } from './PromptComposer'
 
@@ -54,10 +52,7 @@ export function ConversationPanel() {
               <p>Select a project from the sidebar or open a new one.</p>
               <button
                 type="button"
-                className={cn(
-                  interactiveBaseClass,
-                  'rounded-full bg-white/90 px-4 py-2.5 text-sm text-neutral-950 shadow-lg shadow-neutral-950/5 hover:-translate-y-px dark:bg-neutral-800/90 dark:text-neutral-100 dark:shadow-black/20',
-                )}
+                className="appearance-none font-inherit transition duration-150 ease-out disabled:cursor-not-allowed disabled:opacity-45 rounded-full bg-white/90 px-4 py-2.5 text-sm text-neutral-950 shadow-lg shadow-neutral-950/5 hover:-translate-y-px dark:bg-neutral-800/90 dark:text-neutral-100 dark:shadow-black/20"
                 onClick={() => void openWorkspacePicker()}
                 disabled={isOpeningProject}
               >
