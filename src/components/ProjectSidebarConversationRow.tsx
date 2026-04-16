@@ -1,6 +1,7 @@
 import type { ProjectConversationItem } from '../app/sessionSelectors'
 import { cn } from '../utils/cn'
 import { formatRelativeTimestamp } from '../utils/time'
+import { SidebarMenuSubButton, SidebarMenuSubItem } from './ui/sidebar'
 
 interface ProjectSidebarConversationRowProps {
   conversation: ProjectConversationItem
@@ -14,31 +15,30 @@ export function ProjectSidebarConversationRow({
   const updatedAt = formatRelativeTimestamp(conversation.updatedAt)
 
   return (
-    <button
-      type="button"
-      className={cn(
-        'appearance-none font-inherit transition duration-150 ease-out disabled:cursor-not-allowed disabled:opacity-45 flex w-full items-center justify-between gap-2 rounded-md px-2.5 py-1.5 text-left text-xs leading-5 text-neutral-800 hover:bg-neutral-950/5 dark:text-neutral-200 dark:hover:bg-white/10',
-        conversation.isActive && 'bg-neutral-950/10 dark:bg-white/10',
-      )}
-      onClick={() =>
-        onSelectConversation(conversation.workspacePath, conversation.conversationId)
-      }
-    >
-      <span className="min-w-0 flex-1 truncate pr-2 text-xs leading-5 text-neutral-800 dark:text-neutral-100">
-        {conversation.title}
-      </span>
-      <span className="flex shrink-0 items-center gap-1.5 text-right">
-        {conversation.isRunning ? (
-          <span className="rounded-full bg-neutral-950/10 px-1.5 py-0.5 text-xs font-semibold text-neutral-500 dark:bg-white/10 dark:text-neutral-300">
-            Running
-          </span>
-        ) : null}
-        {updatedAt ? (
-          <span className="whitespace-nowrap text-xs text-neutral-400 dark:text-neutral-500">
-            {updatedAt}
-          </span>
-        ) : null}
-      </span>
-    </button>
+    <SidebarMenuSubItem className="w-full">
+      <SidebarMenuSubButton
+        render={<button type="button" />}
+        isActive={conversation.isActive}
+        className={cn(
+          'h-7 w-full justify-start text-left items-center gap-2 font-medium',
+          conversation.isActive && 'bg-sidebar-accent text-sidebar-accent-foreground',
+        )}
+        onClick={() =>
+          onSelectConversation(conversation.workspacePath, conversation.conversationId)
+        }
+      >
+        <span className="min-w-0 flex-1 truncate text-left pr-2">
+          {conversation.title}
+        </span>
+        <span className="flex shrink-0 items-center gap-1.5 text-right text-xs font-medium text-sidebar-foreground/60">
+          {conversation.isRunning ? (
+            <span className="rounded-full bg-sidebar-accent px-1.5 py-0.5 font-medium text-sidebar-accent-foreground">
+              Running
+            </span>
+          ) : null}
+          {updatedAt ? <span className="whitespace-nowrap">{updatedAt}</span> : null}
+        </span>
+      </SidebarMenuSubButton>
+    </SidebarMenuSubItem>
   )
 }

@@ -1,8 +1,19 @@
 import { useState } from 'react'
+import { FolderPlus } from 'lucide-react'
 
 import { useSessionActions, useSidebarSession } from '../hooks/useSession'
 import { ProjectSidebarActions } from './ProjectSidebarActions'
 import { ProjectSidebarProject } from './ProjectSidebarProject'
+import { Button } from './ui/button'
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarHeader,
+  SidebarMenu,
+} from './ui/sidebar'
 
 export function ProjectSidebar() {
   const [expandedProjectPaths, setExpandedProjectPaths] = useState<string[]>([])
@@ -58,46 +69,66 @@ export function ProjectSidebar() {
   }
 
   return (
-    <aside className="w-60 shrink-0 overflow-hidden bg-transparent max-md:min-h-60 max-md:w-full">
-      <div className="flex h-full flex-col overflow-hidden px-1.5 pb-2.5 pt-1.5 select-none max-md:p-2.5">
+    <Sidebar
+      collapsible="none"
+      className="w-full border-r-0 bg-transparent pt-8"
+    >
+      <SidebarHeader className="pb-1">
         <ProjectSidebarActions
           hasCurrentWorkspace={hasCurrentWorkspace}
           isOpeningProject={isOpeningProject}
           onStartNewChat={() => handleStartNewChat()}
           onOpenWorkspacePicker={() => void handleOpenWorkspacePicker()}
         />
+      </SidebarHeader>
 
-        <section className="grid min-h-0 flex-1 content-start gap-1">
-          <div className="flex items-center gap-2.5 px-1.5 text-xs font-medium tracking-tight text-neutral-400 dark:text-neutral-500">
-            <span>Projects</span>
+      <SidebarContent className="select-none">
+        <SidebarGroup className="pt-0">
+          <div className="mb-1 flex h-7 items-center justify-between px-2">
+            <SidebarGroupLabel className="h-full px-0 font-medium">
+              Projects
+            </SidebarGroupLabel>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="-mr-2 text-neutral-800 hover:text-white dark:text-neutral-500 dark:hover:text-white"
+              aria-label="Open project"
+              title="Open project"
+              onClick={() => void handleOpenWorkspacePicker()}
+            >
+              <FolderPlus strokeWidth={2.5} className="size-3.5 shrink-0" />
+            </Button>
           </div>
 
-          <div className="grid gap-1.5">
+          <SidebarGroupContent>
             {projectSummaries.length === 0 ? (
-              <p className="mt-0.5 px-2 text-xs text-neutral-400 dark:text-neutral-500">
+              <p className="px-2 py-1 text-xs font-medium text-sidebar-foreground/60">
                 No projects yet
               </p>
             ) : (
-              projectSummaries.map((project) => {
-                const isExpanded = expandedProjectPaths.includes(project.workspacePath)
+              <SidebarMenu>
+                {projectSummaries.map((project) => {
+                  const isExpanded = expandedProjectPaths.includes(project.workspacePath)
 
-                return (
-                  <ProjectSidebarProject
-                    key={project.workspacePath}
-                    isExpanded={isExpanded}
-                    project={project}
-                    onEnsureProjectExpanded={ensureProjectExpanded}
-                    onOpenProject={handleOpenProject}
-                    onSelectConversation={handleSelectConversation}
-                    onStartNewChat={handleStartNewChat}
-                    onToggleProjectExpanded={toggleProjectExpanded}
-                  />
-                )
-              })
+                  return (
+                    <ProjectSidebarProject
+                      key={project.workspacePath}
+                      isExpanded={isExpanded}
+                      project={project}
+                      onEnsureProjectExpanded={ensureProjectExpanded}
+                      onOpenProject={handleOpenProject}
+                      onSelectConversation={handleSelectConversation}
+                      onStartNewChat={handleStartNewChat}
+                      onToggleProjectExpanded={toggleProjectExpanded}
+                    />
+                  )
+                })}
+              </SidebarMenu>
             )}
-          </div>
-        </section>
-      </div>
-    </aside>
+          </SidebarGroupContent>
+        </SidebarGroup>
+      </SidebarContent>
+    </Sidebar>
   )
 }
