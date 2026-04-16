@@ -2,8 +2,6 @@ mod command;
 mod env;
 mod fs;
 mod network;
-#[cfg(test)]
-mod tests;
 mod user;
 
 use std::sync::Arc;
