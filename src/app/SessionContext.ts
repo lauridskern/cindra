@@ -17,6 +17,7 @@ export interface ConversationStateContextValue {
 }
 
 export interface SidebarStateContextValue {
+  activeWorkspacePath: string | null
   hasCurrentWorkspace: boolean
   isOpeningProject: boolean
   workspaces: WorkspaceSession[]

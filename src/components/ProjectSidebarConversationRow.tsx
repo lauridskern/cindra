@@ -4,12 +4,14 @@ import { formatRelativeTimestamp } from '../utils/time'
 
 interface ProjectSidebarConversationRowProps {
   conversation: ConversationSessionSummary
+  isSelected: boolean
   workspacePath: string
   onSelectConversation: (workspacePath: string, conversationId: string) => void
 }
 
 export function ProjectSidebarConversationRow({
   conversation,
+  isSelected,
   workspacePath,
   onSelectConversation,
 }: ProjectSidebarConversationRowProps) {
@@ -20,7 +22,7 @@ export function ProjectSidebarConversationRow({
       type="button"
       className={cn(
         'appearance-none font-inherit transition duration-150 ease-out disabled:cursor-not-allowed disabled:opacity-45 flex w-full items-center justify-between gap-2 rounded-md px-2.5 py-1.5 text-left text-xs leading-5 text-neutral-800 hover:bg-neutral-950/5 dark:text-neutral-200 dark:hover:bg-white/10',
-        conversation.isSelected && 'bg-neutral-950/10 dark:bg-white/10',
+        isSelected && 'bg-neutral-950/10 dark:bg-white/10',
       )}
       onClick={() =>
         onSelectConversation(workspacePath, conversation.conversationId)

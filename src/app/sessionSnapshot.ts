@@ -41,6 +41,10 @@ export function getActiveWorkspace(
   )
 }
 
+export function getActiveWorkspaceLabel(snapshot: SessionSnapshot | null): string {
+  return getActiveWorkspace(snapshot)?.workspaceName ?? 'Projects'
+}
+
 export function getActiveConversation(
   snapshot: SessionSnapshot | null,
 ): ConversationSessionSummary | null {

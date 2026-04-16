@@ -53,7 +53,7 @@ function StatusMessage({
   title,
 }: {
   category: StatusCategory
-  subtitle?: string
+  subtitle?: string | null
   title: string
 }) {
   return (
@@ -92,7 +92,7 @@ function ToolEndMessage({
 }: {
   isError: boolean
   name: string
-  summary?: string
+  summary?: string | null
 }) {
   return (
     <article

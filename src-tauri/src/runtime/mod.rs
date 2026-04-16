@@ -1,13 +1,26 @@
+mod conversation;
 mod factory;
 mod manager;
+mod snapshot;
 mod state;
+mod stream;
+mod transforms;
+mod workspace;
 
+pub(crate) use conversation::select_empty_draft_conversation_id;
 pub(crate) use factory::{
     ForgeRuntime, MISSING_SESSION_MESSAGE, RuntimeFactory, configuration_error_message,
     create_conversation_record, read_config,
 };
 pub use manager::RuntimeManager;
+pub(crate) use snapshot::{build_snapshot, fallback_workspace_state, hydrate_conversation_state};
 pub use state::DesktopState;
 pub(crate) use state::{
     ConversationSessionState, RuntimeState, WorkspaceSessionState, shared_runtime_state,
 };
+pub(crate) use stream::create_message_id;
+pub(crate) use transforms::{
+    PersistedConversationSummary, derive_conversation_title_from_messages,
+    session_messages_from_conversation, workspace_name,
+};
+pub(crate) use workspace::canonicalize_workspace_path;

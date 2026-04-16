@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 
 import { useSessionActions, useSidebarSession } from '../hooks/useSession'
 import { ProjectSidebarActions } from './ProjectSidebarActions'
@@ -13,10 +13,21 @@ export function ProjectSidebar() {
     startNewChat,
   } = useSessionActions()
   const {
+    activeWorkspacePath,
     hasCurrentWorkspace,
     isOpeningProject,
     workspaces,
   } = useSidebarSession()
+
+  const visibleExpandedProjectPaths = useMemo(() => {
+    if (activeWorkspacePath == null) {
+      return expandedProjectPaths
+    }
+
+    return expandedProjectPaths.includes(activeWorkspacePath)
+      ? expandedProjectPaths
+      : [...expandedProjectPaths, activeWorkspacePath]
+  }, [activeWorkspacePath, expandedProjectPaths])
 
   function toggleProjectExpanded(workspacePath: string) {
     setExpandedProjectPaths((current) =>
@@ -26,34 +37,15 @@ export function ProjectSidebar() {
     )
   }
 
-  function ensureProjectExpanded(workspacePath: string) {
-    setExpandedProjectPaths((current) =>
-      current.includes(workspacePath) ? current : [...current, workspacePath],
-    )
-  }
-
-  async function handleOpenWorkspacePicker() {
-    const workspacePath = await openWorkspacePicker()
-    if (workspacePath != null) {
-      ensureProjectExpanded(workspacePath)
-    }
-  }
-
   function handleOpenProject(workspacePath: string) {
-    ensureProjectExpanded(workspacePath)
     void openProject(workspacePath)
   }
 
   function handleSelectConversation(workspacePath: string, conversationId: string) {
-    ensureProjectExpanded(workspacePath)
     void selectConversation(workspacePath, conversationId)
   }
 
   function handleStartNewChat(workspacePath?: string) {
-    if (workspacePath != null) {
-      ensureProjectExpanded(workspacePath)
-    }
-
     void startNewChat(workspacePath)
   }
 
@@ -64,7 +56,7 @@ export function ProjectSidebar() {
           hasCurrentWorkspace={hasCurrentWorkspace}
           isOpeningProject={isOpeningProject}
           onStartNewChat={() => handleStartNewChat()}
-          onOpenWorkspacePicker={() => void handleOpenWorkspacePicker()}
+          onOpenWorkspacePicker={() => void openWorkspacePicker()}
         />
 
         <section className="grid min-h-0 flex-1 content-start gap-1">
@@ -79,14 +71,16 @@ export function ProjectSidebar() {
               </p>
             ) : (
               workspaces.map((project) => {
-                const isExpanded = expandedProjectPaths.includes(project.workspacePath)
+                const isExpanded = visibleExpandedProjectPaths.includes(
+                  project.workspacePath,
+                )
 
                 return (
                   <ProjectSidebarProject
                     key={project.workspacePath}
                     isExpanded={isExpanded}
+                    isActive={project.workspacePath === activeWorkspacePath}
                     project={project}
-                    onEnsureProjectExpanded={ensureProjectExpanded}
                     onOpenProject={handleOpenProject}
                     onSelectConversation={handleSelectConversation}
                     onStartNewChat={handleStartNewChat}

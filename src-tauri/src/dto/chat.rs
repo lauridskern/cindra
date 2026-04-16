@@ -1,10 +1,12 @@
 use forge_domain::{Category, ChatResponse, ChatResponseContent, InterruptionReason, ToolResult};
 use serde::{Deserialize, Serialize};
+use ts_rs::TS;
 
 const TOOL_SUMMARY_LIMIT: usize = 220;
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, TS)]
 #[serde(rename_all = "snake_case")]
+#[ts(rename = "StatusCategory")]
 pub enum StatusCategoryDto {
     Action,
     Info,

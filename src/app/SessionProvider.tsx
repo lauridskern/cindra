@@ -4,6 +4,7 @@ import type { SessionSnapshot } from '../services/desktop/contracts'
 import {
   getActiveConversation,
   getActiveWorkspace,
+  getActiveWorkspaceLabel,
   getPromptDraftKey,
 } from './sessionSnapshot'
 import { usePromptDraftStore } from '../hooks/usePromptDraftStore'
@@ -19,7 +20,6 @@ import {
 
 export function SessionProvider({ children }: { children: ReactNode }) {
   const [sessionSnapshot, setSessionSnapshot] = useState<SessionSnapshot | null>(null)
-  const [localUiError, setLocalUiError] = useState<string | null>(null)
   const [isOpeningProject, setIsOpeningProject] = useState(false)
   const sessionSnapshotRef = useLatestRef(sessionSnapshot)
 
@@ -29,17 +29,13 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   )
   const promptDraftStore = usePromptDraftStore(currentPromptDraftKey)
 
-  useSessionBootstrap({
-    setSessionSnapshot,
-    setUiError: setLocalUiError,
-  })
+  useSessionBootstrap({ setSessionSnapshot })
 
   const actionState = useSessionCommands({
     promptDraftStore,
     sessionSnapshotRef,
     setIsOpeningProject,
     setSessionSnapshot,
-    setUiError: setLocalUiError,
   })
 
   const hasCurrentWorkspace = sessionSnapshot?.activeWorkspacePath != null
@@ -55,31 +51,36 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   const conversationState = useMemo(
     () => ({
-      activeWorkspaceLabel: sessionSnapshot?.activeWorkspaceLabel ?? 'Projects',
+      activeWorkspaceLabel: getActiveWorkspaceLabel(sessionSnapshot),
       activeWorkspaceConfigured: activeWorkspace?.configured ?? true,
       activeWorkspaceConfigurationError: activeWorkspace?.configurationError ?? null,
       hasCurrentWorkspace,
       isOpeningProject,
       messages: sessionSnapshot?.visibleMessages ?? [],
-      uiError: localUiError ?? sessionSnapshot?.uiError ?? null,
+      uiError: sessionSnapshot?.uiError ?? null,
     }),
     [
       activeWorkspace?.configurationError,
       activeWorkspace?.configured,
       hasCurrentWorkspace,
       isOpeningProject,
-      localUiError,
       sessionSnapshot,
     ],
   )
 
   const sidebarState = useMemo(
     () => ({
+      activeWorkspacePath: sessionSnapshot?.activeWorkspacePath ?? null,
       hasCurrentWorkspace,
       isOpeningProject,
       workspaces: sessionSnapshot?.workspaces ?? [],
     }),
-    [hasCurrentWorkspace, isOpeningProject, sessionSnapshot?.workspaces],
+    [
+      hasCurrentWorkspace,
+      isOpeningProject,
+      sessionSnapshot?.activeWorkspacePath,
+      sessionSnapshot?.workspaces,
+    ],
   )
 
   const promptState = useMemo(

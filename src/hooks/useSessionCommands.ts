@@ -5,7 +5,6 @@ import type {
   FollowupResponse,
   SessionSnapshot,
 } from '../services/desktop/contracts'
-import { formatError } from '../utils/errors'
 import { getPromptDraftKey, getWorkspaceDraftKey } from '../app/sessionSnapshot'
 import type { SessionActionsContextValue } from '../app/SessionContext'
 import type { PromptDraftStoreApi } from './usePromptDraftStore'
@@ -18,16 +17,13 @@ interface UseSessionCommandsOptions {
   sessionSnapshotRef: MutableRefObject<SessionSnapshot | null>
   setIsOpeningProject: (value: boolean) => void
   setSessionSnapshot: (snapshot: SessionSnapshot) => void
-  setUiError: (message: string | null) => void
 }
 
 function applySnapshot(
   snapshot: SessionSnapshot,
   setSessionSnapshot: (snapshot: SessionSnapshot) => void,
-  setUiError: (message: string | null) => void,
 ) {
   setSessionSnapshot(snapshot)
-  setUiError(null)
 }
 
 export function useSessionCommands({
@@ -35,7 +31,6 @@ export function useSessionCommands({
   sessionSnapshotRef,
   setIsOpeningProject,
   setSessionSnapshot,
-  setUiError,
 }: UseSessionCommandsOptions): SessionActionsContextValue {
   const { clearPromptDraft, draftsRef, movePromptDraft, setPromptDraftPending } =
     promptDraftStore
@@ -46,14 +41,14 @@ export function useSessionCommands({
 
       try {
         const snapshot = await desktopClient.openWorkspace(workspacePath)
-        applySnapshot(snapshot, setSessionSnapshot, setUiError)
-      } catch (error) {
-        setUiError(formatError(error))
+        applySnapshot(snapshot, setSessionSnapshot)
+      } catch {
+        // The backend emits the error snapshot; the caller only needs the promise to settle.
       } finally {
         setIsOpeningProject(false)
       }
     },
-    [setIsOpeningProject, setSessionSnapshot, setUiError],
+    [setIsOpeningProject, setSessionSnapshot],
   )
 
   const openWorkspacePicker = useCallback(async () => {
@@ -65,11 +60,10 @@ export function useSessionCommands({
 
       await openProject(selectedPath)
       return selectedPath
-    } catch (error) {
-      setUiError(formatError(error))
+    } catch {
       return null
     }
-  }, [openProject, setUiError])
+  }, [openProject])
 
   const selectConversation = useCallback(
     async (workspacePath: string, conversationId: string) => {
@@ -78,12 +72,12 @@ export function useSessionCommands({
           workspacePath,
           conversationId,
         )
-        applySnapshot(snapshot, setSessionSnapshot, setUiError)
-      } catch (error) {
-        setUiError(formatError(error))
+        applySnapshot(snapshot, setSessionSnapshot)
+      } catch {
+        // The backend emits the error snapshot; the caller only needs the promise to settle.
       }
     },
-    [setSessionSnapshot, setUiError],
+    [setSessionSnapshot],
   )
 
   const startNewChat = useCallback(
@@ -100,18 +94,18 @@ export function useSessionCommands({
 
       try {
         const snapshot = await desktopClient.startNewChat(targetWorkspacePath)
-        applySnapshot(snapshot, setSessionSnapshot, setUiError)
+        applySnapshot(snapshot, setSessionSnapshot)
 
         const nextDraftKey = getPromptDraftKey(
           snapshot.activeWorkspacePath,
           snapshot.activeConversationId,
         )
         movePromptDraft(originWorkspaceDraftKey, nextDraftKey)
-      } catch (error) {
-        setUiError(formatError(error))
+      } catch {
+        // The backend emits the error snapshot; the caller only needs the promise to settle.
       }
     },
-    [movePromptDraft, sessionSnapshotRef, setSessionSnapshot, setUiError],
+    [movePromptDraft, sessionSnapshotRef, setSessionSnapshot],
   )
 
   const submitPrompt = useCallback(async () => {
@@ -135,10 +129,10 @@ export function useSessionCommands({
     try {
       const snapshot = await desktopClient.sendPrompt({
         workspacePath,
-        conversationId,
+        conversationId: conversationId ?? null,
         prompt,
       })
-      applySnapshot(snapshot, setSessionSnapshot, setUiError)
+      applySnapshot(snapshot, setSessionSnapshot)
 
       nextDraftKey = getPromptDraftKey(
         snapshot.activeWorkspacePath,
@@ -146,8 +140,8 @@ export function useSessionCommands({
       )
       movePromptDraft(draftKey, nextDraftKey)
       clearPromptDraft(nextDraftKey)
-    } catch (error) {
-      setUiError(formatError(error))
+    } catch {
+      // The backend emits the error snapshot; the caller only needs the promise to settle.
     } finally {
       setPromptDraftPending(draftKey, false)
       if (nextDraftKey !== draftKey) {
@@ -161,7 +155,6 @@ export function useSessionCommands({
     sessionSnapshotRef,
     setPromptDraftPending,
     setSessionSnapshot,
-    setUiError,
   ])
 
   const submitFollowup = useCallback(
@@ -178,18 +171,18 @@ export function useSessionCommands({
       const response: FollowupResponse = {
         followupId: followupRequest.followupId,
         cancelled: input.cancelled,
-        text: input.text,
-        selectedOptionIds: input.selectedOptionIds,
+        text: input.text ?? null,
+        selectedOptionIds: input.selectedOptionIds ?? null,
       }
 
       try {
         const snapshot = await desktopClient.respondFollowup(response)
-        applySnapshot(snapshot, setSessionSnapshot, setUiError)
-      } catch (error) {
-        setUiError(formatError(error))
+        applySnapshot(snapshot, setSessionSnapshot)
+      } catch {
+        // The backend emits the error snapshot; the caller only needs the promise to settle.
       }
     },
-    [sessionSnapshotRef, setSessionSnapshot, setUiError],
+    [sessionSnapshotRef, setSessionSnapshot],
   )
 
   return useMemo(

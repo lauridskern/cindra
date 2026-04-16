@@ -1,0 +1,97 @@
+import { useState } from 'react'
+
+import type { FollowupRequest } from '../services/desktop/contracts'
+import { useSessionActions } from '../hooks/useSession'
+
+interface FollowupComposerProps {
+  followupRequest: FollowupRequest
+}
+
+export function FollowupComposer({ followupRequest }: FollowupComposerProps) {
+  const [followupText, setFollowupText] = useState('')
+  const [selectedOptionIds, setSelectedOptionIds] = useState<string[]>([])
+  const { submitFollowup } = useSessionActions()
+
+  const canContinue =
+    followupRequest.kind === 'text'
+      ? followupText.trim().length > 0
+      : selectedOptionIds.length > 0
+
+  function toggleFollowupOption(optionId: string) {
+    if (followupRequest.kind === 'single') {
+      setSelectedOptionIds([optionId])
+      return
+    }
+
+    setSelectedOptionIds((current) =>
+      current.includes(optionId)
+        ? current.filter((id) => id !== optionId)
+        : [...current, optionId],
+    )
+  }
+
+  return (
+    <section className="mx-auto w-full max-w-3xl rounded-3xl border border-neutral-200/70 bg-white/90 px-4 pb-3.5 pt-4 shadow-xl shadow-neutral-950/5 backdrop-blur-lg dark:border-white/10 dark:bg-neutral-900/90 dark:shadow-black/20">
+      <p className="mb-2.5 select-text text-xs uppercase tracking-widest text-neutral-400 dark:text-neutral-500">
+        Follow-up
+      </p>
+      <h2 className="select-text text-base font-semibold leading-6 text-neutral-900 dark:text-neutral-100">
+        {followupRequest.question}
+      </h2>
+
+      {followupRequest.kind === 'text' ? (
+        <textarea
+          className="mt-4 min-h-28 w-full resize-none rounded-2xl border border-neutral-200 bg-neutral-50/80 p-3.5 text-base leading-6 text-neutral-900 outline-none placeholder:text-neutral-400 dark:border-white/10 dark:bg-neutral-950/60 dark:text-neutral-100 dark:placeholder:text-neutral-500"
+          aria-label="Follow-up response"
+          value={followupText}
+          onChange={(event) => setFollowupText(event.target.value)}
+          rows={4}
+        />
+      ) : (
+        <div className="mt-4 grid gap-2.5">
+          {followupRequest.options?.map((option) => {
+            const checked = selectedOptionIds.includes(option.id)
+            return (
+              <label
+                key={option.id}
+                className="flex items-center gap-2.5 rounded-2xl border border-neutral-200 bg-neutral-50/80 px-3.5 py-3 text-sm text-neutral-700 dark:border-white/10 dark:bg-neutral-950/60 dark:text-neutral-200"
+              >
+                <input
+                  type={followupRequest.kind === 'single' ? 'radio' : 'checkbox'}
+                  name={`followup-option-${followupRequest.followupId}`}
+                  checked={checked}
+                  onChange={() => toggleFollowupOption(option.id)}
+                />
+                <span>{option.label}</span>
+              </label>
+            )
+          })}
+        </div>
+      )}
+
+      <div className="mt-4 flex items-center justify-between gap-4 max-md:flex-col max-md:items-stretch">
+        <button
+          type="button"
+          className="appearance-none font-inherit transition duration-150 ease-out disabled:cursor-not-allowed disabled:opacity-45 rounded-full border border-neutral-200 bg-white/85 px-4 py-2.5 text-sm text-neutral-700 dark:border-white/10 dark:bg-neutral-900/80 dark:text-neutral-200"
+          onClick={() => void submitFollowup({ cancelled: true })}
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          className="appearance-none font-inherit transition duration-150 ease-out disabled:cursor-not-allowed disabled:opacity-45 rounded-full bg-neutral-950 px-4 py-2.5 text-sm font-semibold text-white dark:bg-neutral-100 dark:text-neutral-900"
+          onClick={() =>
+            void submitFollowup({
+              cancelled: false,
+              text: followupText,
+              selectedOptionIds,
+            })
+          }
+          disabled={!canContinue}
+        >
+          Continue
+        </button>
+      </div>
+    </section>
+  )
+}

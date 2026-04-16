@@ -1,5 +1,5 @@
 mod commands;
-mod dto;
+pub mod dto;
 mod runtime;
 
 mod bridge {

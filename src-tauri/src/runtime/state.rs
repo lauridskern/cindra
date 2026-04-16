@@ -6,10 +6,10 @@ use tokio::sync::mpsc;
 
 use crate::bridge::emitter::UiEventEmitter;
 use crate::bridge::followup::FollowupBridge;
-use crate::dto::{FollowupRequestDto, PersistedConversationSummary, SessionMessageDto};
+use crate::dto::{FollowupRequestDto, SessionMessageDto};
 use crate::persistence::project_store::ProjectStore;
 
-use super::{ForgeRuntime, RuntimeManager};
+use super::{ForgeRuntime, PersistedConversationSummary, RuntimeManager};
 
 #[derive(Clone, Default)]
 pub(crate) struct WorkspaceSessionState {
