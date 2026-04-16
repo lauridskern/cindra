@@ -1,10 +1,6 @@
 import { ChevronDown, ChevronRight, Folder, PenSquare } from 'lucide-react'
 
-import type { ProjectSummary } from '../app/sessionReducer'
-import {
-  interactiveBaseClass,
-  projectActionButtonClass,
-} from '../styles/classes'
+import type { ProjectSummary } from '../app/sessionSelectors'
 import { cn } from '../utils/cn'
 import { ProjectSidebarConversationRow } from './ProjectSidebarConversationRow'
 
@@ -39,10 +35,7 @@ export function ProjectSidebarProject({
       >
         <button
           type="button"
-          className={cn(
-            interactiveBaseClass,
-            'flex min-w-0 flex-1 items-center gap-1.5 rounded-md px-1 py-0.5 text-left text-neutral-600 dark:text-neutral-200',
-          )}
+          className="appearance-none font-inherit transition duration-150 ease-out disabled:cursor-not-allowed disabled:opacity-45 flex min-w-0 flex-1 items-center gap-1.5 rounded-md px-1 py-0.5 text-left text-neutral-600 dark:text-neutral-200"
           onClick={() => {
             if (project.isCurrent) {
               onToggleProjectExpanded(project.workspacePath)
@@ -73,7 +66,7 @@ export function ProjectSidebarProject({
 
         <button
           type="button"
-          className={projectActionButtonClass}
+          className="appearance-none font-inherit transition duration-150 ease-out disabled:cursor-not-allowed disabled:opacity-45 inline-flex size-7 items-center justify-center rounded-md bg-neutral-950/5 text-neutral-500 hover:bg-neutral-950/10 dark:bg-white/10 dark:text-neutral-300 dark:hover:bg-white/15"
           aria-label={`Start a new chat in ${project.workspaceName}`}
           title="New chat"
           onClick={() => {

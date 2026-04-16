@@ -32,21 +32,39 @@ export function ProjectSidebar() {
     )
   }
 
+  async function handleOpenWorkspacePicker() {
+    const workspacePath = await openWorkspacePicker()
+    if (workspacePath != null) {
+      ensureProjectExpanded(workspacePath)
+    }
+  }
+
+  function handleOpenProject(workspacePath: string) {
+    ensureProjectExpanded(workspacePath)
+    void openProject(workspacePath)
+  }
+
+  function handleSelectConversation(workspacePath: string, conversationId: string) {
+    ensureProjectExpanded(workspacePath)
+    void selectConversation(workspacePath, conversationId)
+  }
+
+  function handleStartNewChat(workspacePath?: string) {
+    if (workspacePath != null) {
+      ensureProjectExpanded(workspacePath)
+    }
+
+    void startNewChat(workspacePath)
+  }
+
   return (
     <aside className="w-60 shrink-0 overflow-hidden bg-transparent max-md:min-h-60 max-md:w-full">
       <div className="flex h-full flex-col overflow-hidden px-1.5 pb-2.5 pt-1.5 select-none max-md:p-2.5">
         <ProjectSidebarActions
           hasCurrentWorkspace={hasCurrentWorkspace}
           isOpeningProject={isOpeningProject}
-          onStartNewChat={() => void startNewChat()}
-          onOpenWorkspacePicker={() => {
-            void (async () => {
-              const workspacePath = await openWorkspacePicker()
-              if (workspacePath != null) {
-                ensureProjectExpanded(workspacePath)
-              }
-            })()
-          }}
+          onStartNewChat={() => handleStartNewChat()}
+          onOpenWorkspacePicker={() => void handleOpenWorkspacePicker()}
         />
 
         <section className="grid min-h-0 flex-1 content-start gap-1">
@@ -69,12 +87,9 @@ export function ProjectSidebar() {
                     isExpanded={isExpanded}
                     project={project}
                     onEnsureProjectExpanded={ensureProjectExpanded}
-                    onOpenProject={(workspacePath) => void openProject(workspacePath)}
-                    onSelectConversation={(workspacePath, conversationId) => {
-                      ensureProjectExpanded(workspacePath)
-                      void selectConversation(workspacePath, conversationId)
-                    }}
-                    onStartNewChat={(workspacePath) => void startNewChat(workspacePath)}
+                    onOpenProject={handleOpenProject}
+                    onSelectConversation={handleSelectConversation}
+                    onStartNewChat={handleStartNewChat}
                     onToggleProjectExpanded={toggleProjectExpanded}
                   />
                 )

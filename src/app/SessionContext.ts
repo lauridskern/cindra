@@ -5,7 +5,7 @@ import type {
   RuntimeStatus,
   TranscriptMessage,
 } from '../services/desktop/contracts'
-import type { ProjectSummary } from './sessionReducer'
+import type { ProjectSummary } from './sessionSelectors'
 
 export interface ConversationStateContextValue {
   activeWorkspaceLabel: string

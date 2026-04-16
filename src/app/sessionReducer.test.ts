@@ -3,10 +3,12 @@ import { describe, expect, it } from 'vitest'
 import { openRuntimeStatus } from '../test/fixtures'
 import {
   initialSessionState,
-  selectEmptyDraftConversationId,
-  selectIsConversationRunning,
   sessionReducer,
 } from './sessionReducer'
+import {
+  selectEmptyDraftConversationId,
+  selectIsConversationRunning,
+} from './sessionSelectors'
 
 describe('sessionReducer', () => {
   it('coalesces streamed assistant markdown into a single transcript row', () => {

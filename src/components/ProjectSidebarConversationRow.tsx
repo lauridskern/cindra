@@ -1,5 +1,4 @@
-import type { ProjectConversationItem } from '../app/sessionReducer'
-import { threadRowClass } from '../styles/classes'
+import type { ProjectConversationItem } from '../app/sessionSelectors'
 import { cn } from '../utils/cn'
 import { formatRelativeTimestamp } from '../utils/time'
 
@@ -18,8 +17,7 @@ export function ProjectSidebarConversationRow({
     <button
       type="button"
       className={cn(
-        threadRowClass,
-        'px-2.5 py-1.5',
+        'appearance-none font-inherit transition duration-150 ease-out disabled:cursor-not-allowed disabled:opacity-45 flex w-full items-center justify-between gap-2 rounded-md px-2.5 py-1.5 text-left text-xs leading-5 text-neutral-800 hover:bg-neutral-950/5 dark:text-neutral-200 dark:hover:bg-white/10',
         conversation.isActive && 'bg-neutral-950/10 dark:bg-white/10',
       )}
       onClick={() =>

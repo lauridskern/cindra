@@ -23,15 +23,17 @@ import {
 } from './SessionContext'
 import {
   initialSessionState,
+  sessionReducer,
+  type AppState,
+  type SessionAction,
+} from './sessionReducer'
+import {
   selectActiveWorkspaceLabel,
   selectEmptyDraftConversationId,
   selectIsConversationRunning,
   selectProjectSummaries,
   selectVisibleMessages,
-  sessionReducer,
-  type AppState,
-  type SessionAction,
-} from './sessionReducer'
+} from './sessionSelectors'
 
 function dispatchUiError(dispatch: Dispatch<SessionAction>, error: unknown) {
   dispatch({ type: 'ui_error', message: formatError(error) })
