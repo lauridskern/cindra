@@ -57,7 +57,7 @@ export function ProjectSidebar() {
           <div className="grid gap-1.5">
             {projectSummaries.length === 0 ? (
               <p className="mt-0.5 px-2 text-xs text-neutral-400 dark:text-neutral-500">
-                No Forge projects yet
+                No projects yet
               </p>
             ) : (
               projectSummaries.map((project) => {

@@ -390,12 +390,6 @@ export function selectIsConversationRunning(
     : false
 }
 
-export function selectHasRunningConversations(state: AppState): boolean {
-  return Object.values(state.activeRequestIdsByConversation).some(
-    (requestIds) => requestIds.length > 0,
-  )
-}
-
 function createUserQueuedMessage(requestId: string, prompt: string): TranscriptMessage {
   return {
     id: createMessageId('user', requestId, 0),

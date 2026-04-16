@@ -41,7 +41,7 @@ export function ConversationPanel() {
           role="alert"
         >
           {runtimeStatus.configurationError ??
-            'No Forge session is configured. Configure Forge in the terminal first.'}
+            'No session is configured. Configure the terminal session first.'}
         </div>
       ) : null}
 

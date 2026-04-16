@@ -64,13 +64,13 @@ describe('App', () => {
     })
   }
 
-  it('shows remembered Forge projects on startup without opening a workspace', async () => {
+  it('shows remembered projects on startup without opening a workspace', async () => {
     mockedDesktopClient.getRuntimeStatus.mockResolvedValue(emptyRuntimeStatus)
     mockedDesktopClient.listProjects.mockResolvedValue([
       createProjectGroup('/tmp/demo', 'demo', [
         {
           conversationId: 'conv-history',
-          title: 'Saved Forge thread',
+          title: 'Saved thread',
           updatedAt: '2026-04-15T10:00:00Z',
         },
       ]),
@@ -79,7 +79,7 @@ describe('App', () => {
     render(<App />)
 
     await screen.findByText('demo')
-    expect(screen.queryByText('Saved Forge thread')).not.toBeInTheDocument()
+    expect(screen.queryByText('Saved thread')).not.toBeInTheDocument()
     expect(
       screen.getByText(/select a project from the sidebar/i),
     ).toBeInTheDocument()

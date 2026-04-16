@@ -38,7 +38,7 @@ export function PromptComposer() {
           <textarea
             id="prompt"
             className="min-h-20 w-full resize-none bg-transparent text-base leading-6 text-neutral-900 outline-none placeholder:text-neutral-400 disabled:text-neutral-400 dark:text-neutral-100 dark:placeholder:text-neutral-500 dark:disabled:text-neutral-500"
-            placeholder="Ask Forge to inspect or change this workspace…"
+            placeholder="Ask about this workspace…"
             value={promptDraft}
             onChange={(event) => setPromptDraft(event.target.value)}
             disabled={!canCompose}
