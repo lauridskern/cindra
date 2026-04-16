@@ -1,17 +1,18 @@
-import {
-  ChevronRight,
-  ChevronsUpDown,
-  GitFork,
-} from 'lucide-react'
+import { ChevronRight, ChevronsUpDown, GitFork } from "lucide-react";
 
-import {
-  useConversationSession,
-} from '../hooks/useSession'
-import { ChatThread } from './ChatThread'
-import { LandingScreen } from './LandingScreen'
-import { PromptComposer } from './PromptComposer'
+import { useConversationSession } from "../hooks/useSession";
+import { ChatThread } from "./ChatThread";
+import { LandingScreen } from "./LandingScreen";
+import { PromptComposer } from "./PromptComposer";
+import { cn } from "../utils/cn";
 
-export function ConversationPanel() {
+interface ConversationPanelProps {
+  reserveTitlebarInset?: boolean;
+}
+
+export function ConversationPanel({
+  reserveTitlebarInset = false,
+}: ConversationPanelProps) {
   const {
     activeWorkspaceLabel,
     hasCurrentWorkspace,
@@ -19,7 +20,7 @@ export function ConversationPanel() {
     messages,
     runtimeStatus,
     uiError,
-  } = useConversationSession()
+  } = useConversationSession();
 
   if (!hasCurrentWorkspace) {
     return (
@@ -28,21 +29,29 @@ export function ConversationPanel() {
         runtimeStatus={runtimeStatus}
         uiError={uiError}
       />
-    )
+    );
   }
 
-  const repoName = runtimeStatus?.gitRepoName
-  const branchName = runtimeStatus?.gitBranchName
+  const repoName = runtimeStatus?.gitRepoName;
+  const branchName = runtimeStatus?.gitBranchName;
 
   return (
     <section className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden border border-white/60 bg-white/80 shadow-xl shadow-neutral-950/5 backdrop-blur-xl dark:border-white/10 dark:bg-neutral-900/80 dark:shadow-black/20">
-      <header className="flex h-10 items-center border-b border-black/5 px-4.5 select-none dark:border-white/5 max-md:px-4">
+      <header
+        className={cn(
+          "flex h-9.5 items-center border-b border-black/5 px-3 select-none dark:border-white/5",
+          reserveTitlebarInset && "pl-34",
+        )}
+      >
         {repoName ? (
           <div className="flex min-w-0 items-center gap-2 text-xs font-medium tracking-tight">
+            {reserveTitlebarInset && (
+              <div className="h-9 w-px bg-black/5 dark:bg-white/5 mr-0.5" />
+            )}
             <div className="flex min-w-0 items-center gap-1.5 text-neutral-800 dark:text-neutral-100">
               <GitFork
                 strokeWidth={2.5}
-                className="size-3 shrink-0 text-neutral-500 dark:text-neutral-400"
+                className="size-3 shrink-0 text-neutral-500 dark:text-neutral-500"
               />
               <span className="truncate">{repoName}</span>
             </div>
@@ -85,7 +94,7 @@ export function ConversationPanel() {
           role="alert"
         >
           {runtimeStatus.configurationError ??
-            'No session is configured. Configure the terminal session first.'}
+            "No session is configured. Configure the terminal session first."}
         </div>
       ) : null}
 
@@ -95,5 +104,5 @@ export function ConversationPanel() {
 
       <PromptComposer />
     </section>
-  )
+  );
 }

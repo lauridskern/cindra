@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { PanelImperativeHandle } from "react-resizable-panels";
-import { PanelLeftIcon } from "lucide-react";
+import { PanelLeftIcon, PenSquare } from "lucide-react";
 
 import { ConversationPanel } from "../components/ConversationPanel";
 import { ProjectSidebar } from "../components/ProjectSidebar";
@@ -13,6 +13,7 @@ import {
 import { SidebarProvider, useSidebar } from "../components/ui/sidebar";
 import { TooltipProvider } from "../components/ui/tooltip";
 import { useIsMobile } from "../hooks/use-mobile";
+import { useConversationSession, useSessionActions } from "../hooks/useSession";
 import { handleWindowDragStart } from "../utils/window";
 import { SessionProvider } from "./SessionProvider";
 
@@ -66,7 +67,7 @@ function AppSidebarToggle({
             ? "Hide sidebar"
             : "Show sidebar"
       }
-      className="absolute left-[5.1rem] top-2 z-20 text-neutral-800 hover:text-white dark:text-neutral-500 dark:hover:text-white backdrop-blur-sm"
+      className="absolute left-19 top-1.5 z-20 text-neutral-800 hover:text-white dark:text-neutral-500 dark:hover:text-white"
       onClick={() => {
         if (isMobile) {
           toggleSidebar();
@@ -91,6 +92,8 @@ function AppSidebarToggle({
 function AppShell() {
   useSystemThemeClass();
   const isMobile = useIsMobile();
+  const { hasCurrentWorkspace } = useConversationSession();
+  const { startNewChat } = useSessionActions();
   const [isDesktopSidebarVisible, setIsDesktopSidebarVisible] = useState(true);
   const sidebarPanelRef = useRef<PanelImperativeHandle | null>(null);
 
@@ -123,6 +126,21 @@ function AppShell() {
               setIsDesktopSidebarVisible((current) => !current);
             }}
           />
+          {!isMobile && !isDesktopSidebarVisible ? (
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="New chat"
+              className="absolute left-26 top-1.5 z-20 text-neutral-800 hover:text-white disabled:pointer-events-none disabled:opacity-35 dark:text-neutral-500 dark:hover:text-white"
+              onClick={() => {
+                void startNewChat();
+              }}
+              disabled={!hasCurrentWorkspace}
+            >
+              <PenSquare strokeWidth={2.5} className="size-3.5" />
+              <span className="sr-only">New chat</span>
+            </Button>
+          ) : null}
 
           <div
             className="absolute inset-x-0 left-20 top-0 z-10 h-10 cursor-grab select-none active:cursor-grabbing"
@@ -166,7 +184,9 @@ function AppShell() {
               />
               <ResizablePanel id="chat-panel">
                 <section className="flex h-full min-w-0 flex-1 overflow-hidden">
-                  <ConversationPanel />
+                  <ConversationPanel
+                    reserveTitlebarInset={!isDesktopSidebarVisible}
+                  />
                 </section>
               </ResizablePanel>
             </ResizablePanelGroup>
