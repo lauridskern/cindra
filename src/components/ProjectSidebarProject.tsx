@@ -1,0 +1,107 @@
+import { ChevronDown, ChevronRight, Folder, PenSquare } from 'lucide-react'
+
+import type { ProjectSummary } from '../app/sessionReducer'
+import {
+  interactiveBaseClass,
+  projectActionButtonClass,
+} from '../styles/classes'
+import { cn } from '../utils/cn'
+import { ProjectSidebarConversationRow } from './ProjectSidebarConversationRow'
+
+interface ProjectSidebarProjectProps {
+  isExpanded: boolean
+  project: ProjectSummary
+  onEnsureProjectExpanded: (workspacePath: string) => void
+  onOpenProject: (workspacePath: string) => void
+  onSelectConversation: (workspacePath: string, conversationId: string) => void
+  onStartNewChat: (workspacePath: string) => void
+  onToggleProjectExpanded: (workspacePath: string) => void
+}
+
+export function ProjectSidebarProject({
+  isExpanded,
+  project,
+  onEnsureProjectExpanded,
+  onOpenProject,
+  onSelectConversation,
+  onStartNewChat,
+  onToggleProjectExpanded,
+}: ProjectSidebarProjectProps) {
+  return (
+    <div className="grid gap-1">
+      <div
+        className={cn(
+          'group flex items-center gap-1 rounded-lg px-1.5 py-1 transition-colors duration-150',
+          (project.isCurrent || isExpanded) && 'bg-neutral-950/5 dark:bg-white/10',
+          !(project.isCurrent || isExpanded) &&
+            'hover:bg-neutral-950/5 dark:hover:bg-white/5',
+        )}
+      >
+        <button
+          type="button"
+          className={cn(
+            interactiveBaseClass,
+            'flex min-w-0 flex-1 items-center gap-1.5 rounded-md px-1 py-0.5 text-left text-neutral-600 dark:text-neutral-200',
+          )}
+          onClick={() => {
+            if (project.isCurrent) {
+              onToggleProjectExpanded(project.workspacePath)
+              return
+            }
+
+            onEnsureProjectExpanded(project.workspacePath)
+            onOpenProject(project.workspacePath)
+          }}
+        >
+          <span className="relative flex size-4 shrink-0 items-center justify-center text-neutral-400 dark:text-neutral-500">
+            <Folder
+              className={cn(
+                'size-3.5 transition-opacity duration-150',
+                isExpanded ? 'opacity-0' : 'opacity-100 group-hover:opacity-0',
+              )}
+            />
+            {isExpanded ? (
+              <ChevronDown className="absolute size-3.5" />
+            ) : (
+              <ChevronRight className="absolute size-3.5 opacity-0 transition-opacity duration-150 group-hover:opacity-100" />
+            )}
+          </span>
+          <span className="truncate pr-1 text-xs font-semibold leading-5 text-neutral-700 dark:text-neutral-100">
+            {project.workspaceName}
+          </span>
+        </button>
+
+        <button
+          type="button"
+          className={projectActionButtonClass}
+          aria-label={`Start a new chat in ${project.workspaceName}`}
+          title="New chat"
+          onClick={() => {
+            onEnsureProjectExpanded(project.workspacePath)
+            onStartNewChat(project.workspacePath)
+          }}
+        >
+          <PenSquare className="size-3 shrink-0" />
+        </button>
+      </div>
+
+      {isExpanded ? (
+        project.conversations.length > 0 ? (
+          <div className="grid gap-0.5 pl-7">
+            {project.conversations.map((conversation) => (
+              <ProjectSidebarConversationRow
+                key={`${project.workspacePath}:${conversation.conversationId}`}
+                conversation={conversation}
+                onSelectConversation={onSelectConversation}
+              />
+            ))}
+          </div>
+        ) : project.isCurrent ? (
+          <p className="pl-7 text-xs text-neutral-400 dark:text-neutral-500">
+            No chats yet
+          </p>
+        ) : null
+      ) : null}
+    </div>
+  )
+}

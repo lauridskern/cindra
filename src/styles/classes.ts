@@ -1,23 +1,23 @@
 import type { StatusCategory } from '../services/desktop/contracts'
 
-import { cn } from '../lib/cn'
+import { cn } from '../utils/cn'
 
 export const interactiveBaseClass =
   'appearance-none font-inherit transition duration-150 ease-out disabled:cursor-not-allowed disabled:opacity-45'
 
 export const navRowClass = cn(
   interactiveBaseClass,
-  'flex min-h-[28px] items-center gap-2 rounded-md px-1.5 text-left text-[0.72rem] text-neutral-800 hover:bg-neutral-950/[0.045] dark:text-neutral-200 dark:hover:bg-white/[0.08]',
+  'flex min-h-7 items-center gap-2 rounded-md px-1.5 text-left text-xs text-neutral-800 hover:bg-neutral-950/5 dark:text-neutral-200 dark:hover:bg-white/10',
 )
 
 export const projectActionButtonClass = cn(
   interactiveBaseClass,
-  'inline-flex size-7 items-center justify-center rounded-md bg-neutral-950/[0.045] text-neutral-500 hover:bg-neutral-950/[0.075] dark:bg-white/[0.09] dark:text-neutral-300 dark:hover:bg-white/[0.15]',
+  'inline-flex size-7 items-center justify-center rounded-md bg-neutral-950/5 text-neutral-500 hover:bg-neutral-950/10 dark:bg-white/10 dark:text-neutral-300 dark:hover:bg-white/15',
 )
 
 export const threadRowClass = cn(
   interactiveBaseClass,
-  'grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-md px-2 py-1.5 text-left text-[0.74rem] leading-5 text-neutral-800 hover:bg-neutral-950/[0.045] dark:text-neutral-200 dark:hover:bg-white/[0.08]',
+  'flex w-full items-center justify-between gap-2 rounded-md px-2 py-1.5 text-left text-xs leading-5 text-neutral-800 hover:bg-neutral-950/5 dark:text-neutral-200 dark:hover:bg-white/10',
 )
 
 export const primaryButtonClass = cn(

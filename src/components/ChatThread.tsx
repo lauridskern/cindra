@@ -3,10 +3,10 @@ import {
   type LegendListRenderItemProps,
 } from '@legendapp/list/react'
 
-import type { TranscriptMessage } from '../../../services/desktop/contracts'
+import type { TranscriptMessage } from '../services/desktop/contracts'
 import { TranscriptRow } from './TranscriptRow'
 
-interface TranscriptProps {
+interface ChatThreadProps {
   messages: TranscriptMessage[]
 }
 
@@ -30,7 +30,7 @@ function getMessageText(message: TranscriptMessage): string {
   }
 }
 
-function estimateTranscriptMessageSize(message: TranscriptMessage): number {
+function estimateChatThreadMessageSize(message: TranscriptMessage): number {
   const lineCount = Math.max(1, Math.ceil(getMessageText(message).length / 72))
 
   switch (message.kind) {
@@ -47,24 +47,24 @@ function estimateTranscriptMessageSize(message: TranscriptMessage): number {
   }
 }
 
-function renderTranscriptItem({
+function renderChatThreadItem({
   item,
 }: LegendListRenderItemProps<TranscriptMessage>) {
   return (
-    <div className="mx-auto w-full max-w-[760px] px-6 pb-4 select-text max-[720px]:px-4">
+    <div className="mx-auto w-full max-w-3xl px-6 pb-4 select-text max-md:px-4">
       <TranscriptRow message={item} />
     </div>
   )
 }
 
-export function Transcript({ messages }: TranscriptProps) {
+export function ChatThread({ messages }: ChatThreadProps) {
   return (
     <LegendList
       data={messages}
-      renderItem={renderTranscriptItem}
+      renderItem={renderChatThreadItem}
       keyExtractor={(item) => item.id}
       getItemType={(item) => item.kind}
-      getEstimatedItemSize={estimateTranscriptMessageSize}
+      getEstimatedItemSize={estimateChatThreadMessageSize}
       recycleItems
       maintainScrollAtEnd
       maintainScrollAtEndThreshold={0.2}
