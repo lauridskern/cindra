@@ -19,8 +19,8 @@ use std::sync::Arc;
 
 use bridge::emitter::TauriEventEmitter;
 use commands::{
-    get_runtime_status, list_projects, load_conversation, open_workspace, pick_workspace,
-    reset_chat, respond_followup, send_prompt,
+    clone_repository, get_runtime_status, list_projects, load_conversation, open_workspace,
+    pick_directory, pick_workspace, quick_start_project, reset_chat, respond_followup, send_prompt,
 };
 use persistence::project_store::ProjectStore;
 use runtime::DesktopState;
@@ -57,13 +57,16 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             pick_workspace,
+            pick_directory,
             open_workspace,
             get_runtime_status,
             list_projects,
             load_conversation,
             send_prompt,
             respond_followup,
-            reset_chat
+            reset_chat,
+            clone_repository,
+            quick_start_project
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

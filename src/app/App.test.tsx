@@ -35,10 +35,13 @@ const mockedDesktopClient = vi.hoisted(() => {
       },
     },
     getRuntimeStatus: vi.fn(),
+    pickDirectory: vi.fn(),
     pickWorkspace: vi.fn(),
     openWorkspace: vi.fn(),
     listProjects: vi.fn(),
     loadConversation: vi.fn(),
+    cloneRepository: vi.fn(),
+    quickStartProject: vi.fn(),
     sendPrompt: vi.fn(),
     respondFollowup: vi.fn(),
     resetChat: vi.fn(),
@@ -46,6 +49,75 @@ const mockedDesktopClient = vi.hoisted(() => {
 })
 
 vi.mock('@legendapp/list/react', () => createLegendListModule())
+vi.mock('react-resizable-panels', async () => {
+  const React = await import('react')
+  type PanelHandle = {
+    collapse: () => void
+    expand: () => void
+    getSize: () => { asPercentage: number; inPixels: number }
+    isCollapsed: () => boolean
+    resize: (_size: number | string) => void
+  }
+
+  function createPanelHandle(): PanelHandle {
+    return {
+      collapse: () => {},
+      expand: () => {},
+      getSize: () => ({ asPercentage: 20, inPixels: 320 }),
+      isCollapsed: () => false,
+      resize: (_size: number | string) => {},
+    }
+  }
+
+  function assignPanelRef(panelRef?: React.Ref<unknown>) {
+    const handle = createPanelHandle()
+
+    if (typeof panelRef === 'function') {
+      panelRef(handle)
+      return () => {
+        panelRef(null)
+      }
+    }
+
+    if (panelRef != null) {
+      ;(panelRef as React.MutableRefObject<PanelHandle | null>).current = handle
+      return () => {
+        ;(panelRef as React.MutableRefObject<PanelHandle | null>).current = null
+      }
+    }
+
+    return undefined
+  }
+
+  return {
+    __esModule: true,
+    Group: ({
+      children,
+      ...props
+    }: React.HTMLAttributes<HTMLDivElement> & { children?: React.ReactNode }) => (
+      <div {...props}>{children}</div>
+    ),
+    Panel: ({
+      children,
+      panelRef,
+      ...props
+    }: React.HTMLAttributes<HTMLDivElement> & {
+      children?: React.ReactNode
+      panelRef?: React.Ref<unknown>
+    }) => {
+      React.useEffect(() => {
+        return assignPanelRef(panelRef)
+      }, [panelRef])
+      return <div {...props}>{children}</div>
+    },
+    Separator: ({
+      children,
+      ...props
+    }: React.HTMLAttributes<HTMLDivElement> & { children?: React.ReactNode }) => (
+      <div {...props}>{children}</div>
+    ),
+  }
+})
 vi.mock('../services/desktop/client', () =>
   createDesktopClientModule(mockedDesktopClient),
 )
@@ -81,8 +153,86 @@ describe('App', () => {
     await screen.findByText('demo')
     expect(screen.queryByText('Saved thread')).not.toBeInTheDocument()
     expect(
-      screen.getByText(/select a project from the sidebar/i),
+      screen.getByRole('button', { name: /open folder/i }),
     ).toBeInTheDocument()
+  })
+
+  it('clones a repository from the landing screen and opens it', async () => {
+    mockedDesktopClient.getRuntimeStatus.mockResolvedValue(emptyRuntimeStatus)
+    mockedDesktopClient.pickDirectory.mockResolvedValue('/tmp/workspaces')
+    mockedDesktopClient.cloneRepository.mockResolvedValue('/tmp/workspaces/agent-ui')
+    mockedDesktopClient.openWorkspace.mockResolvedValue({
+      ...openRuntimeStatus,
+      workspacePath: '/tmp/workspaces/agent-ui',
+      workspaceName: 'agent-ui',
+    })
+
+    render(<App />)
+
+    fireEvent.click(await screen.findByRole('button', { name: /clone from git/i }))
+    fireEvent.change(screen.getByLabelText(/repository url/i), {
+      target: { value: 'git@github.com:laurids/agent-ui.git' },
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /^choose$/i }))
+    await waitFor(() => {
+      expect(mockedDesktopClient.pickDirectory).toHaveBeenCalled()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /clone and open/i }))
+
+    await waitFor(() => {
+      expect(mockedDesktopClient.cloneRepository).toHaveBeenCalledWith({
+        repositoryUrl: 'git@github.com:laurids/agent-ui.git',
+        parentDirectory: '/tmp/workspaces',
+        directoryName: 'agent-ui',
+      })
+    })
+
+    await waitFor(() => {
+      expect(mockedDesktopClient.openWorkspace).toHaveBeenCalledWith(
+        '/tmp/workspaces/agent-ui',
+      )
+    })
+  })
+
+  it('creates a quick-start GitHub project and opens it', async () => {
+    mockedDesktopClient.getRuntimeStatus.mockResolvedValue(emptyRuntimeStatus)
+    mockedDesktopClient.pickDirectory.mockResolvedValue('/tmp/workspaces')
+    mockedDesktopClient.quickStartProject.mockResolvedValue('/tmp/workspaces/fresh-start')
+    mockedDesktopClient.openWorkspace.mockResolvedValue({
+      ...openRuntimeStatus,
+      workspacePath: '/tmp/workspaces/fresh-start',
+      workspaceName: 'fresh-start',
+    })
+
+    render(<App />)
+
+    fireEvent.click(await screen.findByRole('button', { name: /quick start/i }))
+    fireEvent.change(screen.getByLabelText(/project name/i), {
+      target: { value: 'fresh-start' },
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /^choose$/i }))
+    await waitFor(() => {
+      expect(mockedDesktopClient.pickDirectory).toHaveBeenCalled()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /create and open/i }))
+
+    await waitFor(() => {
+      expect(mockedDesktopClient.quickStartProject).toHaveBeenCalledWith({
+        projectName: 'fresh-start',
+        parentDirectory: '/tmp/workspaces',
+        visibility: 'private',
+      })
+    })
+
+    await waitFor(() => {
+      expect(mockedDesktopClient.openWorkspace).toHaveBeenCalledWith(
+        '/tmp/workspaces/fresh-start',
+      )
+    })
   })
 
   it('opens another workspace before loading its conversation', async () => {

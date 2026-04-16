@@ -3,10 +3,12 @@ import { vi } from 'vitest'
 
 import type {
   ChatEventEnvelope,
+  CloneRepositoryInput,
   ConversationTranscript,
   FollowupResponse,
   FollowupRequest,
   ProjectConversationGroup,
+  QuickStartProjectInput,
   RuntimeStatus,
   SendPromptResult,
 } from '../services/desktop/contracts'
@@ -21,10 +23,17 @@ export interface DesktopClientMock {
     set: (handler: ((payload: FollowupRequest) => void) | null) => void
   }
   getRuntimeStatus: ReturnType<typeof vi.fn<() => Promise<RuntimeStatus>>>
+  pickDirectory: ReturnType<typeof vi.fn<(title?: string) => Promise<string | null>>>
   pickWorkspace: ReturnType<typeof vi.fn<() => Promise<string | null>>>
   openWorkspace: ReturnType<typeof vi.fn<(path: string) => Promise<RuntimeStatus>>>
   listProjects: ReturnType<typeof vi.fn<() => Promise<ProjectConversationGroup[]>>>
   loadConversation: ReturnType<typeof vi.fn<(conversationId: string) => Promise<ConversationTranscript>>>
+  cloneRepository: ReturnType<
+    typeof vi.fn<(input: CloneRepositoryInput) => Promise<string>>
+  >
+  quickStartProject: ReturnType<
+    typeof vi.fn<(input: QuickStartProjectInput) => Promise<string>>
+  >
   sendPrompt: ReturnType<
     typeof vi.fn<
       (input: { prompt: string; conversationId?: string }) => Promise<SendPromptResult>
@@ -56,12 +65,15 @@ export function createDesktopClientMock(): DesktopClientMock {
       },
     },
     getRuntimeStatus: vi.fn<() => Promise<RuntimeStatus>>(),
+    pickDirectory: vi.fn<(title?: string) => Promise<string | null>>(),
     pickWorkspace: vi.fn<() => Promise<string | null>>(),
     openWorkspace: vi.fn<(path: string) => Promise<RuntimeStatus>>(),
     listProjects: vi.fn<() => Promise<ProjectConversationGroup[]>>(),
     loadConversation: vi.fn<
       (conversationId: string) => Promise<ConversationTranscript>
     >(),
+    cloneRepository: vi.fn<(input: CloneRepositoryInput) => Promise<string>>(),
+    quickStartProject: vi.fn<(input: QuickStartProjectInput) => Promise<string>>(),
     sendPrompt: vi.fn<
       (input: { prompt: string; conversationId?: string }) => Promise<SendPromptResult>
     >(),
@@ -74,10 +86,13 @@ export function createDesktopClientModule(mock: DesktopClientMock) {
   return {
     __esModule: true,
     getRuntimeStatus: mock.getRuntimeStatus,
+    pickDirectory: mock.pickDirectory,
     pickWorkspace: mock.pickWorkspace,
     openWorkspace: mock.openWorkspace,
     listProjects: mock.listProjects,
     loadConversation: mock.loadConversation,
+    cloneRepository: mock.cloneRepository,
+    quickStartProject: mock.quickStartProject,
     sendPrompt: mock.sendPrompt,
     respondFollowup: mock.respondFollowup,
     resetChat: mock.resetChat,
@@ -121,10 +136,13 @@ export function resetDesktopClientMock(mock: DesktopClientMock) {
   mock.chat.set(null)
   mock.followup.set(null)
   mock.getRuntimeStatus.mockReset()
+  mock.pickDirectory.mockReset()
   mock.pickWorkspace.mockReset()
   mock.openWorkspace.mockReset()
   mock.listProjects.mockReset()
   mock.loadConversation.mockReset()
+  mock.cloneRepository.mockReset()
+  mock.quickStartProject.mockReset()
   mock.sendPrompt.mockReset()
   mock.respondFollowup.mockReset()
   mock.resetChat.mockReset()

@@ -3,10 +3,12 @@ import { listen, type UnlistenFn } from '@tauri-apps/api/event'
 
 import type {
   ChatEventEnvelope,
+  CloneRepositoryInput,
   ConversationTranscript,
   FollowupRequest,
   FollowupResponse,
   ProjectConversationGroup,
+  QuickStartProjectInput,
   ResetChatResult,
   RuntimeStatus,
   SendPromptInput,
@@ -34,6 +36,10 @@ async function listenEvent<T>(
 
 export function pickWorkspace(): Promise<string | null> {
   return invokeCommand('pick_workspace')
+}
+
+export function pickDirectory(title?: string): Promise<string | null> {
+  return invokeCommand('pick_directory', { title })
 }
 
 export function openWorkspace(path: string): Promise<RuntimeStatus> {
@@ -64,6 +70,14 @@ export function respondFollowup(response: FollowupResponse): Promise<void> {
 
 export function resetChat(): Promise<ResetChatResult> {
   return invokeCommand('reset_chat')
+}
+
+export function cloneRepository(input: CloneRepositoryInput): Promise<string> {
+  return invokeCommand('clone_repository', { input })
+}
+
+export function quickStartProject(input: QuickStartProjectInput): Promise<string> {
+  return invokeCommand('quick_start_project', { input })
 }
 
 export async function listenChatEvents(

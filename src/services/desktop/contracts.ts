@@ -9,6 +9,8 @@ export type StatusCategory =
 export interface RuntimeStatus {
   workspacePath: string | null
   workspaceName: string | null
+  gitRepoName: string | null
+  gitBranchName: string | null
   configured: boolean
   configurationError: string | null
 }
@@ -37,6 +39,20 @@ export interface ProjectConversationGroup {
 
 export interface ResetChatResult {
   conversationId: string
+}
+
+export interface CloneRepositoryInput {
+  repositoryUrl: string
+  parentDirectory: string
+  directoryName: string
+}
+
+export type QuickStartVisibility = 'public' | 'private'
+
+export interface QuickStartProjectInput {
+  projectName: string
+  parentDirectory: string
+  visibility: QuickStartVisibility
 }
 
 export interface FollowupOption {
