@@ -1,24 +1,28 @@
-use std::path::PathBuf;
+use std::collections::HashSet;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use anyhow::Context;
 use forge_api::API;
-use forge_domain::{ChatRequest, ChatResponse, ConversationId, Event};
+use forge_domain::{ChatRequest, ChatResponse, Conversation, ConversationId, Event};
 use futures::StreamExt;
-use tokio::sync::Mutex;
+use tokio::sync::{Mutex, mpsc};
 use uuid::Uuid;
 
 use crate::bridge::emitter::UiEventEmitter;
-use crate::bridge::followup::FollowupBridge;
+use crate::bridge::followup::{FollowupBridge, FollowupContext, with_followup_context};
 use crate::dto::{
-    ChatEventDto, ChatEventKind, ConversationTranscriptDto, FollowupResponseDto, ProjectSummaryDto,
-    ResetChatResultDto, RuntimeStatusDto, SendPromptInput, SendPromptResultDto,
+    ChatEventKind, ConversationSessionSummaryDto, FollowupRequestDto, FollowupResponseDto,
+    PersistedConversationSummary, SendPromptInput, SessionMessageDto, SessionSnapshotDto,
+    StatusCategoryDto, WorkspaceSessionDto, derive_conversation_title_from_messages,
+    session_messages_from_conversation, workspace_name,
 };
 use crate::persistence::project_store::ProjectStore;
 
 use super::{
-    ForgeRuntime, RuntimeFactory, RuntimeState, configuration_error_message,
-    create_conversation_record, read_config, resolve_conversation_id, shared_runtime_state,
+    ConversationSessionState, ForgeRuntime, MISSING_SESSION_MESSAGE, RuntimeFactory, RuntimeState,
+    WorkspaceSessionState, configuration_error_message, create_conversation_record, read_config,
+    shared_runtime_state,
 };
 
 #[derive(Clone)]
@@ -45,236 +49,549 @@ impl RuntimeManager {
         }
     }
 
-    pub async fn open_workspace(&self, path: PathBuf) -> anyhow::Result<RuntimeStatusDto> {
-        let (config, configuration_error) = read_config();
-        self.open_workspace_with_config(path, config, configuration_error)
-            .await
+    pub async fn handle_followup_requests(
+        self: Arc<Self>,
+        mut receiver: mpsc::UnboundedReceiver<FollowupRequestDto>,
+    ) {
+        while let Some(request) = receiver.recv().await {
+            {
+                let mut state = self.state.lock().await;
+                state
+                    .pending_followups_by_conversation
+                    .insert(request.conversation_id.clone(), request);
+                state.ui_error = None;
+            }
+
+            let _ = self.emit_session_snapshot().await;
+        }
     }
 
-    pub(crate) async fn open_workspace_with_config(
-        &self,
-        path: PathBuf,
-        config: forge_config::ForgeConfig,
-        configuration_error: Option<String>,
-    ) -> anyhow::Result<RuntimeStatusDto> {
-        self.followups.cancel_all().await;
-        self.projects.add_project(path.as_path())?;
+    pub async fn get_session_snapshot(&self) -> anyhow::Result<SessionSnapshotDto> {
+        self.snapshot().await
+    }
 
-        let runtime = self
-            .factory
-            .build_runtime(path.clone(), config, configuration_error)
+    pub async fn open_workspace(&self, path: PathBuf) -> anyhow::Result<SessionSnapshotDto> {
+        let workspace_path = canonicalize_workspace_path(path)?;
+        self.projects.add_project(Path::new(&workspace_path))?;
+        self.ensure_workspace_runtime(&workspace_path).await?;
+        self.refresh_workspace_conversations(&workspace_path)
             .await?;
-        let status = runtime.status(Some(path.as_path())).await?;
 
-        let mut state = self.state.lock().await;
-        state.workspace_path = Some(path);
-        state.runtime = Some(runtime);
-        state.conversation_id = None;
-        state.active_request_id = None;
+        let selected_conversation_id = {
+            let mut state = self.state.lock().await;
+            state.active_workspace_path = Some(workspace_path.clone());
+            state.ui_error = None;
+            state
+                .workspaces
+                .get(&workspace_path)
+                .and_then(|workspace| workspace.selected_conversation_id.clone())
+        };
 
-        Ok(status)
-    }
-
-    pub async fn get_runtime_status(&self) -> anyhow::Result<RuntimeStatusDto> {
-        let snapshot = self.state.lock().await.clone();
-        if let Some(runtime) = snapshot.runtime {
-            return runtime.status(snapshot.workspace_path.as_deref()).await;
+        if let Some(conversation_id) = selected_conversation_id {
+            self.ensure_conversation_loaded(&workspace_path, &conversation_id)
+                .await?;
         }
 
-        let (config, configuration_error) = read_config();
-        Ok(RuntimeStatusDto::new(
-            None,
-            config.session.is_some(),
-            configuration_error_message(config.session.is_some(), configuration_error),
-        ))
+        let snapshot = self.snapshot().await?;
+        self.emit_snapshot(snapshot.clone())?;
+        Ok(snapshot)
     }
 
-    pub async fn list_projects(&self) -> anyhow::Result<Vec<ProjectSummaryDto>> {
-        let (runtime, current_path, config, configuration_error) = {
-            let state = self.state.lock().await;
-            let runtime = state.runtime.clone();
-            let current_path = state.workspace_path.clone();
-
-            let (config, configuration_error) = runtime
-                .as_ref()
-                .map(|runtime| (runtime.config.clone(), runtime.configuration_error.clone()))
-                .unwrap_or_else(read_config);
-
-            (runtime, current_path, config, configuration_error)
-        };
-
-        let project_paths = self.projects.list_projects()?;
-        let project_groups =
-            futures::future::join_all(project_paths.into_iter().map(|workspace_path| {
-                let config = config.clone();
-                let configuration_error = configuration_error.clone();
-                let current_runtime = runtime.clone();
-                let current_path = current_path.clone();
-                let factory = self.factory.clone();
-
-                async move {
-                    let project_runtime = if current_path.as_ref() == Some(&workspace_path) {
-                        current_runtime
-                    } else {
-                        factory
-                            .build_runtime(workspace_path.clone(), config, configuration_error)
-                            .await
-                            .ok()
-                    }?;
-                    let conversations = project_runtime.api.get_conversations(None).await.ok()?;
-                    Some(ProjectSummaryDto::new(
-                        workspace_path.as_path(),
-                        &conversations,
-                    ))
-                }
-            }))
-            .await;
-
-        Ok(project_groups.into_iter().flatten().collect())
-    }
-
-    pub async fn load_conversation(
+    pub async fn select_conversation(
         &self,
+        workspace_path: String,
         conversation_id: String,
-    ) -> anyhow::Result<ConversationTranscriptDto> {
-        let parsed = ConversationId::parse(&conversation_id)?;
-        let runtime = {
-            let state = self.state.lock().await;
-            state
-                .runtime
-                .clone()
-                .context("Open a workspace before loading a conversation.")?
-        };
+    ) -> anyhow::Result<SessionSnapshotDto> {
+        let workspace_path = canonicalize_workspace_path(PathBuf::from(workspace_path))?;
+        self.projects.add_project(Path::new(&workspace_path))?;
+        self.ensure_workspace_runtime(&workspace_path).await?;
+        self.refresh_workspace_conversations(&workspace_path)
+            .await?;
+        self.ensure_conversation_loaded(&workspace_path, &conversation_id)
+            .await?;
 
-        let conversation = runtime
-            .api
-            .conversation(&parsed)
-            .await?
-            .context("Conversation not found.")?;
+        {
+            let mut state = self.state.lock().await;
+            state.active_workspace_path = Some(workspace_path.clone());
+            state.ui_error = None;
+            let workspace = state
+                .workspaces
+                .entry(workspace_path.clone())
+                .or_insert_with(|| WorkspaceSessionState {
+                    workspace_name: workspace_name(Path::new(&workspace_path)),
+                    ..WorkspaceSessionState::default()
+                });
+            workspace.selected_conversation_id = Some(conversation_id);
+        }
 
-        let mut state = self.state.lock().await;
-        state.conversation_id = Some(parsed);
-
-        Ok(ConversationTranscriptDto::from_conversation(&conversation))
+        let snapshot = self.snapshot().await?;
+        self.emit_snapshot(snapshot.clone())?;
+        Ok(snapshot)
     }
 
-    pub async fn send_prompt(&self, input: SendPromptInput) -> anyhow::Result<SendPromptResultDto> {
+    pub async fn start_new_chat(
+        &self,
+        workspace_path: String,
+    ) -> anyhow::Result<SessionSnapshotDto> {
+        let workspace_path = canonicalize_workspace_path(PathBuf::from(workspace_path))?;
+        self.projects.add_project(Path::new(&workspace_path))?;
+        let runtime = self.ensure_workspace_runtime(&workspace_path).await?;
+        self.refresh_workspace_conversations(&workspace_path)
+            .await?;
+
+        let maybe_existing = {
+            let state = self.state.lock().await;
+            select_empty_draft_conversation_id(&state, &workspace_path)
+        };
+
+        let conversation_id = if let Some(existing) = maybe_existing {
+            existing
+        } else {
+            let mut current = None;
+            let created = create_conversation_record(runtime.api.as_ref(), &mut current).await?;
+            self.refresh_workspace_conversations(&workspace_path)
+                .await?;
+            let created_id = created.into_string();
+
+            let mut state = self.state.lock().await;
+            let order = state.allocate_order();
+            state
+                .conversations
+                .entry(created_id.clone())
+                .or_insert_with(|| ConversationSessionState {
+                    workspace_path: workspace_path.clone(),
+                    messages: Vec::new(),
+                    title: Some("New chat".to_string()),
+                    updated_at: None,
+                    active_request_ids: Vec::new(),
+                    is_local_draft: true,
+                    order,
+                });
+            created_id
+        };
+
+        {
+            let mut state = self.state.lock().await;
+            state.active_workspace_path = Some(workspace_path.clone());
+            state.ui_error = None;
+            let workspace = state
+                .workspaces
+                .entry(workspace_path.clone())
+                .or_insert_with(|| WorkspaceSessionState {
+                    workspace_name: workspace_name(Path::new(&workspace_path)),
+                    ..WorkspaceSessionState::default()
+                });
+            workspace.selected_conversation_id = Some(conversation_id.clone());
+        }
+
+        let snapshot = self.snapshot().await?;
+        self.emit_snapshot(snapshot.clone())?;
+        Ok(snapshot)
+    }
+
+    pub async fn send_prompt(&self, input: SendPromptInput) -> anyhow::Result<SessionSnapshotDto> {
+        let workspace_path =
+            canonicalize_workspace_path(PathBuf::from(input.workspace_path.trim()))?;
+        self.projects.add_project(Path::new(&workspace_path))?;
+
         let prompt = input.prompt.trim().to_string();
         if prompt.is_empty() {
             anyhow::bail!("Prompt cannot be empty.");
         }
 
-        let (runtime, conversation_id, request_id) = {
-            let mut state = self.state.lock().await;
-            if state.active_request_id.is_some() {
-                anyhow::bail!("A Forge run is already active.");
-            }
-
-            let runtime = state
-                .runtime
-                .clone()
-                .context("Open a workspace before sending a prompt.")?;
-
-            if runtime.config.session.is_none() {
-                anyhow::bail!(
-                    "{}",
-                    runtime
-                        .configuration_error
-                        .clone()
-                        .unwrap_or_else(|| { super::MISSING_SESSION_MESSAGE.to_string() })
-                );
-            }
-
-            let conversation_id = resolve_conversation_id(
-                runtime.api.as_ref(),
-                &mut state.conversation_id,
-                input.conversation_id.as_deref(),
-            )
+        let runtime = self.ensure_workspace_runtime(&workspace_path).await?;
+        self.refresh_workspace_conversations(&workspace_path)
             .await?;
 
-            let request_id = Uuid::new_v4().to_string();
-            state.active_request_id = Some(request_id.clone());
+        if runtime.config.session.is_none() {
+            anyhow::bail!(
+                "{}",
+                runtime
+                    .configuration_error
+                    .clone()
+                    .unwrap_or_else(|| MISSING_SESSION_MESSAGE.to_string())
+            );
+        }
 
-            (runtime, conversation_id, request_id)
+        let requested_conversation_id = input.conversation_id.clone();
+        let mut conversation_id = if let Some(conversation_id) = requested_conversation_id {
+            conversation_id
+        } else {
+            let state = self.state.lock().await;
+            state
+                .workspaces
+                .get(&workspace_path)
+                .and_then(|workspace| workspace.selected_conversation_id.clone())
+                .or_else(|| select_empty_draft_conversation_id(&state, &workspace_path))
+                .unwrap_or_default()
         };
 
+        if conversation_id.is_empty() {
+            let mut current = None;
+            let created = create_conversation_record(runtime.api.as_ref(), &mut current).await?;
+            conversation_id = created.into_string();
+            self.refresh_workspace_conversations(&workspace_path)
+                .await?;
+        }
+
+        self.ensure_conversation_loaded_or_insert_empty(&workspace_path, &conversation_id)
+            .await?;
+
+        let request_id = Uuid::new_v4().to_string();
+
+        {
+            let mut state = self.state.lock().await;
+            let is_running = state
+                .conversations
+                .get(&conversation_id)
+                .map(|conversation| !conversation.active_request_ids.is_empty())
+                .unwrap_or(false);
+            if is_running {
+                anyhow::bail!("This chat is already running.");
+            }
+
+            let order = state.allocate_order();
+            let conversation = state
+                .conversations
+                .entry(conversation_id.clone())
+                .or_insert_with(|| ConversationSessionState {
+                    workspace_path: workspace_path.clone(),
+                    messages: Vec::new(),
+                    title: Some("New chat".to_string()),
+                    updated_at: None,
+                    active_request_ids: Vec::new(),
+                    is_local_draft: true,
+                    order,
+                });
+
+            conversation.workspace_path = workspace_path.clone();
+            conversation.active_request_ids.push(request_id.clone());
+            conversation.is_local_draft = false;
+            conversation.order = order;
+            conversation.messages.push(SessionMessageDto::User {
+                id: create_message_id("user", &request_id, conversation.messages.len()),
+                request_id: request_id.clone(),
+                text: prompt.clone(),
+            });
+            conversation.title = Some(derive_conversation_title_from_messages(
+                &conversation.messages,
+            ));
+
+            let workspace = state
+                .workspaces
+                .entry(workspace_path.clone())
+                .or_insert_with(|| WorkspaceSessionState {
+                    workspace_name: workspace_name(Path::new(&workspace_path)),
+                    ..WorkspaceSessionState::default()
+                });
+            workspace.selected_conversation_id = Some(conversation_id.clone());
+            state.active_workspace_path = Some(workspace_path.clone());
+            state
+                .pending_followups_by_conversation
+                .remove(&conversation_id);
+            state.ui_error = None;
+        }
+
+        let snapshot = self.snapshot().await?;
+        self.emit_snapshot(snapshot.clone())?;
+
         let manager = self.clone();
-        let prompt_for_task = prompt.clone();
-        let request_id_for_task = request_id.clone();
         tauri::async_runtime::spawn(async move {
             manager
-                .stream_chat(
-                    runtime,
-                    request_id_for_task,
-                    conversation_id,
-                    prompt_for_task,
-                )
+                .stream_chat(runtime, workspace_path, request_id, conversation_id, prompt)
                 .await;
         });
 
-        Ok(SendPromptResultDto {
-            request_id,
-            conversation_id: conversation_id.into_string(),
-        })
+        Ok(snapshot)
     }
 
-    pub async fn respond_followup(&self, response: FollowupResponseDto) -> anyhow::Result<()> {
-        self.followups.respond(response).await
-    }
+    pub async fn respond_followup(
+        &self,
+        response: FollowupResponseDto,
+    ) -> anyhow::Result<SessionSnapshotDto> {
+        self.followups.respond(response.clone()).await?;
 
-    pub async fn reset_chat(&self) -> anyhow::Result<ResetChatResultDto> {
-        let conversation_id = {
+        {
             let mut state = self.state.lock().await;
-            if state.active_request_id.is_some() {
-                anyhow::bail!("Cannot reset the chat while Forge is running.");
+            let conversation_id = state.pending_followups_by_conversation.iter().find_map(
+                |(conversation_id, request)| {
+                    (request.followup_id == response.followup_id).then_some(conversation_id.clone())
+                },
+            );
+            if let Some(conversation_id) = conversation_id {
+                state
+                    .pending_followups_by_conversation
+                    .remove(&conversation_id);
             }
+            state.ui_error = None;
+        }
 
-            let runtime = state
-                .runtime
-                .clone()
-                .context("Open a workspace before starting a new chat.")?;
-
-            create_conversation_record(runtime.api.as_ref(), &mut state.conversation_id).await?
-        };
-
-        Ok(ResetChatResultDto {
-            conversation_id: conversation_id.into_string(),
-        })
+        let snapshot = self.snapshot().await?;
+        self.emit_snapshot(snapshot.clone())?;
+        Ok(snapshot)
     }
 
     pub async fn cancel_pending_followups(&self) {
         self.followups.cancel_all().await;
+        let mut state = self.state.lock().await;
+        state.pending_followups_by_conversation.clear();
     }
 
-    async fn finish_request(&self, request_id: &str) {
-        let mut state = self.state.lock().await;
-        if state.active_request_id.as_deref() == Some(request_id) {
-            state.active_request_id = None;
+    async fn ensure_known_workspaces_loaded(&self) -> anyhow::Result<()> {
+        let project_paths = self.projects.list_projects()?;
+        let project_keys = project_paths
+            .iter()
+            .map(|path| path.to_string_lossy().into_owned())
+            .collect::<Vec<_>>();
+
+        let missing = {
+            let mut state = self.state.lock().await;
+            state.workspace_order = project_keys.clone();
+            project_paths
+                .into_iter()
+                .filter(|path| {
+                    !state
+                        .workspaces
+                        .contains_key(path.to_string_lossy().as_ref())
+                })
+                .collect::<Vec<_>>()
+        };
+
+        for path in missing {
+            let workspace_path = path.to_string_lossy().into_owned();
+            let workspace_state = self
+                .load_workspace_state(path.clone(), None)
+                .await
+                .unwrap_or_else(|error| fallback_workspace_state(&path, error.to_string()));
+
+            let mut state = self.state.lock().await;
+            state
+                .workspaces
+                .entry(workspace_path)
+                .or_insert(workspace_state);
         }
+
+        Ok(())
+    }
+
+    async fn ensure_workspace_runtime(&self, workspace_path: &str) -> anyhow::Result<ForgeRuntime> {
+        if let Some(runtime) = self
+            .state
+            .lock()
+            .await
+            .workspaces
+            .get(workspace_path)
+            .and_then(|workspace| workspace.runtime.clone())
+        {
+            return Ok(runtime);
+        }
+
+        let workspace_path_buf = PathBuf::from(workspace_path);
+        let (config, configuration_error) = read_config();
+        let runtime = self
+            .factory
+            .build_runtime(
+                workspace_path_buf.clone(),
+                config.clone(),
+                configuration_error.clone(),
+            )
+            .await?;
+
+        let configured = runtime.config.session.is_some();
+        let configuration_error =
+            configuration_error_message(configured, runtime.configuration_error.clone());
+
+        let mut state = self.state.lock().await;
+        let workspace = state
+            .workspaces
+            .entry(workspace_path.to_string())
+            .or_insert_with(|| WorkspaceSessionState {
+                workspace_name: workspace_name(Path::new(workspace_path)),
+                ..WorkspaceSessionState::default()
+            });
+        workspace.workspace_name = workspace_name(Path::new(workspace_path));
+        workspace.configured = configured;
+        workspace.configuration_error = configuration_error;
+        workspace.runtime = Some(runtime.clone());
+
+        if !state
+            .workspace_order
+            .iter()
+            .any(|item| item == workspace_path)
+        {
+            state.workspace_order.insert(0, workspace_path.to_string());
+        }
+
+        Ok(runtime)
+    }
+
+    async fn refresh_workspace_conversations(&self, workspace_path: &str) -> anyhow::Result<()> {
+        let runtime = self.ensure_workspace_runtime(workspace_path).await?;
+        let conversations = runtime.api.get_conversations(None).await?;
+        let persisted_conversations = conversations
+            .iter()
+            .map(PersistedConversationSummary::from_conversation)
+            .collect::<Vec<_>>();
+        let configured = runtime.config.session.is_some();
+        let configuration_error =
+            configuration_error_message(configured, runtime.configuration_error.clone());
+
+        let mut state = self.state.lock().await;
+        let workspace = state
+            .workspaces
+            .entry(workspace_path.to_string())
+            .or_insert_with(|| WorkspaceSessionState {
+                workspace_name: workspace_name(Path::new(workspace_path)),
+                ..WorkspaceSessionState::default()
+            });
+        workspace.workspace_name = workspace_name(Path::new(workspace_path));
+        workspace.configured = configured;
+        workspace.configuration_error = configuration_error;
+        workspace.persisted_conversations = persisted_conversations.clone();
+
+        for persisted in persisted_conversations {
+            if let Some(conversation) = state.conversations.get_mut(&persisted.conversation_id) {
+                if conversation.title.is_none() {
+                    conversation.title = Some(persisted.title.clone());
+                }
+                if conversation.updated_at.is_none() {
+                    conversation.updated_at = persisted.updated_at.clone();
+                }
+                conversation.workspace_path = workspace_path.to_string();
+            }
+        }
+
+        Ok(())
+    }
+
+    async fn ensure_conversation_loaded(
+        &self,
+        workspace_path: &str,
+        conversation_id: &str,
+    ) -> anyhow::Result<()> {
+        if self
+            .state
+            .lock()
+            .await
+            .conversations
+            .contains_key(conversation_id)
+        {
+            return Ok(());
+        }
+
+        let runtime = self.ensure_workspace_runtime(workspace_path).await?;
+        let parsed = ConversationId::parse(conversation_id)?;
+        let conversation = runtime
+            .api
+            .conversation(&parsed)
+            .await?
+            .with_context(|| format!("Conversation not found: {conversation_id}"))?;
+        let persisted = PersistedConversationSummary::from_conversation(&conversation);
+
+        let mut state = self.state.lock().await;
+        let order = state.allocate_order();
+        state.conversations.insert(
+            conversation_id.to_string(),
+            hydrate_conversation_state(workspace_path, conversation, persisted, order),
+        );
+        Ok(())
+    }
+
+    async fn ensure_conversation_loaded_or_insert_empty(
+        &self,
+        workspace_path: &str,
+        conversation_id: &str,
+    ) -> anyhow::Result<()> {
+        let exists = self
+            .state
+            .lock()
+            .await
+            .conversations
+            .contains_key(conversation_id);
+        if exists {
+            return Ok(());
+        }
+
+        match self
+            .ensure_conversation_loaded(workspace_path, conversation_id)
+            .await
+        {
+            Ok(()) => Ok(()),
+            Err(_) => {
+                let mut state = self.state.lock().await;
+                let order = state.allocate_order();
+                state
+                    .conversations
+                    .entry(conversation_id.to_string())
+                    .or_insert_with(|| ConversationSessionState {
+                        workspace_path: workspace_path.to_string(),
+                        messages: Vec::new(),
+                        title: Some("New chat".to_string()),
+                        updated_at: None,
+                        active_request_ids: Vec::new(),
+                        is_local_draft: true,
+                        order,
+                    });
+                Ok(())
+            }
+        }
+    }
+
+    async fn snapshot(&self) -> anyhow::Result<SessionSnapshotDto> {
+        self.ensure_known_workspaces_loaded().await?;
+        let state = self.state.lock().await;
+        Ok(build_snapshot(&state))
+    }
+
+    async fn emit_session_snapshot(&self) -> anyhow::Result<()> {
+        let snapshot = self.snapshot().await?;
+        self.emit_snapshot(snapshot)
+    }
+
+    fn emit_snapshot(&self, snapshot: SessionSnapshotDto) -> anyhow::Result<()> {
+        self.emitter.emit_session_updated(snapshot)
     }
 
     async fn stream_chat(
         &self,
         runtime: ForgeRuntime,
+        workspace_path: String,
         request_id: String,
-        conversation_id: ConversationId,
+        conversation_id: String,
         prompt: String,
     ) {
-        let _ = self.emitter.emit_chat(ChatEventDto::new(
-            request_id.clone(),
-            conversation_id,
-            ChatEventKind::Started,
-        ));
+        let parsed_conversation_id = match ConversationId::parse(&conversation_id) {
+            Ok(value) => value,
+            Err(error) => {
+                self.record_stream_error(&conversation_id, &request_id, error.to_string())
+                    .await;
+                let _ = self.emit_session_snapshot().await;
+                return;
+            }
+        };
 
-        let stream = match runtime
-            .api
-            .chat(ChatRequest::new(Event::new(prompt), conversation_id))
-            .await
-        {
+        let context = FollowupContext {
+            workspace_path: workspace_path.clone(),
+            conversation_id: conversation_id.clone(),
+            request_id: request_id.clone(),
+        };
+
+        let stream = with_followup_context(context, async {
+            runtime
+                .api
+                .chat(ChatRequest::new(Event::new(prompt), parsed_conversation_id))
+                .await
+        })
+        .await;
+
+        let stream = match stream {
             Ok(stream) => stream,
             Err(error) => {
-                self.emit_error(&request_id, conversation_id, error.to_string());
-                self.finish_request(&request_id).await;
+                self.record_stream_error(&conversation_id, &request_id, error.to_string())
+                    .await;
+                let _ = self
+                    .finish_request(&workspace_path, &conversation_id, &request_id)
+                    .await;
                 return;
             }
         };
@@ -289,11 +606,9 @@ impl RuntimeManager {
                         if matches!(event, ChatEventKind::Complete) {
                             saw_complete = true;
                         }
-                        let _ = self.emitter.emit_chat(ChatEventDto::new(
-                            request_id.clone(),
-                            conversation_id,
-                            event,
-                        ));
+                        self.apply_chat_event(&conversation_id, &request_id, event)
+                            .await;
+                        let _ = self.emit_session_snapshot().await;
                     }
 
                     if let ChatResponse::ToolCallStart { notifier, .. } = &response {
@@ -301,185 +616,486 @@ impl RuntimeManager {
                     }
                 }
                 Err(error) => {
-                    self.emit_error(&request_id, conversation_id, error.to_string());
-                    self.finish_request(&request_id).await;
+                    self.record_stream_error(&conversation_id, &request_id, error.to_string())
+                        .await;
+                    let _ = self.emit_session_snapshot().await;
+                    let _ = self
+                        .finish_request(&workspace_path, &conversation_id, &request_id)
+                        .await;
                     return;
                 }
             }
         }
 
         if !saw_complete {
-            let _ = self.emitter.emit_chat(ChatEventDto::new(
-                request_id.clone(),
-                conversation_id,
-                ChatEventKind::Complete,
+            self.finish_request(&workspace_path, &conversation_id, &request_id)
+                .await
+                .ok();
+            return;
+        }
+
+        let _ = self
+            .finish_request(&workspace_path, &conversation_id, &request_id)
+            .await;
+    }
+
+    async fn apply_chat_event(
+        &self,
+        conversation_id: &str,
+        request_id: &str,
+        event: ChatEventKind,
+    ) {
+        let mut state = self.state.lock().await;
+        let mut should_clear_followup = false;
+        let mut next_ui_error: Option<String> = None;
+
+        {
+            let conversation = match state.conversations.get_mut(conversation_id) {
+                Some(conversation) => conversation,
+                None => return,
+            };
+
+            match event {
+                ChatEventKind::Started => {}
+                ChatEventKind::AssistantMarkdown { text } => {
+                    append_streamed_message(
+                        &mut conversation.messages,
+                        StreamedMessageKind::Assistant,
+                        request_id,
+                        text,
+                    );
+                }
+                ChatEventKind::Reasoning { text } => {
+                    append_streamed_message(
+                        &mut conversation.messages,
+                        StreamedMessageKind::Reasoning,
+                        request_id,
+                        text,
+                    );
+                }
+                ChatEventKind::Status {
+                    title,
+                    subtitle,
+                    category,
+                } => {
+                    let next_index = conversation.messages.len();
+                    conversation.messages.push(SessionMessageDto::Status {
+                        id: create_message_id("status", request_id, next_index),
+                        request_id: request_id.to_string(),
+                        title,
+                        subtitle,
+                        category,
+                    });
+                }
+                ChatEventKind::StatusOutput { text } => {
+                    let next_index = conversation.messages.len();
+                    conversation.messages.push(SessionMessageDto::StatusOutput {
+                        id: create_message_id("status-output", request_id, next_index),
+                        request_id: request_id.to_string(),
+                        text,
+                    });
+                }
+                ChatEventKind::ToolStart { name } => {
+                    let next_index = conversation.messages.len();
+                    conversation.messages.push(SessionMessageDto::ToolStart {
+                        id: create_message_id("tool-start", request_id, next_index),
+                        request_id: request_id.to_string(),
+                        name,
+                    });
+                }
+                ChatEventKind::ToolEnd {
+                    name,
+                    summary,
+                    is_error,
+                } => {
+                    let next_index = conversation.messages.len();
+                    conversation.messages.push(SessionMessageDto::ToolEnd {
+                        id: create_message_id("tool-end", request_id, next_index),
+                        request_id: request_id.to_string(),
+                        name,
+                        summary,
+                        is_error,
+                    });
+                }
+                ChatEventKind::Retry { cause, duration_ms } => {
+                    let next_index = conversation.messages.len();
+                    conversation.messages.push(SessionMessageDto::Status {
+                        id: create_message_id("status", request_id, next_index),
+                        request_id: request_id.to_string(),
+                        title: "Retrying request".to_string(),
+                        subtitle: Some(format!("{cause} ({duration_ms} ms)")),
+                        category: StatusCategoryDto::Warning,
+                    });
+                }
+                ChatEventKind::Interrupt { reason } => {
+                    let next_index = conversation.messages.len();
+                    conversation.messages.push(SessionMessageDto::Status {
+                        id: create_message_id("status", request_id, next_index),
+                        request_id: request_id.to_string(),
+                        title: "Interrupted".to_string(),
+                        subtitle: Some(reason),
+                        category: StatusCategoryDto::Warning,
+                    });
+                }
+                ChatEventKind::Complete => {
+                    conversation
+                        .active_request_ids
+                        .retain(|current| current != request_id);
+                }
+                ChatEventKind::Error { message } => {
+                    should_clear_followup = true;
+                    next_ui_error = Some(message.clone());
+                    conversation
+                        .active_request_ids
+                        .retain(|current| current != request_id);
+                    let next_index = conversation.messages.len();
+                    conversation.messages.push(SessionMessageDto::Error {
+                        id: create_message_id("error", request_id, next_index),
+                        request_id: request_id.to_string(),
+                        message,
+                    });
+                }
+            }
+
+            conversation.title = Some(derive_conversation_title_from_messages(
+                &conversation.messages,
             ));
         }
 
-        self.finish_request(&request_id).await;
-    }
-
-    fn emit_error(&self, request_id: &str, conversation_id: ConversationId, message: String) {
-        let _ = self.emitter.emit_chat(ChatEventDto::new(
-            request_id.to_string(),
-            conversation_id,
-            ChatEventKind::Error { message },
-        ));
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use forge_config::{ForgeConfig, ModelConfig};
-    use forge_domain::{Conversation, ConversationId};
-    use tempfile::TempDir;
-    use tokio::sync::Mutex;
-
-    use super::*;
-    use crate::bridge::emitter::MemoryEventEmitter;
-    use crate::test_support::{EnvGuard, create_project_store};
-
-    #[derive(Default)]
-    struct FakeConversationApi {
-        upserts: Mutex<Vec<ConversationId>>,
-    }
-
-    #[async_trait::async_trait]
-    impl super::super::factory::ConversationUpserter for FakeConversationApi {
-        async fn upsert_conversation_record(
-            &self,
-            conversation: Conversation,
-        ) -> anyhow::Result<()> {
-            self.upserts.lock().await.push(conversation.id);
-            Ok(())
+        if let Some(message) = next_ui_error {
+            state.ui_error = Some(message);
+        }
+        if should_clear_followup {
+            state
+                .pending_followups_by_conversation
+                .remove(conversation_id);
         }
     }
 
-    #[tokio::test]
-    async fn first_prompt_creates_and_persists_a_conversation_then_reuses_it() {
-        let api = FakeConversationApi::default();
-        let mut current = None;
-
-        let first = resolve_conversation_id(&api, &mut current, None)
-            .await
-            .expect("first conversation");
-        let second = resolve_conversation_id(&api, &mut current, None)
-            .await
-            .expect("second conversation");
-
-        assert_eq!(first, second);
-        assert_eq!(api.upserts.lock().await.len(), 1);
+    async fn record_stream_error(&self, conversation_id: &str, request_id: &str, message: String) {
+        let mut state = self.state.lock().await;
+        if let Some(conversation) = state.conversations.get_mut(conversation_id) {
+            conversation
+                .active_request_ids
+                .retain(|current| current != request_id);
+            let next_index = conversation.messages.len();
+            conversation.messages.push(SessionMessageDto::Error {
+                id: create_message_id("error", request_id, next_index),
+                request_id: request_id.to_string(),
+                message: message.clone(),
+            });
+            conversation.title = Some(derive_conversation_title_from_messages(
+                &conversation.messages,
+            ));
+        }
+        state
+            .pending_followups_by_conversation
+            .remove(conversation_id);
+        state.ui_error = Some(message);
     }
 
-    #[tokio::test]
-    async fn open_workspace_initializes_runtime_and_returns_status() {
-        let forge_home = TempDir::new().expect("forge home");
-        let workspace = TempDir::new().expect("workspace");
-        let _guard = EnvGuard::set_config_dir(forge_home.path());
-        let emitter = Arc::new(MemoryEventEmitter::default());
-        let followups = Arc::new(FollowupBridge::new(emitter.clone()));
-        let manager = RuntimeManager::new(emitter, followups, create_project_store(&forge_home));
-        let config = ForgeConfig {
-            session: Some(ModelConfig::new("openai", "gpt-4.1")),
-            ..Default::default()
+    async fn finish_request(
+        &self,
+        workspace_path: &str,
+        conversation_id: &str,
+        request_id: &str,
+    ) -> anyhow::Result<()> {
+        {
+            let mut state = self.state.lock().await;
+            if let Some(conversation) = state.conversations.get_mut(conversation_id) {
+                conversation
+                    .active_request_ids
+                    .retain(|current| current != request_id);
+            }
+        }
+
+        let _ = self.refresh_workspace_conversations(workspace_path).await;
+        let snapshot = self.snapshot().await?;
+        self.emit_snapshot(snapshot)?;
+        Ok(())
+    }
+
+    async fn load_workspace_state(
+        &self,
+        workspace_path: PathBuf,
+        resident_runtime: Option<ForgeRuntime>,
+    ) -> anyhow::Result<WorkspaceSessionState> {
+        let runtime = if let Some(runtime) = resident_runtime.clone() {
+            runtime
+        } else {
+            let (config, configuration_error) = read_config();
+            self.factory
+                .build_runtime(workspace_path.clone(), config, configuration_error)
+                .await?
         };
 
-        let status = manager
-            .open_workspace_with_config(workspace.path().to_path_buf(), config, None)
-            .await
-            .expect("open workspace");
+        let configured = runtime.config.session.is_some();
+        let configuration_error =
+            configuration_error_message(configured, runtime.configuration_error.clone());
+        let conversations = runtime.api.get_conversations(None).await?;
 
-        assert!(status.configured);
-        assert_eq!(
-            status.workspace_name,
-            workspace
-                .path()
-                .file_name()
-                .map(|value| value.to_string_lossy().into_owned())
-        );
+        Ok(WorkspaceSessionState {
+            runtime: resident_runtime,
+            workspace_name: workspace_name(&workspace_path),
+            configured,
+            configuration_error,
+            selected_conversation_id: None,
+            persisted_conversations: conversations
+                .iter()
+                .map(PersistedConversationSummary::from_conversation)
+                .collect(),
+        })
     }
+}
 
-    #[tokio::test]
-    async fn reset_chat_persists_a_new_empty_conversation() {
-        let forge_home = TempDir::new().expect("forge home");
-        let workspace = TempDir::new().expect("workspace");
-        let _guard = EnvGuard::set_config_dir(forge_home.path());
-        let emitter = Arc::new(MemoryEventEmitter::default());
-        let followups = Arc::new(FollowupBridge::new(emitter.clone()));
-        let manager = RuntimeManager::new(emitter, followups, create_project_store(&forge_home));
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum StreamedMessageKind {
+    Assistant,
+    Reasoning,
+}
 
-        manager
-            .open_workspace_with_config(
-                workspace.path().to_path_buf(),
-                ForgeConfig::default(),
-                None,
-            )
-            .await
-            .expect("open workspace");
+fn build_snapshot(state: &RuntimeState) -> SessionSnapshotDto {
+    let active_workspace_path = state.active_workspace_path.clone();
+    let active_conversation_id = active_workspace_path.as_ref().and_then(|workspace_path| {
+        state
+            .workspaces
+            .get(workspace_path)
+            .and_then(|workspace| workspace.selected_conversation_id.clone())
+    });
 
-        let result = manager.reset_chat().await.expect("reset chat");
-        let loaded = manager
-            .load_conversation(result.conversation_id)
-            .await
-            .expect("load conversation");
+    let visible_messages = active_conversation_id
+        .as_ref()
+        .and_then(|conversation_id| state.conversations.get(conversation_id))
+        .map(|conversation| conversation.messages.clone())
+        .unwrap_or_default();
 
-        assert!(loaded.messages.is_empty());
+    let visible_followup = active_conversation_id.as_ref().and_then(|conversation_id| {
+        state
+            .pending_followups_by_conversation
+            .get(conversation_id)
+            .cloned()
+    });
+
+    SessionSnapshotDto {
+        active_workspace_label: active_workspace_path
+            .as_ref()
+            .and_then(|workspace_path| state.workspaces.get(workspace_path))
+            .map(|workspace| workspace.workspace_name.clone())
+            .unwrap_or_else(|| "Projects".to_string()),
+        active_workspace_path: active_workspace_path.clone(),
+        active_conversation_id,
+        visible_messages,
+        visible_followup,
+        ui_error: state.ui_error.clone(),
+        workspaces: ordered_workspace_paths(state)
+            .into_iter()
+            .filter_map(|workspace_path| {
+                state
+                    .workspaces
+                    .get(&workspace_path)
+                    .map(|workspace| build_workspace_snapshot(state, &workspace_path, workspace))
+            })
+            .collect(),
     }
+}
 
-    #[tokio::test]
-    async fn list_projects_returns_opened_projects_from_store() {
-        let forge_home = TempDir::new().expect("forge home");
-        let workspace_one = TempDir::new().expect("workspace one");
-        let workspace_two = TempDir::new().expect("workspace two");
-        let _guard = EnvGuard::set_config_dir(forge_home.path());
-        let emitter = Arc::new(MemoryEventEmitter::default());
-        let followups = Arc::new(FollowupBridge::new(emitter.clone()));
-        let manager = RuntimeManager::new(emitter, followups, create_project_store(&forge_home));
+fn build_workspace_snapshot(
+    state: &RuntimeState,
+    workspace_path: &str,
+    workspace: &WorkspaceSessionState,
+) -> WorkspaceSessionDto {
+    let selected_conversation_id = workspace.selected_conversation_id.clone();
+    let persisted_ids = workspace
+        .persisted_conversations
+        .iter()
+        .map(|conversation| conversation.conversation_id.clone())
+        .collect::<HashSet<_>>();
 
-        manager
-            .open_workspace_with_config(
-                workspace_one.path().to_path_buf(),
-                ForgeConfig::default(),
-                None,
-            )
-            .await
-            .expect("open workspace one");
-        std::thread::sleep(std::time::Duration::from_secs(1));
-        manager
-            .open_workspace_with_config(
-                workspace_two.path().to_path_buf(),
-                ForgeConfig::default(),
-                None,
-            )
-            .await
-            .expect("open workspace two");
+    let mut conversations = workspace
+        .persisted_conversations
+        .iter()
+        .map(|persisted| {
+            let local = state.conversations.get(&persisted.conversation_id);
+            ConversationSessionSummaryDto {
+                conversation_id: persisted.conversation_id.clone(),
+                title: local
+                    .and_then(|conversation| conversation.title.clone())
+                    .unwrap_or_else(|| persisted.title.clone()),
+                updated_at: local
+                    .and_then(|conversation| conversation.updated_at.clone())
+                    .or_else(|| persisted.updated_at.clone()),
+                is_selected: selected_conversation_id.as_deref()
+                    == Some(persisted.conversation_id.as_str()),
+                is_draft: local
+                    .map(|conversation| conversation.is_local_draft)
+                    .unwrap_or(false),
+                is_running: local
+                    .map(|conversation| !conversation.active_request_ids.is_empty())
+                    .unwrap_or(false),
+                has_pending_followup: state
+                    .pending_followups_by_conversation
+                    .contains_key(&persisted.conversation_id),
+            }
+        })
+        .collect::<Vec<_>>();
 
-        let projects = manager.list_projects().await.expect("list projects");
+    let mut local_only = state
+        .conversations
+        .iter()
+        .filter(|(conversation_id, conversation)| {
+            conversation.workspace_path == workspace_path
+                && !persisted_ids.contains(*conversation_id)
+        })
+        .map(
+            |(conversation_id, conversation)| ConversationSessionSummaryDto {
+                conversation_id: conversation_id.clone(),
+                title: conversation.title.clone().unwrap_or_else(|| {
+                    derive_conversation_title_from_messages(&conversation.messages)
+                }),
+                updated_at: conversation.updated_at.clone(),
+                is_selected: selected_conversation_id.as_deref() == Some(conversation_id.as_str()),
+                is_draft: conversation.is_local_draft,
+                is_running: !conversation.active_request_ids.is_empty(),
+                has_pending_followup: state
+                    .pending_followups_by_conversation
+                    .contains_key(conversation_id),
+            },
+        )
+        .collect::<Vec<_>>();
 
-        assert_eq!(projects.len(), 2);
-        let paths = projects
-            .iter()
-            .map(|project| project.workspace_path.clone())
-            .collect::<Vec<_>>();
-        assert!(
-            paths.contains(
-                &workspace_one
-                    .path()
-                    .canonicalize()
-                    .unwrap()
-                    .to_string_lossy()
-                    .into_owned()
-            )
-        );
-        assert!(
-            paths.contains(
-                &workspace_two
-                    .path()
-                    .canonicalize()
-                    .unwrap()
-                    .to_string_lossy()
-                    .into_owned()
-            )
-        );
+    local_only.sort_by(|left, right| {
+        let left_order = state
+            .conversations
+            .get(&left.conversation_id)
+            .map(|conversation| conversation.order)
+            .unwrap_or_default();
+        let right_order = state
+            .conversations
+            .get(&right.conversation_id)
+            .map(|conversation| conversation.order)
+            .unwrap_or_default();
+        right_order.cmp(&left_order)
+    });
+    conversations.splice(0..0, local_only);
+
+    WorkspaceSessionDto {
+        workspace_path: workspace_path.to_string(),
+        workspace_name: workspace.workspace_name.clone(),
+        is_active: state.active_workspace_path.as_deref() == Some(workspace_path),
+        configured: workspace.configured,
+        configuration_error: workspace.configuration_error.clone(),
+        selected_conversation_id,
+        conversations,
     }
+}
+
+fn ordered_workspace_paths(state: &RuntimeState) -> Vec<String> {
+    let mut ordered = state.workspace_order.clone();
+    for workspace_path in state.workspaces.keys() {
+        if !ordered.iter().any(|current| current == workspace_path) {
+            ordered.push(workspace_path.clone());
+        }
+    }
+    ordered
+}
+
+fn hydrate_conversation_state(
+    workspace_path: &str,
+    conversation: Conversation,
+    persisted: PersistedConversationSummary,
+    order: u64,
+) -> ConversationSessionState {
+    ConversationSessionState {
+        workspace_path: workspace_path.to_string(),
+        messages: session_messages_from_conversation(&conversation),
+        title: Some(persisted.title),
+        updated_at: persisted.updated_at,
+        active_request_ids: Vec::new(),
+        is_local_draft: false,
+        order,
+    }
+}
+
+fn fallback_workspace_state(workspace_path: &Path, error: String) -> WorkspaceSessionState {
+    let (config, configuration_error) = read_config();
+    let configured = config.session.is_some();
+    let configuration_error = configuration_error_message(configured, Some(error))
+        .or(configuration_error_message(configured, configuration_error));
+
+    WorkspaceSessionState {
+        runtime: None,
+        workspace_name: workspace_name(workspace_path),
+        configured,
+        configuration_error,
+        selected_conversation_id: None,
+        persisted_conversations: Vec::new(),
+    }
+}
+
+fn append_streamed_message(
+    messages: &mut Vec<SessionMessageDto>,
+    kind: StreamedMessageKind,
+    request_id: &str,
+    text: String,
+) {
+    match messages.last_mut() {
+        Some(SessionMessageDto::Assistant {
+            request_id: current_request_id,
+            text: current_text,
+            ..
+        }) if kind == StreamedMessageKind::Assistant && current_request_id == request_id => {
+            current_text.push_str(&text);
+        }
+        Some(SessionMessageDto::Reasoning {
+            request_id: current_request_id,
+            text: current_text,
+            ..
+        }) if kind == StreamedMessageKind::Reasoning && current_request_id == request_id => {
+            current_text.push_str(&text);
+        }
+        _ => {
+            let next_index = messages.len();
+            match kind {
+                StreamedMessageKind::Assistant => messages.push(SessionMessageDto::Assistant {
+                    id: create_message_id("assistant", request_id, next_index),
+                    request_id: request_id.to_string(),
+                    text,
+                }),
+                StreamedMessageKind::Reasoning => messages.push(SessionMessageDto::Reasoning {
+                    id: create_message_id("reasoning", request_id, next_index),
+                    request_id: request_id.to_string(),
+                    text,
+                }),
+            }
+        }
+    }
+}
+
+fn create_message_id(prefix: &str, request_id: &str, index: usize) -> String {
+    format!("{prefix}:{request_id}:{index}")
+}
+
+fn select_empty_draft_conversation_id(
+    state: &RuntimeState,
+    workspace_path: &str,
+) -> Option<String> {
+    state
+        .conversations
+        .iter()
+        .filter(|(_, conversation)| {
+            conversation.workspace_path == workspace_path
+                && conversation.is_local_draft
+                && conversation.messages.is_empty()
+                && conversation.active_request_ids.is_empty()
+        })
+        .max_by_key(|(_, conversation)| conversation.order)
+        .map(|(conversation_id, _)| conversation_id.clone())
+}
+
+fn canonicalize_workspace_path(path: PathBuf) -> anyhow::Result<String> {
+    Ok(path
+        .canonicalize()
+        .with_context(|| format!("Failed to open workspace {}", path.display()))?
+        .to_string_lossy()
+        .into_owned())
 }

@@ -19,6 +19,9 @@ pub struct FollowupOptionDto {
 #[serde(rename_all = "camelCase")]
 pub struct FollowupRequestDto {
     pub followup_id: String,
+    pub workspace_path: String,
+    pub conversation_id: String,
+    pub request_id: String,
     pub kind: FollowupKind,
     pub question: String,
     pub options: Option<Vec<FollowupOptionDto>>,

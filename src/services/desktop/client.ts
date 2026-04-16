@@ -2,19 +2,12 @@ import { invoke } from '@tauri-apps/api/core'
 import { listen, type UnlistenFn } from '@tauri-apps/api/event'
 
 import type {
-  ChatEventEnvelope,
-  ConversationTranscript,
-  FollowupRequest,
   FollowupResponse,
-  ProjectConversationGroup,
-  ResetChatResult,
-  RuntimeStatus,
   SendPromptInput,
-  SendPromptResult,
+  SessionSnapshot,
 } from './contracts'
 
-const CHAT_EVENT_NAME = 'forge://chat-event'
-const FOLLOWUP_EVENT_NAME = 'forge://followup-request'
+const SESSION_UPDATED_EVENT_NAME = 'agent-ui://session-updated'
 
 function invokeCommand<T>(
   command: string,
@@ -36,44 +29,37 @@ export function pickWorkspace(): Promise<string | null> {
   return invokeCommand('pick_workspace')
 }
 
-export function openWorkspace(path: string): Promise<RuntimeStatus> {
+export function openWorkspace(path: string): Promise<SessionSnapshot> {
   return invokeCommand('open_workspace', { path })
 }
 
-export function getRuntimeStatus(): Promise<RuntimeStatus> {
-  return invokeCommand('get_runtime_status')
+export function getSessionSnapshot(): Promise<SessionSnapshot> {
+  return invokeCommand('get_session_snapshot')
 }
 
-export function listProjects(): Promise<ProjectConversationGroup[]> {
-  return invokeCommand('list_projects')
-}
-
-export function loadConversation(
+export function selectConversation(
+  workspacePath: string,
   conversationId: string,
-): Promise<ConversationTranscript> {
-  return invokeCommand('load_conversation', { conversationId })
+): Promise<SessionSnapshot> {
+  return invokeCommand('select_conversation', { workspacePath, conversationId })
 }
 
-export function sendPrompt(input: SendPromptInput): Promise<SendPromptResult> {
+export function startNewChat(workspacePath: string): Promise<SessionSnapshot> {
+  return invokeCommand('start_new_chat', { workspacePath })
+}
+
+export function sendPrompt(input: SendPromptInput): Promise<SessionSnapshot> {
   return invokeCommand('send_prompt', { input })
 }
 
-export function respondFollowup(response: FollowupResponse): Promise<void> {
+export function respondFollowup(
+  response: FollowupResponse,
+): Promise<SessionSnapshot> {
   return invokeCommand('respond_followup', { response })
 }
 
-export function resetChat(): Promise<ResetChatResult> {
-  return invokeCommand('reset_chat')
-}
-
-export async function listenChatEvents(
-  handler: (payload: ChatEventEnvelope) => void,
+export async function listenSessionUpdates(
+  handler: (payload: SessionSnapshot) => void,
 ): Promise<UnlistenFn> {
-  return listenEvent(CHAT_EVENT_NAME, handler)
-}
-
-export async function listenFollowupRequests(
-  handler: (payload: FollowupRequest) => void,
-): Promise<UnlistenFn> {
-  return listenEvent(FOLLOWUP_EVENT_NAME, handler)
+  return listenEvent(SESSION_UPDATED_EVENT_NAME, handler)
 }

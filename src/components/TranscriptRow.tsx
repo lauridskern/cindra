@@ -1,10 +1,10 @@
 import ReactMarkdown from 'react-markdown'
 
-import type { StatusCategory, TranscriptMessage } from '../services/desktop/contracts'
+import type { SessionMessage, StatusCategory } from '../services/desktop/contracts'
 import { cn } from '../utils/cn'
 
 interface TranscriptRowProps {
-  message: TranscriptMessage
+  message: SessionMessage
 }
 
 function statusToneClass(category: StatusCategory): string {

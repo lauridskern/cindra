@@ -1,7 +1,4 @@
-use crate::dto::{
-    ConversationTranscriptDto, FollowupResponseDto, ProjectSummaryDto, ResetChatResultDto,
-    RuntimeStatusDto, SendPromptInput, SendPromptResultDto,
-};
+use crate::dto::{FollowupResponseDto, SendPromptInput, SessionSnapshotDto};
 use crate::runtime::DesktopState;
 use tauri_plugin_dialog::{DialogExt, FilePath};
 
@@ -20,7 +17,7 @@ pub(crate) async fn pick_workspace(app: tauri::AppHandle) -> Result<Option<Strin
 pub(crate) async fn open_workspace(
     path: String,
     state: tauri::State<'_, DesktopState>,
-) -> Result<RuntimeStatusDto, String> {
+) -> Result<SessionSnapshotDto, String> {
     state
         .manager
         .open_workspace(path.into())
@@ -29,12 +26,12 @@ pub(crate) async fn open_workspace(
 }
 
 #[tauri::command]
-pub(crate) async fn get_runtime_status(
+pub(crate) async fn get_session_snapshot(
     state: tauri::State<'_, DesktopState>,
-) -> Result<RuntimeStatusDto, String> {
+) -> Result<SessionSnapshotDto, String> {
     state
         .manager
-        .get_runtime_status()
+        .get_session_snapshot()
         .await
         .map_err(|error| error.to_string())
 }
@@ -43,7 +40,7 @@ pub(crate) async fn get_runtime_status(
 pub(crate) async fn send_prompt(
     input: SendPromptInput,
     state: tauri::State<'_, DesktopState>,
-) -> Result<SendPromptResultDto, String> {
+) -> Result<SessionSnapshotDto, String> {
     state
         .manager
         .send_prompt(input)
@@ -52,24 +49,26 @@ pub(crate) async fn send_prompt(
 }
 
 #[tauri::command]
-pub(crate) async fn list_projects(
+pub(crate) async fn select_conversation(
+    workspace_path: String,
+    conversation_id: String,
     state: tauri::State<'_, DesktopState>,
-) -> Result<Vec<ProjectSummaryDto>, String> {
+) -> Result<SessionSnapshotDto, String> {
     state
         .manager
-        .list_projects()
+        .select_conversation(workspace_path, conversation_id)
         .await
         .map_err(|error| error.to_string())
 }
 
 #[tauri::command]
-pub(crate) async fn load_conversation(
-    conversation_id: String,
+pub(crate) async fn start_new_chat(
+    workspace_path: String,
     state: tauri::State<'_, DesktopState>,
-) -> Result<ConversationTranscriptDto, String> {
+) -> Result<SessionSnapshotDto, String> {
     state
         .manager
-        .load_conversation(conversation_id)
+        .start_new_chat(workspace_path)
         .await
         .map_err(|error| error.to_string())
 }
@@ -78,21 +77,10 @@ pub(crate) async fn load_conversation(
 pub(crate) async fn respond_followup(
     response: FollowupResponseDto,
     state: tauri::State<'_, DesktopState>,
-) -> Result<(), String> {
+) -> Result<SessionSnapshotDto, String> {
     state
         .manager
         .respond_followup(response)
-        .await
-        .map_err(|error| error.to_string())
-}
-
-#[tauri::command]
-pub(crate) async fn reset_chat(
-    state: tauri::State<'_, DesktopState>,
-) -> Result<ResetChatResultDto, String> {
-    state
-        .manager
-        .reset_chat()
         .await
         .map_err(|error| error.to_string())
 }

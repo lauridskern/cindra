@@ -3,14 +3,14 @@ import {
   type LegendListRenderItemProps,
 } from '@legendapp/list/react'
 
-import type { TranscriptMessage } from '../services/desktop/contracts'
+import type { SessionMessage } from '../services/desktop/contracts'
 import { TranscriptRow } from './TranscriptRow'
 
 interface ChatThreadProps {
-  messages: TranscriptMessage[]
+  messages: SessionMessage[]
 }
 
-function getMessageText(message: TranscriptMessage): string {
+function getMessageText(message: SessionMessage): string {
   switch (message.kind) {
     case 'user':
     case 'assistant':
@@ -30,7 +30,7 @@ function getMessageText(message: TranscriptMessage): string {
   }
 }
 
-function estimateChatThreadMessageSize(message: TranscriptMessage): number {
+function estimateChatThreadMessageSize(message: SessionMessage): number {
   const lineCount = Math.max(1, Math.ceil(getMessageText(message).length / 72))
 
   switch (message.kind) {
@@ -49,7 +49,7 @@ function estimateChatThreadMessageSize(message: TranscriptMessage): number {
 
 function renderChatThreadItem({
   item,
-}: LegendListRenderItemProps<TranscriptMessage>) {
+}: LegendListRenderItemProps<SessionMessage>) {
   return (
     <div className="mx-auto w-full max-w-3xl px-6 pb-4 select-text max-md:px-4">
       <TranscriptRow message={item} />

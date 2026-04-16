@@ -2,24 +2,24 @@ import { createContext } from 'react'
 
 import type {
   FollowupRequest,
-  RuntimeStatus,
-  TranscriptMessage,
+  SessionMessage,
+  WorkspaceSession,
 } from '../services/desktop/contracts'
-import type { ProjectSummary } from './sessionSelectors'
 
 export interface ConversationStateContextValue {
   activeWorkspaceLabel: string
+  activeWorkspaceConfigured: boolean
+  activeWorkspaceConfigurationError: string | null
   hasCurrentWorkspace: boolean
   isOpeningProject: boolean
-  messages: TranscriptMessage[]
-  runtimeStatus: RuntimeStatus | null
+  messages: SessionMessage[]
   uiError: string | null
 }
 
 export interface SidebarStateContextValue {
   hasCurrentWorkspace: boolean
   isOpeningProject: boolean
-  projectSummaries: ProjectSummary[]
+  workspaces: WorkspaceSession[]
 }
 
 export interface PromptDraftContextValue {

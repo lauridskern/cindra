@@ -9,10 +9,11 @@ export function ConversationPanel() {
   const { openWorkspacePicker } = useSessionActions()
   const {
     activeWorkspaceLabel,
+    activeWorkspaceConfigured,
+    activeWorkspaceConfigurationError,
     hasCurrentWorkspace,
     isOpeningProject,
     messages,
-    runtimeStatus,
     uiError,
   } = useConversationSession()
 
@@ -33,12 +34,12 @@ export function ConversationPanel() {
         </div>
       ) : null}
 
-      {runtimeStatus?.configured === false ? (
+      {activeWorkspaceConfigured === false ? (
         <div
           className="mx-6 mt-2.5 text-sm leading-6 text-amber-700 max-md:mx-4 dark:text-amber-400"
           role="alert"
         >
-          {runtimeStatus.configurationError ??
+          {activeWorkspaceConfigurationError ??
             'No session is configured. Configure the terminal session first.'}
         </div>
       ) : null}

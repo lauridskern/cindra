@@ -1,12 +1,12 @@
 import { ChevronDown, ChevronRight, Folder, PenSquare } from 'lucide-react'
 
-import type { ProjectSummary } from '../app/sessionSelectors'
+import type { WorkspaceSession } from '../services/desktop/contracts'
 import { cn } from '../utils/cn'
 import { ProjectSidebarConversationRow } from './ProjectSidebarConversationRow'
 
 interface ProjectSidebarProjectProps {
   isExpanded: boolean
-  project: ProjectSummary
+  project: WorkspaceSession
   onEnsureProjectExpanded: (workspacePath: string) => void
   onOpenProject: (workspacePath: string) => void
   onSelectConversation: (workspacePath: string, conversationId: string) => void
@@ -28,8 +28,8 @@ export function ProjectSidebarProject({
       <div
         className={cn(
           'group flex items-center gap-1 rounded-lg px-1.5 py-1 transition-colors duration-150',
-          (project.isCurrent || isExpanded) && 'bg-neutral-950/5 dark:bg-white/10',
-          !(project.isCurrent || isExpanded) &&
+          (project.isActive || isExpanded) && 'bg-neutral-950/5 dark:bg-white/10',
+          !(project.isActive || isExpanded) &&
             'hover:bg-neutral-950/5 dark:hover:bg-white/5',
         )}
       >
@@ -37,7 +37,7 @@ export function ProjectSidebarProject({
           type="button"
           className="appearance-none font-inherit transition duration-150 ease-out disabled:cursor-not-allowed disabled:opacity-45 flex min-w-0 flex-1 items-center gap-1.5 rounded-md px-1 py-0.5 text-left text-neutral-600 dark:text-neutral-200"
           onClick={() => {
-            if (project.isCurrent) {
+            if (project.isActive) {
               onToggleProjectExpanded(project.workspacePath)
               return
             }
@@ -85,11 +85,12 @@ export function ProjectSidebarProject({
               <ProjectSidebarConversationRow
                 key={`${project.workspacePath}:${conversation.conversationId}`}
                 conversation={conversation}
+                workspacePath={project.workspacePath}
                 onSelectConversation={onSelectConversation}
               />
             ))}
           </div>
-        ) : project.isCurrent ? (
+        ) : project.isActive ? (
           <p className="pl-7 text-xs text-neutral-400 dark:text-neutral-500">
             No chats yet
           </p>

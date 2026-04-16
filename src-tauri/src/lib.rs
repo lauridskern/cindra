@@ -12,15 +12,12 @@ mod persistence {
     pub mod project_store;
 }
 
-#[cfg(test)]
-mod test_support;
-
 use std::sync::Arc;
 
 use bridge::emitter::TauriEventEmitter;
 use commands::{
-    get_runtime_status, list_projects, load_conversation, open_workspace, pick_workspace,
-    reset_chat, respond_followup, send_prompt,
+    get_session_snapshot, open_workspace, pick_workspace, respond_followup, select_conversation,
+    send_prompt, start_new_chat,
 };
 use persistence::project_store::ProjectStore;
 use runtime::DesktopState;
@@ -58,12 +55,11 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             pick_workspace,
             open_workspace,
-            get_runtime_status,
-            list_projects,
-            load_conversation,
+            get_session_snapshot,
+            select_conversation,
+            start_new_chat,
             send_prompt,
-            respond_followup,
-            reset_chat
+            respond_followup
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

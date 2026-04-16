@@ -15,7 +15,7 @@ export function ProjectSidebar() {
   const {
     hasCurrentWorkspace,
     isOpeningProject,
-    projectSummaries,
+    workspaces,
   } = useSidebarSession()
 
   function toggleProjectExpanded(workspacePath: string) {
@@ -73,12 +73,12 @@ export function ProjectSidebar() {
           </div>
 
           <div className="grid gap-1.5">
-            {projectSummaries.length === 0 ? (
+            {workspaces.length === 0 ? (
               <p className="mt-0.5 px-2 text-xs text-neutral-400 dark:text-neutral-500">
                 No projects yet
               </p>
             ) : (
-              projectSummaries.map((project) => {
+              workspaces.map((project) => {
                 const isExpanded = expandedProjectPaths.includes(project.workspacePath)
 
                 return (

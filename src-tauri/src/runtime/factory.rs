@@ -1,4 +1,4 @@
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::Arc;
 
 use forge_api::{API, ForgeAPI};
@@ -11,8 +11,6 @@ use forge_services::ForgeServices;
 
 use crate::bridge::desktop_infra::DesktopInfra;
 use crate::bridge::followup::FollowupBridge;
-use crate::dto::RuntimeStatusDto;
-
 pub(crate) type DesktopRepo = ForgeRepo<DesktopInfra>;
 pub(crate) type DesktopServices = ForgeServices<DesktopRepo>;
 pub(crate) type DesktopApi = ForgeAPI<DesktopServices, DesktopRepo>;
@@ -25,21 +23,6 @@ pub(crate) struct ForgeRuntime {
     pub(crate) api: Arc<DesktopApi>,
     pub(crate) config: ForgeConfig,
     pub(crate) configuration_error: Option<String>,
-}
-
-impl ForgeRuntime {
-    pub(crate) async fn status(
-        &self,
-        workspace_path: Option<&Path>,
-    ) -> anyhow::Result<RuntimeStatusDto> {
-        let configured = self.config.session.is_some();
-
-        Ok(RuntimeStatusDto::new(
-            workspace_path,
-            configured,
-            configuration_error_message(configured, self.configuration_error.clone()),
-        ))
-    }
 }
 
 pub(crate) struct RuntimeFactory {
@@ -113,22 +96,4 @@ pub(crate) async fn create_conversation_record<A: ConversationUpserter + Sync>(
     api.upsert_conversation_record(conversation).await?;
     *current = Some(conversation_id);
     Ok(conversation_id)
-}
-
-pub(crate) async fn resolve_conversation_id<A: ConversationUpserter + Sync>(
-    api: &A,
-    current: &mut Option<ConversationId>,
-    requested: Option<&str>,
-) -> anyhow::Result<ConversationId> {
-    if let Some(requested) = requested {
-        let parsed = ConversationId::parse(requested)?;
-        *current = Some(parsed);
-        return Ok(parsed);
-    }
-
-    if let Some(existing) = current {
-        return Ok(*existing);
-    }
-
-    create_conversation_record(api, current).await
 }
