@@ -125,7 +125,7 @@ function ActivityOperationRow({
   operation: ActivityOperation;
   workspacePath: string | null;
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(operation.isError);
   const outputText = buildGenericOutputText(operation);
   const isExpandable = outputText != null;
   const label = formatOperationLabel(operation, workspacePath);
@@ -174,18 +174,18 @@ function ActivityOperationRow({
 }
 
 export function ChatActivityRow({ item, workspacePath }: ChatActivityRowProps) {
-  const [open, setOpen] = useState(item.isRunning);
+  const [open, setOpen] = useState(item.isRunning || item.hasError);
   const previousRunningRef = useRef(item.isRunning);
 
   useEffect(() => {
     if (previousRunningRef.current && item.isRunning === false) {
-      setOpen(false);
+      setOpen(item.hasError);
     } else if (previousRunningRef.current === false && item.isRunning) {
       setOpen(true);
     }
 
     previousRunningRef.current = item.isRunning;
-  }, [item.isRunning]);
+  }, [item.hasError, item.isRunning]);
 
   if (item.isThinking) {
     return (

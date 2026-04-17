@@ -25,6 +25,7 @@ export interface ActivityItem {
   operations: ActivityOperation[];
   isRunning: boolean;
   isThinking: boolean;
+  hasError: boolean;
   reasoningText?: string;
 }
 
@@ -40,6 +41,7 @@ export type ChatThreadItem =
       requestId: string;
       activities: ActivityItem[];
       isRunning: boolean;
+      hasError: boolean;
     };
 
 interface ActivityGroupBuilder {
@@ -101,6 +103,7 @@ export function buildChatThreadItems(
         operations: [],
         isRunning,
         isThinking: true,
+        hasError: false,
         reasoningText: group.reasoningText.trim(),
       });
     }
@@ -115,6 +118,7 @@ export function buildChatThreadItems(
         operations,
         isRunning: isRunning && index === operationGroups.length - 1,
         isThinking: false,
+        hasError: operations.some((operation) => operation.isError),
         reasoningText: undefined,
       });
     });
@@ -135,6 +139,7 @@ export function buildChatThreadItems(
       requestId,
       activities,
       isRunning,
+      hasError: activities.some((activity) => activity.hasError),
     });
     emittedWorkItemRequestIds.add(requestId);
   };

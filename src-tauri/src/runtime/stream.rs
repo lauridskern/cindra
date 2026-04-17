@@ -3,7 +3,9 @@ use forge_domain::{ChatRequest, ChatResponse, ConversationId, Event};
 use futures::StreamExt;
 
 use crate::bridge::followup::{FollowupContext, with_followup_context};
-use crate::dto::{ChatEventKind, SessionMessageDto, StatusCategoryDto};
+use crate::dto::{
+    ChatEventKind, SessionMessageDto, StatusCategoryDto, ToolCallDetailDto, ToolResultDetailDto,
+};
 
 use super::{ForgeRuntime, RuntimeManager, derive_conversation_title_from_messages};
 
@@ -51,7 +53,7 @@ impl RuntimeManager {
                 self.record_stream_error(&conversation_id, &request_id, error.to_string())
                     .await;
                 let _ = self
-                    .finish_request(&workspace_path, &conversation_id, &request_id)
+                    .finish_request(&workspace_path, &conversation_id, &request_id, false)
                     .await;
                 return;
             }
@@ -59,6 +61,7 @@ impl RuntimeManager {
 
         tokio::pin!(stream);
         let mut saw_complete = false;
+        let mut saw_interrupt = false;
 
         while let Some(item) = stream.next().await {
             match item {
@@ -66,6 +69,9 @@ impl RuntimeManager {
                     if let Some(event) = crate::dto::map_chat_response(&response) {
                         if matches!(event, ChatEventKind::Complete) {
                             saw_complete = true;
+                        }
+                        if matches!(event, ChatEventKind::Interrupt { .. }) {
+                            saw_interrupt = true;
                         }
                         self.apply_chat_event(&conversation_id, &request_id, event)
                             .await;
@@ -81,7 +87,7 @@ impl RuntimeManager {
                         .await;
                     let _ = self.emit_session_snapshot().await;
                     let _ = self
-                        .finish_request(&workspace_path, &conversation_id, &request_id)
+                        .finish_request(&workspace_path, &conversation_id, &request_id, false)
                         .await;
                     return;
                 }
@@ -89,14 +95,24 @@ impl RuntimeManager {
         }
 
         if !saw_complete {
-            self.finish_request(&workspace_path, &conversation_id, &request_id)
+            if !saw_interrupt {
+                self.record_stream_error(
+                    &conversation_id,
+                    &request_id,
+                    self.unexpected_stream_end_message(&conversation_id, &request_id)
+                        .await,
+                )
+                .await;
+                let _ = self.emit_session_snapshot().await;
+            }
+            self.finish_request(&workspace_path, &conversation_id, &request_id, false)
                 .await
                 .ok();
             return;
         }
 
         let _ = self
-            .finish_request(&workspace_path, &conversation_id, &request_id)
+            .finish_request(&workspace_path, &conversation_id, &request_id, true)
             .await;
     }
 
@@ -270,6 +286,7 @@ impl RuntimeManager {
         workspace_path: &str,
         conversation_id: &str,
         request_id: &str,
+        reload_from_persistence: bool,
     ) -> anyhow::Result<()> {
         {
             let mut state = self.state.lock().await;
@@ -281,19 +298,34 @@ impl RuntimeManager {
         }
 
         let _ = self.refresh_workspace_conversations(workspace_path).await;
-        let order_hint = self
-            .state
-            .lock()
-            .await
-            .conversations
-            .get(conversation_id)
-            .map(|conversation| conversation.order);
-        let _ = self
-            .reload_conversation_from_persistence(workspace_path, conversation_id, order_hint)
-            .await;
+        if reload_from_persistence {
+            let order_hint = self
+                .state
+                .lock()
+                .await
+                .conversations
+                .get(conversation_id)
+                .map(|conversation| conversation.order);
+            let _ = self
+                .reload_conversation_from_persistence(workspace_path, conversation_id, order_hint)
+                .await;
+        }
         let snapshot = self.snapshot().await?;
         self.emit_snapshot(snapshot)?;
         Ok(())
+    }
+
+    async fn unexpected_stream_end_message(
+        &self,
+        conversation_id: &str,
+        request_id: &str,
+    ) -> String {
+        let state = self.state.lock().await;
+        let Some(conversation) = state.conversations.get(conversation_id) else {
+            return build_unexpected_stream_end_message(&[], request_id);
+        };
+
+        build_unexpected_stream_end_message(&conversation.messages, request_id)
     }
 }
 
@@ -336,6 +368,151 @@ fn append_streamed_message(
                     text,
                 }),
             }
+        }
+    }
+}
+
+fn build_unexpected_stream_end_message(messages: &[SessionMessageDto], request_id: &str) -> String {
+    for message in messages.iter().rev() {
+        match message {
+            SessionMessageDto::ToolEnd {
+                request_id: current_request_id,
+                name,
+                summary,
+                is_error,
+                detail,
+                ..
+            } if current_request_id == request_id && *is_error => {
+                if let Some(message) =
+                    failed_tool_message(name, summary.as_deref(), detail.as_ref())
+                {
+                    return message;
+                }
+            }
+            SessionMessageDto::ToolStart {
+                request_id: current_request_id,
+                name,
+                detail,
+                ..
+            } if current_request_id == request_id => {
+                return in_progress_tool_message(detail);
+            }
+            SessionMessageDto::StatusOutput {
+                request_id: current_request_id,
+                text,
+                ..
+            } if current_request_id == request_id => {
+                let text = text.trim();
+                if !text.is_empty() {
+                    return text.to_string();
+                }
+            }
+            SessionMessageDto::Status {
+                request_id: current_request_id,
+                title,
+                subtitle,
+                category,
+                ..
+            } if current_request_id == request_id
+                && matches!(
+                    category,
+                    StatusCategoryDto::Error | StatusCategoryDto::Warning
+                ) =>
+            {
+                return match subtitle
+                    .as_deref()
+                    .map(str::trim)
+                    .filter(|text| !text.is_empty())
+                {
+                    Some(subtitle) => format!("{title}: {subtitle}"),
+                    None => title.clone(),
+                };
+            }
+            _ => {}
+        }
+    }
+
+    "The request ended before the model reported completion.".to_string()
+}
+
+fn failed_tool_message(
+    name: &str,
+    summary: Option<&str>,
+    detail: Option<&ToolResultDetailDto>,
+) -> Option<String> {
+    match detail {
+        Some(ToolResultDetailDto::Text { text }) if !text.trim().is_empty() => {
+            Some(text.trim().to_string())
+        }
+        Some(ToolResultDetailDto::ShellOutput {
+            stderr,
+            stdout,
+            exit_code,
+            ..
+        }) => stderr
+            .as_ref()
+            .map(|output| output.content.trim())
+            .filter(|text| !text.is_empty())
+            .map(str::to_string)
+            .or_else(|| {
+                stdout
+                    .as_ref()
+                    .map(|output| output.content.trim())
+                    .filter(|text| !text.is_empty())
+                    .map(str::to_string)
+            })
+            .or_else(|| exit_code.map(|code| format!("{name} failed with exit code {code}."))),
+        _ => summary
+            .map(str::trim)
+            .filter(|text| !text.is_empty())
+            .map(str::to_string)
+            .or_else(|| Some(format!("{name} failed."))),
+    }
+}
+
+fn in_progress_tool_message(detail: &ToolCallDetailDto) -> String {
+    match detail {
+        ToolCallDetailDto::FileUpdate { path, .. } => {
+            format!("The request ended while updating {path}.")
+        }
+        ToolCallDetailDto::FileRead { path, .. } => {
+            format!("The request ended while reading {path}.")
+        }
+        ToolCallDetailDto::Shell { command, .. } => {
+            format!("The request ended while running `{command}`.")
+        }
+        ToolCallDetailDto::Search { pattern, path, .. } => match path {
+            Some(path) => format!("The request ended while searching {path} for {pattern}."),
+            None => format!("The request ended while searching for {pattern}."),
+        },
+        ToolCallDetailDto::CodebaseSearch { queries } if !queries.is_empty() => format!(
+            "The request ended while running a codebase search for {}.",
+            queries.join(", ")
+        ),
+        ToolCallDetailDto::CodebaseSearch { .. } => {
+            "The request ended while running a codebase search.".to_string()
+        }
+        ToolCallDetailDto::Fetch { url } => {
+            format!("The request ended while fetching {url}.")
+        }
+        ToolCallDetailDto::Followup { question } => {
+            format!("The request ended while waiting for follow-up: {question}")
+        }
+        ToolCallDetailDto::Plan { plan_name } => {
+            format!("The request ended while updating the plan {plan_name}.")
+        }
+        ToolCallDetailDto::Skill { name } => {
+            format!("The request ended while loading the skill {name}.")
+        }
+        ToolCallDetailDto::Task { agent_id } => {
+            format!("The request ended while delegating to {agent_id}.")
+        }
+        ToolCallDetailDto::TodoWrite { .. } => {
+            "The request ended while updating the todo list.".to_string()
+        }
+        ToolCallDetailDto::TodoRead => "The request ended while reading the todo list.".to_string(),
+        ToolCallDetailDto::Unknown { name } => {
+            format!("The request ended while running {name}.")
         }
     }
 }

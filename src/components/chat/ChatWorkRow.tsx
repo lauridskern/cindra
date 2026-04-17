@@ -25,9 +25,11 @@ function formatDurationLabel(durationMs: number): string {
 }
 
 function WorkHeaderLabel({
+  hasError,
   isRunning,
   requestTiming,
 }: {
+  hasError: boolean;
   isRunning: boolean;
   requestTiming?: RequestTimingInfo;
 }) {
@@ -49,13 +51,23 @@ function WorkHeaderLabel({
 
   const label = useMemo(() => {
     if (requestTiming == null) {
-      return isRunning ? "Working" : "Worked";
+      if (isRunning) {
+        return "Working";
+      }
+
+      return hasError ? "Failed" : "Worked";
     }
 
     const endTime = requestTiming.completedAtMs ?? now;
     const durationLabel = formatDurationLabel(endTime - requestTiming.startedAtMs);
-    return isRunning ? `Working for ${durationLabel}` : `Worked for ${durationLabel}`;
-  }, [isRunning, now, requestTiming]);
+    if (isRunning) {
+      return `Working for ${durationLabel}`;
+    }
+
+    return hasError
+      ? `Failed after ${durationLabel}`
+      : `Worked for ${durationLabel}`;
+  }, [hasError, isRunning, now, requestTiming]);
 
   return <ChatStatusLabel active={isRunning} text={label} />;
 }
@@ -65,23 +77,27 @@ export function ChatWorkRow({
   requestTiming,
   workspacePath,
 }: ChatWorkRowProps) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(item.isRunning || item.hasError);
   const previousRunningRef = useRef(item.isRunning);
   const canExpand = item.activities.length > 0;
 
   useEffect(() => {
     if (previousRunningRef.current && item.isRunning === false) {
-      setOpen(false);
+      setOpen(item.hasError);
     } else if (previousRunningRef.current === false && item.isRunning) {
       setOpen(true);
     }
 
     previousRunningRef.current = item.isRunning;
-  }, [item.isRunning]);
+  }, [item.hasError, item.isRunning]);
 
   const header = (
     <>
-      <WorkHeaderLabel isRunning={item.isRunning} requestTiming={requestTiming} />
+      <WorkHeaderLabel
+        hasError={item.hasError}
+        isRunning={item.isRunning}
+        requestTiming={requestTiming}
+      />
       {!item.isRunning && canExpand ? (
         open ? (
           <ChevronDown className="size-4 text-current" />

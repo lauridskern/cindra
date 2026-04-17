@@ -104,7 +104,7 @@ function renderChatThreadItem(
           previousItem?.kind === "message" &&
           previousItem.message.kind === "user"
         ? "mx-auto min-w-0 w-full max-w-3xl select-text pt-4"
-      : "mx-auto min-w-0 w-full max-w-3xl select-text";
+        : "mx-auto min-w-0 w-full max-w-3xl select-text";
 
   return <div className={className}>{row}</div>;
 }
@@ -137,11 +137,11 @@ export function ChatThread({
       }
       getEstimatedItemSize={estimateChatThreadItemSize}
       maintainScrollAtEnd
-      maintainScrollAtEndThreshold={0.2}
+      maintainScrollAtEndThreshold={0.3}
       maintainVisibleContentPosition
       estimatedItemSize={88}
       style={{ height: "100%" }}
-      contentContainerStyle={{ paddingTop: 20, paddingBottom: 12 }}
+      contentContainerStyle={{ paddingTop: 20, paddingBottom: 32 }}
       ListEmptyComponent={<div className="min-h-px" aria-hidden="true" />}
     />
   );
