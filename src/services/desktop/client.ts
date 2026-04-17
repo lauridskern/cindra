@@ -7,10 +7,12 @@ import type {
   CommitGitChangesInput,
   CreateGitBranchInput,
   FollowupResponse,
+  PromptSettings,
   QuickStartProjectInput,
   RuntimeStatus,
   SendPromptInput,
   SessionSnapshot,
+  UpdatePromptSettingsInput,
 } from "./contracts";
 
 const SESSION_UPDATED_EVENT_NAME = "agent-ui://session-updated";
@@ -51,6 +53,10 @@ export function getSessionSnapshot(): Promise<SessionSnapshot> {
   return invokeCommand("get_session_snapshot");
 }
 
+export function getPromptSettings(): Promise<PromptSettings> {
+  return invokeCommand("get_prompt_settings");
+}
+
 export function selectConversation(
   workspacePath: string,
   conversationId: string,
@@ -64,6 +70,12 @@ export function startNewChat(workspacePath: string): Promise<SessionSnapshot> {
 
 export function sendPrompt(input: SendPromptInput): Promise<SessionSnapshot> {
   return invokeCommand("send_prompt", { input });
+}
+
+export function updatePromptSettings(
+  input: UpdatePromptSettingsInput,
+): Promise<PromptSettings> {
+  return invokeCommand("update_prompt_settings", { input });
 }
 
 export function respondFollowup(

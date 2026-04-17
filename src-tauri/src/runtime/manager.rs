@@ -1,22 +1,26 @@
 use std::future::Future;
 use std::path::{Path, PathBuf};
+use std::str::FromStr;
 use std::sync::Arc;
 
 use anyhow::Context;
+use forge_api::API;
+use forge_domain::{ConfigOperation, Effort, Model, ModelConfig, ProviderId};
 use tokio::sync::{Mutex, mpsc};
 use uuid::Uuid;
 
 use crate::bridge::emitter::UiEventEmitter;
 use crate::bridge::followup::FollowupBridge;
 use crate::dto::{
-    FollowupRequestDto, FollowupResponseDto, RuntimeStatusDto, SendPromptInput, SessionMessageDto,
-    SessionSnapshotDto,
+    FollowupRequestDto, FollowupResponseDto, PromptModelOptionDto, PromptSettingsDto,
+    RuntimeStatusDto, SendPromptInput, SessionMessageDto, SessionSnapshotDto,
+    UpdatePromptSettingsInput,
 };
 use crate::persistence::project_store::ProjectStore;
 
 use super::{
-    ConversationSessionState, ForgeRuntime, MISSING_SESSION_MESSAGE, RuntimeFactory,
-    RuntimeState, WorkspaceSessionState, build_snapshot, canonicalize_workspace_path,
+    ConversationSessionState, ForgeRuntime, MISSING_SESSION_MESSAGE, RuntimeFactory, RuntimeState,
+    WorkspaceSessionState, build_snapshot, canonicalize_workspace_path,
     configuration_error_message, create_conversation_record, create_message_id,
     derive_conversation_title_from_messages, read_config, select_empty_draft_conversation_id,
     shared_runtime_state, user_prompt_text_for_display, workspace_name,
@@ -88,7 +92,87 @@ impl RuntimeManager {
     }
 
     pub async fn get_session_snapshot(&self) -> anyhow::Result<SessionSnapshotDto> {
-        self.with_recorded_ui_error(async { self.snapshot().await }).await
+        self.with_recorded_ui_error(async { self.snapshot().await })
+            .await
+    }
+
+    pub async fn get_prompt_settings(&self) -> anyhow::Result<PromptSettingsDto> {
+        self.with_recorded_ui_error(async {
+            self.ensure_known_workspaces_loaded().await?;
+            let active_workspace_path = self.state.lock().await.active_workspace_path.clone();
+            let Some(workspace_path) = active_workspace_path else {
+                return Ok(PromptSettingsDto {
+                    available_models: Vec::new(),
+                    selected_provider_id: None,
+                    selected_model_id: None,
+                    selected_reasoning_effort: None,
+                });
+            };
+
+            let runtime = self.prepare_workspace(&workspace_path).await?;
+            build_prompt_settings(&runtime).await
+        })
+        .await
+    }
+
+    pub async fn update_prompt_settings(
+        &self,
+        input: UpdatePromptSettingsInput,
+    ) -> anyhow::Result<PromptSettingsDto> {
+        self.with_recorded_ui_error(async {
+            self.ensure_known_workspaces_loaded().await?;
+            let active_workspace_path = self.state.lock().await.active_workspace_path.clone();
+            let workspace_path = active_workspace_path.context("No active workspace.")?;
+            let runtime = self.prepare_workspace(&workspace_path).await?;
+
+            let provider_id = ProviderId::from(input.provider_id.clone());
+            let all_provider_models = runtime.api.get_all_provider_models().await?;
+            let selected_model = all_provider_models
+                .iter()
+                .find(|provider_models| provider_models.provider_id == provider_id)
+                .and_then(|provider_models| {
+                    provider_models
+                        .models
+                        .iter()
+                        .find(|model| model.id.as_str() == input.model_id)
+                })
+                .cloned()
+                .with_context(|| {
+                    format!(
+                        "Model '{}' is not available for provider '{}'.",
+                        input.model_id, input.provider_id
+                    )
+                })?;
+
+            let allowed_efforts = reasoning_efforts_for_model(&provider_id, &selected_model);
+            let mut operations = vec![ConfigOperation::SetSessionConfig(ModelConfig::new(
+                provider_id.clone(),
+                input.model_id.clone(),
+            ))];
+
+            if let Some(reasoning_effort) = input.reasoning_effort.as_deref() {
+                if !allowed_efforts
+                    .iter()
+                    .any(|candidate| candidate == reasoning_effort)
+                {
+                    anyhow::bail!(
+                        "Reasoning effort '{}' is not available for model '{}'.",
+                        reasoning_effort,
+                        input.model_id
+                    );
+                }
+
+                let effort = Effort::from_str(reasoning_effort).map_err(|_| {
+                    anyhow::anyhow!("Invalid reasoning effort '{reasoning_effort}'.")
+                })?;
+                operations.push(ConfigOperation::SetReasoningEffort(effort));
+            }
+
+            runtime.api.update_config(operations).await?;
+            self.refresh_cached_runtime_config(&workspace_path).await;
+            build_prompt_settings(&runtime).await
+        })
+        .await
     }
 
     pub async fn open_workspace(&self, path: PathBuf) -> anyhow::Result<SessionSnapshotDto> {
@@ -408,4 +492,120 @@ impl RuntimeManager {
         self.emit_snapshot(snapshot.clone())?;
         Ok(snapshot)
     }
+
+    async fn refresh_cached_runtime_config(&self, workspace_path: &str) {
+        let (config, configuration_error) = read_config();
+        let configured = config.session.is_some();
+        let derived_error = configuration_error_message(configured, configuration_error.clone());
+
+        let mut state = self.state.lock().await;
+        if let Some(workspace) = state.workspaces.get_mut(workspace_path) {
+            workspace.configured = configured;
+            workspace.configuration_error = derived_error.clone();
+
+            if let Some(runtime) = workspace.runtime.as_mut() {
+                runtime.config = config;
+                runtime.configuration_error = configuration_error;
+            }
+        }
+    }
+}
+
+async fn build_prompt_settings(runtime: &ForgeRuntime) -> anyhow::Result<PromptSettingsDto> {
+    let current_config = runtime.api.get_session_config().await;
+    let current_effort = runtime.api.get_reasoning_effort().await?;
+    let mut all_provider_models = runtime.api.get_all_provider_models().await?;
+
+    all_provider_models.iter_mut().for_each(|provider_models| {
+        provider_models
+            .models
+            .sort_by(|left, right| left.id.as_str().cmp(right.id.as_str()))
+    });
+    all_provider_models
+        .sort_by(|left, right| left.provider_id.as_ref().cmp(right.provider_id.as_ref()));
+
+    let available_models = all_provider_models
+        .into_iter()
+        .flat_map(|provider_models| {
+            let provider_name = provider_models.provider_id.to_string();
+            let provider_id = provider_models.provider_id.as_ref().to_string();
+
+            provider_models
+                .models
+                .into_iter()
+                .map(move |model| PromptModelOptionDto {
+                    provider_id: provider_id.clone(),
+                    provider_name: provider_name.clone(),
+                    model_id: model.id.to_string(),
+                    model_name: model.name.clone(),
+                    context_length: model.context_length,
+                    supports_reasoning: model.supports_reasoning == Some(true),
+                    reasoning_efforts: reasoning_efforts_for_model(
+                        &provider_models.provider_id,
+                        &model,
+                    ),
+                })
+        })
+        .collect::<Vec<_>>();
+
+    let selected_provider_id = current_config
+        .as_ref()
+        .map(|config| config.provider.as_ref().to_string());
+    let selected_model_id = current_config
+        .as_ref()
+        .map(|config| config.model.to_string());
+    let selected_reasoning_effort =
+        current_effort
+            .map(|effort| effort.to_string())
+            .filter(|effort| {
+                selected_provider_id
+                    .as_ref()
+                    .zip(selected_model_id.as_ref())
+                    .and_then(|(provider_id, model_id)| {
+                        available_models.iter().find(|model| {
+                            &model.provider_id == provider_id && &model.model_id == model_id
+                        })
+                    })
+                    .is_some_and(|model| {
+                        model
+                            .reasoning_efforts
+                            .iter()
+                            .any(|candidate| candidate == effort)
+                    })
+            });
+
+    Ok(PromptSettingsDto {
+        available_models,
+        selected_provider_id,
+        selected_model_id,
+        selected_reasoning_effort,
+    })
+}
+
+fn reasoning_efforts_for_model(provider_id: &ProviderId, model: &Model) -> Vec<String> {
+    if model.supports_reasoning != Some(true) {
+        return Vec::new();
+    }
+
+    let provider_key: &str = provider_id.as_ref().as_ref();
+    let supported = match provider_key {
+        "anthropic" | "anthropic_compatible" | "vertex_ai_anthropic" | "claude_code" => {
+            &["low", "medium", "high", "max"][..]
+        }
+        "openai"
+        | "open_router"
+        | "requesty"
+        | "github_copilot"
+        | "openai_compatible"
+        | "openai_responses_compatible"
+        | "forge"
+        | "codex" => &["none", "minimal", "low", "medium", "high", "xhigh"][..],
+        "xai" | "zai" | "zai_coding" | "vertex_ai" | "google_ai_studio" => &[][..],
+        _ => &["low", "medium", "high"][..],
+    };
+
+    supported
+        .iter()
+        .map(|effort| (*effort).to_string())
+        .collect()
 }

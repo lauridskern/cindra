@@ -10,6 +10,8 @@ export type {
   FollowupRequest,
   FollowupResponse,
   OutputPreview,
+  PromptModelOption,
+  PromptSettings,
   QuickStartProjectInput,
   QuickStartVisibility,
   RuntimeStatus,
@@ -19,6 +21,7 @@ export type {
   StatusCategory,
   ToolCallDetail,
   ToolResultDetail,
+  UpdatePromptSettingsInput,
   WorkspaceSession,
 } from "./contracts.generated";
 

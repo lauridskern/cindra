@@ -3,17 +3,18 @@ import { FollowupComposer } from "./FollowupComposer";
 import { PromptInputCard } from "./PromptInputCard";
 
 export function PromptComposer() {
-  const { submitPrompt } = useSessionActions();
+  const { submitPrompt, updatePromptSettings } = useSessionActions();
   const {
     canCompose,
     followupRequest,
     isSendingPrompt,
+    promptSettings,
     promptDraft,
     setPromptDraft,
   } = usePromptDraft();
 
   return (
-    <div className="px-6 pb-6 pt-3.5">
+    <div className="px-6 pb-6">
       {followupRequest != null ? (
         <FollowupComposer
           key={followupRequest.followupId}
@@ -23,9 +24,11 @@ export function PromptComposer() {
         <PromptInputCard
           canCompose={canCompose}
           isSendingPrompt={isSendingPrompt}
+          promptSettings={promptSettings}
           promptDraft={promptDraft}
           setPromptDraft={setPromptDraft}
           submitPrompt={submitPrompt}
+          updatePromptSettings={updatePromptSettings}
         />
       )}
     </div>

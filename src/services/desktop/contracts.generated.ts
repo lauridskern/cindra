@@ -27,6 +27,12 @@ export type WorkspaceSession = { workspacePath: string, workspaceName: string, c
 
 export type SessionSnapshot = { activeWorkspacePath: string | null, activeConversationId: string | null, visibleMessages: Array<SessionMessage>, visibleActiveRequestIds: Array<string>, visibleFollowup: FollowupRequest | null, uiError: string | null, workspaces: Array<WorkspaceSession>, };
 
+export type PromptModelOption = { providerId: string, providerName: string, modelId: string, modelName: string | null, contextLength: bigint | null, supportsReasoning: boolean, reasoningEfforts: Array<string>, };
+
+export type PromptSettings = { availableModels: Array<PromptModelOption>, selectedProviderId: string | null, selectedModelId: string | null, selectedReasoningEffort: string | null, };
+
+export type UpdatePromptSettingsInput = { providerId: string, modelId: string, reasoningEffort: string | null, };
+
 export type SendPromptInput = { workspacePath: string, prompt: string, conversationId: string | null, };
 
 export type RuntimeStatus = { workspacePath: string | null, workspaceName: string | null, gitRepoName: string | null, gitBranchName: string | null, gitBranches: Array<string>, availableOpenTargets: Array<string>, configured: boolean, configurationError: string | null, };

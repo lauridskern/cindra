@@ -1,7 +1,7 @@
 use crate::dto::{
     CheckoutGitBranchInput, CloneRepositoryInput, CommitGitChangesInput, CreateGitBranchInput,
-    FollowupResponseDto, QuickStartProjectInput, QuickStartVisibility, RuntimeStatusDto,
-    SendPromptInput, SessionSnapshotDto,
+    FollowupResponseDto, PromptSettingsDto, QuickStartProjectInput, QuickStartVisibility,
+    RuntimeStatusDto, SendPromptInput, SessionSnapshotDto, UpdatePromptSettingsInput,
 };
 use crate::runtime::DesktopState;
 use anyhow::Context;
@@ -68,6 +68,17 @@ pub(crate) async fn get_session_snapshot(
 }
 
 #[tauri::command]
+pub(crate) async fn get_prompt_settings(
+    state: tauri::State<'_, DesktopState>,
+) -> Result<PromptSettingsDto, String> {
+    state
+        .manager
+        .get_prompt_settings()
+        .await
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
 pub(crate) async fn send_prompt(
     input: SendPromptInput,
     state: tauri::State<'_, DesktopState>,
@@ -75,6 +86,18 @@ pub(crate) async fn send_prompt(
     state
         .manager
         .send_prompt(input)
+        .await
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub(crate) async fn update_prompt_settings(
+    input: UpdatePromptSettingsInput,
+    state: tauri::State<'_, DesktopState>,
+) -> Result<PromptSettingsDto, String> {
+    state
+        .manager
+        .update_prompt_settings(input)
         .await
         .map_err(|error| error.to_string())
 }

@@ -18,9 +18,9 @@ use std::sync::Arc;
 use bridge::emitter::TauriEventEmitter;
 use commands::{
     checkout_git_branch, clone_repository, commit_git_changes, create_git_branch,
-    get_runtime_status, get_session_snapshot, open_in_target, open_workspace, pick_directory,
-    pick_workspace, push_git_branch, quick_start_project, respond_followup, select_conversation,
-    send_prompt, start_new_chat,
+    get_prompt_settings, get_runtime_status, get_session_snapshot, open_in_target, open_workspace,
+    pick_directory, pick_workspace, push_git_branch, quick_start_project, respond_followup,
+    select_conversation, send_prompt, start_new_chat, update_prompt_settings,
 };
 use persistence::project_store::ProjectStore;
 use runtime::DesktopState;
@@ -61,9 +61,11 @@ pub fn run() {
             open_workspace,
             get_runtime_status,
             get_session_snapshot,
+            get_prompt_settings,
             select_conversation,
             start_new_chat,
             send_prompt,
+            update_prompt_settings,
             respond_followup,
             clone_repository,
             quick_start_project,

@@ -3,6 +3,7 @@ import { useCallback, useMemo, type MutableRefObject } from 'react'
 import * as desktopClient from '../services/desktop/client'
 import type {
   FollowupResponse,
+  PromptSettings,
   RuntimeStatus,
   SessionSnapshot,
 } from '../services/desktop/contracts'
@@ -15,6 +16,7 @@ interface UseSessionCommandsOptions {
     PromptDraftStoreApi,
     'clearPromptDraft' | 'draftsRef' | 'movePromptDraft' | 'setPromptDraftPending'
   >
+  setPromptSettings: (settings: PromptSettings | null) => void
   refreshRuntimeStatus: () => Promise<RuntimeStatus | null>
   sessionSnapshotRef: MutableRefObject<SessionSnapshot | null>
   setIsOpeningProject: (value: boolean) => void
@@ -24,6 +26,7 @@ interface UseSessionCommandsOptions {
 
 export function useSessionCommands({
   promptDraftStore,
+  setPromptSettings,
   refreshRuntimeStatus,
   sessionSnapshotRef,
   setIsOpeningProject,
@@ -239,6 +242,26 @@ export function useSessionCommands({
     [],
   )
 
+  const updatePromptSettings = useCallback(
+    async (input: {
+      providerId: string
+      modelId: string
+      reasoningEffort?: string | null
+    }) => {
+      try {
+        const settings = await desktopClient.updatePromptSettings({
+          providerId: input.providerId,
+          modelId: input.modelId,
+          reasoningEffort: input.reasoningEffort ?? null,
+        })
+        setPromptSettings(settings)
+      } catch {
+        return
+      }
+    },
+    [setPromptSettings],
+  )
+
   return useMemo(
     () => ({
       checkoutBranch,
@@ -252,6 +275,7 @@ export function useSessionCommands({
       startNewChat,
       submitPrompt,
       submitFollowup,
+      updatePromptSettings,
     }),
     [
       checkoutBranch,
@@ -265,6 +289,7 @@ export function useSessionCommands({
       startNewChat,
       submitFollowup,
       submitPrompt,
+      updatePromptSettings,
     ],
   )
 }

@@ -1,6 +1,7 @@
-import { useCallback, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 
-import type { SessionSnapshot } from "../services/desktop/contracts";
+import * as desktopClient from "../services/desktop/client";
+import type { PromptSettings, SessionSnapshot } from "../services/desktop/contracts";
 import { useLatestRef } from "../hooks/useLatestRef";
 import { usePromptDraftStore } from "../hooks/usePromptDraftStore";
 import { useRuntimeStatus } from "../hooks/useRuntimeStatus";
@@ -22,6 +23,9 @@ import {
 
 export function SessionProvider({ children }: { children: ReactNode }) {
   const [sessionSnapshot, setSessionSnapshot] = useState<SessionSnapshot | null>(
+    null,
+  );
+  const [promptSettings, setPromptSettings] = useState<PromptSettings | null>(
     null,
   );
   const [requestTimingsByConversationId, setRequestTimingsByConversationId] =
@@ -80,6 +84,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   const actionState = useSessionCommands({
     promptDraftStore,
+    setPromptSettings,
     refreshRuntimeStatus,
     sessionSnapshotRef,
     setIsOpeningProject,
@@ -99,6 +104,34 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     activeWorkspace?.configurationError ??
     null;
   useSessionBootstrap({ setSessionSnapshot: applySessionSnapshot });
+
+  useEffect(() => {
+    let cancelled = false;
+
+    void (async () => {
+      if (sessionSnapshot?.activeWorkspacePath == null) {
+        if (cancelled === false) {
+          setPromptSettings(null);
+        }
+        return;
+      }
+
+      try {
+        const settings = await desktopClient.getPromptSettings();
+        if (cancelled === false) {
+          setPromptSettings(settings);
+        }
+      } catch {
+        if (cancelled === false) {
+          setPromptSettings(null);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionSnapshot?.activeWorkspacePath]);
 
   const canCompose =
     hasCurrentWorkspace &&
@@ -157,6 +190,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       canCompose,
       followupRequest,
       isSendingPrompt: promptDraftStore.isSendingPrompt,
+      promptSettings,
       promptDraft: promptDraftStore.promptDraft,
       setPromptDraft: promptDraftStore.setPromptDraft,
     }),
@@ -164,6 +198,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       canCompose,
       followupRequest,
       promptDraftStore.isSendingPrompt,
+      promptSettings,
       promptDraftStore.promptDraft,
       promptDraftStore.setPromptDraft,
     ],

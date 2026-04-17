@@ -2,6 +2,7 @@ import { createContext } from "react";
 
 import type {
   FollowupRequest,
+  PromptSettings,
   RuntimeStatus,
   TranscriptMessage,
   WorkspaceSession,
@@ -36,6 +37,7 @@ export interface PromptDraftContextValue {
   canCompose: boolean;
   followupRequest: FollowupRequest | null;
   isSendingPrompt: boolean;
+  promptSettings: PromptSettings | null;
   promptDraft: string;
   setPromptDraft: (value: string) => void;
 }
@@ -53,6 +55,11 @@ export interface SessionActionsContextValue {
   commitChanges: (message: string) => Promise<void>;
   pushBranch: () => Promise<void>;
   openInTarget: (targetId: string) => Promise<void>;
+  updatePromptSettings: (input: {
+    providerId: string;
+    modelId: string;
+    reasoningEffort?: string | null;
+  }) => Promise<void>;
   submitPrompt: () => Promise<void>;
   submitFollowup: (input: {
     cancelled: boolean;

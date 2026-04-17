@@ -330,10 +330,7 @@ export function ConversationPanel({
   const isOpenTargetPending = pendingHeaderAction === "open-target";
 
   React.useEffect(() => {
-    if (
-      hasInitializedPreferredAppRef.current ||
-      openTargets.length === 0
-    ) {
+    if (hasInitializedPreferredAppRef.current || openTargets.length === 0) {
       return;
     }
 
@@ -680,7 +677,7 @@ export function ConversationPanel({
         </div>
       ) : null}
 
-      <section className="min-h-0 flex-1 overflow-hidden select-text">
+      <section className="min-h-0 flex-1 overflow-hidden select-text px-6">
         <ChatThread
           messages={messages}
           activeRequestIds={activeRequestIds}

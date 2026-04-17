@@ -5,9 +5,9 @@ use agent_ui_lib::dto::{
     CheckoutGitBranchInput, CloneRepositoryInput, CommitGitChangesInput,
     ConversationSessionSummaryDto, CreateGitBranchInput, FileOperationDto, FollowupKind,
     FollowupOptionDto, FollowupRequestDto, FollowupResponseDto, OutputPreviewDto,
-    QuickStartProjectInput, QuickStartVisibility, RuntimeStatusDto, SendPromptInput,
-    SessionMessageDto, SessionSnapshotDto, StatusCategoryDto, ToolCallDetailDto,
-    ToolResultDetailDto, WorkspaceSessionDto,
+    PromptModelOptionDto, PromptSettingsDto, QuickStartProjectInput, QuickStartVisibility,
+    RuntimeStatusDto, SendPromptInput, SessionMessageDto, SessionSnapshotDto, StatusCategoryDto,
+    ToolCallDetailDto, ToolResultDetailDto, UpdatePromptSettingsInput, WorkspaceSessionDto,
 };
 use anyhow::Context;
 use ts_rs::{Config, TS};
@@ -31,6 +31,9 @@ fn main() -> anyhow::Result<()> {
         export_decl::<ConversationSessionSummaryDto>(&config),
         export_decl::<WorkspaceSessionDto>(&config),
         export_decl::<SessionSnapshotDto>(&config),
+        export_decl::<PromptModelOptionDto>(&config),
+        export_decl::<PromptSettingsDto>(&config),
+        export_decl::<UpdatePromptSettingsInput>(&config),
         export_decl::<SendPromptInput>(&config),
         export_decl::<RuntimeStatusDto>(&config),
         export_decl::<CloneRepositoryInput>(&config),

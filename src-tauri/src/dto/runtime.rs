@@ -165,6 +165,38 @@ fn parse_git_remote_name(remote_url: &str) -> Option<String> {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, TS)]
 #[serde(rename_all = "camelCase")]
+#[ts(rename = "PromptModelOption")]
+pub struct PromptModelOptionDto {
+    pub provider_id: String,
+    pub provider_name: String,
+    pub model_id: String,
+    pub model_name: Option<String>,
+    pub context_length: Option<u64>,
+    pub supports_reasoning: bool,
+    pub reasoning_efforts: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(rename = "PromptSettings")]
+pub struct PromptSettingsDto {
+    pub available_models: Vec<PromptModelOptionDto>,
+    pub selected_provider_id: Option<String>,
+    pub selected_model_id: Option<String>,
+    pub selected_reasoning_effort: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(rename = "UpdatePromptSettingsInput")]
+pub struct UpdatePromptSettingsInput {
+    pub provider_id: String,
+    pub model_id: String,
+    pub reasoning_effort: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, TS)]
+#[serde(rename_all = "camelCase")]
 pub struct SendPromptInput {
     pub workspace_path: String,
     pub prompt: String,
