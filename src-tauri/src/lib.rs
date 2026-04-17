@@ -28,6 +28,8 @@ use tauri::Manager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    install_rustls_crypto_provider();
+
     let builder = tauri::Builder::default().plugin(tauri_plugin_dialog::init());
     #[cfg(debug_assertions)]
     let builder = builder.plugin(
@@ -77,4 +79,12 @@ pub fn run() {
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+fn install_rustls_crypto_provider() {
+    if rustls::crypto::CryptoProvider::get_default().is_some() {
+        return;
+    }
+
+    let _ = rustls::crypto::ring::default_provider().install_default();
 }

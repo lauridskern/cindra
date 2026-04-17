@@ -34,6 +34,7 @@ forge_services = { path = "../vendor/forgecode/crates/forge_services" }
 log = "0.4"
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "hickory-dns", "http2"] }
 reqwest-eventsource = "0.6"
+rustls = { version = "0.23", default-features = false, features = ["ring"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 roxmltree = "0.20"
