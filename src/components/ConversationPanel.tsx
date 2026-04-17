@@ -44,7 +44,7 @@ import {
   DialogTitle,
 } from "./ui/dialog";
 import { useConversationSession, useSessionActions } from "../hooks/useSession";
-import { ChatThread } from "./ChatThread";
+import { ChatThread } from "./chat/ChatThread";
 import { LandingScreen } from "./LandingScreen";
 import { PromptComposer } from "./PromptComposer";
 import { cn } from "../utils/cn";

@@ -2,7 +2,7 @@ import type {
   TranscriptMessage,
   ToolCallDetail,
   ToolResultDetail,
-} from "../services/desktop/contracts";
+} from "../../services/desktop/contracts";
 
 export interface ActivityOperation {
   id: string;
@@ -31,12 +31,13 @@ export type ChatThreadItem =
       operations: ActivityOperation[];
       isRunning: boolean;
       isThinking: boolean;
+      reasoningText?: string;
     };
 
 interface ActivityGroupBuilder {
   requestId: string;
   operations: ActivityOperation[];
-  hasThinking: boolean;
+  reasoningText: string;
 }
 
 const TOOL_DEBUG_TITLES = new Set([
@@ -71,7 +72,7 @@ export function buildChatThreadItems(
 
     const isRunning = activeRequestIdSet.has(currentGroup.requestId);
     if (currentGroup.operations.length === 0) {
-      if (currentGroup.hasThinking && isRunning) {
+      if (currentGroup.reasoningText.trim().length > 0) {
         items.push({
           kind: "activity",
           key: `activity:${currentGroup.requestId}:thinking`,
@@ -80,6 +81,7 @@ export function buildChatThreadItems(
           operations: [],
           isRunning,
           isThinking: true,
+          reasoningText: currentGroup.reasoningText.trim(),
         });
       }
 
@@ -95,6 +97,7 @@ export function buildChatThreadItems(
       operations: currentGroup.operations,
       isRunning,
       isThinking: false,
+      reasoningText: undefined,
     });
     currentGroup = null;
   };
@@ -104,7 +107,7 @@ export function buildChatThreadItems(
       currentGroup = {
         requestId,
         operations: [],
-        hasThinking: false,
+        reasoningText: "",
       };
       return currentGroup;
     }
@@ -114,7 +117,7 @@ export function buildChatThreadItems(
       currentGroup = {
         requestId,
         operations: [],
-        hasThinking: false,
+        reasoningText: "",
       };
     }
 
@@ -137,10 +140,30 @@ export function buildChatThreadItems(
         const group = ensureGroup(message.requestId);
         if (group.operations.length > 0) {
           flushGroup();
-          ensureGroup(message.requestId).hasThinking = true;
-        } else {
-          group.hasThinking = true;
         }
+
+        const thinkingGroup = ensureGroup(message.requestId);
+        thinkingGroup.reasoningText = mergeOutputText(
+          thinkingGroup.reasoningText,
+          message.text,
+        );
+        break;
+      }
+      case "tool_start": {
+        if (hasPendingReasoningGroup(currentGroup, message.requestId)) {
+          flushGroup();
+        }
+
+        const group = ensureGroup(message.requestId);
+        group.operations.push({
+          id: message.id,
+          requestId: message.requestId,
+          name: message.name,
+          callId: message.callId,
+          detail: message.detail,
+          completed: false,
+          isError: false,
+        });
         break;
       }
       case "status":
@@ -168,19 +191,6 @@ export function buildChatThreadItems(
             message.text,
           );
         }
-        break;
-      }
-      case "tool_start": {
-        const group = ensureGroup(message.requestId);
-        group.operations.push({
-          id: message.id,
-          requestId: message.requestId,
-          name: message.name,
-          callId: message.callId,
-          detail: message.detail,
-          completed: false,
-          isError: false,
-        });
         break;
       }
       case "tool_end": {
@@ -256,6 +266,18 @@ function createFallbackOperation(
     completed: false,
     isError: false,
   };
+}
+
+function hasPendingReasoningGroup(
+  group: ActivityGroupBuilder | null,
+  requestId: string,
+): boolean {
+  return (
+    group != null &&
+    group.requestId === requestId &&
+    group.operations.length === 0 &&
+    group.reasoningText.trim().length > 0
+  );
 }
 
 function mergeOutputText(current: string | undefined, next: string): string {

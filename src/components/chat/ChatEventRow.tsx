@@ -1,13 +1,16 @@
-import ReactMarkdown from "react-markdown";
-
 import type {
   StatusCategory,
   TranscriptMessage,
-} from "../services/desktop/contracts";
-import { cn } from "../utils/cn";
+} from "../../services/desktop/contracts";
+import { cn } from "../../lib/utils";
 
-interface TranscriptRowProps {
-  message: TranscriptMessage;
+type ChatEventMessage = Extract<
+  TranscriptMessage,
+  { kind: "status" | "status_output" | "tool_start" | "tool_end" | "error" }
+>;
+
+interface ChatEventRowProps {
+  message: ChatEventMessage;
 }
 
 function statusToneClass(category: StatusCategory): string {
@@ -23,34 +26,7 @@ function statusToneClass(category: StatusCategory): string {
   }
 }
 
-function UserMessage({ text }: { text: string }) {
-  return (
-    <article className="grid max-w-3xl gap-2 select-text text-2xl leading-tight tracking-tight text-neutral-900 dark:text-neutral-100">
-      <p>{text}</p>
-    </article>
-  );
-}
-
-function AssistantMessage({ text }: { text: string }) {
-  return (
-    <article
-      className="grid max-w-3xl gap-2 select-text text-sm leading-6 text-neutral-700 dark:text-neutral-200 [&_code]:font-mono [&_ol]:my-0 [&_ol]:pl-5 [&_p]:m-0 [&_pre]:m-0 [&_pre]:max-w-full [&_pre]:overflow-x-auto [&_pre]:overflow-y-hidden [&_pre]:whitespace-pre [&_pre]:break-normal [&_pre_code]:inline-block [&_pre_code]:min-w-full [&_pre_code]:whitespace-pre [&_ul]:my-0 [&_ul]:pl-5]"
-      data-testid="assistant-message"
-    >
-      <ReactMarkdown>{text}</ReactMarkdown>
-    </article>
-  );
-}
-
-function ReasoningMessage({ text }: { text: string }) {
-  return (
-    <article className="grid max-w-3xl gap-2 select-text text-sm leading-6 text-neutral-500 dark:text-neutral-400">
-      <p>{text}</p>
-    </article>
-  );
-}
-
-function StatusMessage({
+function StatusRow({
   category,
   subtitle,
   title,
@@ -59,6 +35,21 @@ function StatusMessage({
   subtitle?: string;
   title: string;
 }) {
+  if (
+    (category === "action" || category === "info" || category === "debug") &&
+    subtitle
+  ) {
+    return (
+      <article className="grid max-w-3xl gap-2 select-text text-sm leading-6 text-neutral-700 dark:text-neutral-200">
+        <p>{subtitle}</p>
+      </article>
+    );
+  }
+
+  if (category === "action" || category === "info" || category === "debug") {
+    return null;
+  }
+
   return (
     <article
       className={cn(
@@ -74,7 +65,7 @@ function StatusMessage({
   );
 }
 
-function StatusOutputMessage({ text }: { text: string }) {
+function StatusOutputRow({ text }: { text: string }) {
   return (
     <article className="max-w-3xl min-w-0 select-text overflow-x-auto text-sm text-neutral-500 dark:text-neutral-400">
       <pre className="m-0 max-w-full overflow-x-auto whitespace-pre font-mono">
@@ -84,7 +75,7 @@ function StatusOutputMessage({ text }: { text: string }) {
   );
 }
 
-function ToolStartMessage({ name }: { name: string }) {
+function ToolStartRow({ name }: { name: string }) {
   return (
     <article className="grid max-w-3xl gap-2 select-text text-xs leading-6 text-neutral-500 dark:text-neutral-400">
       <p>Started `{name}`</p>
@@ -92,7 +83,7 @@ function ToolStartMessage({ name }: { name: string }) {
   );
 }
 
-function ToolEndMessage({
+function ToolEndRow({
   isError,
   name,
   summary,
@@ -118,7 +109,7 @@ function ToolEndMessage({
   );
 }
 
-function ErrorMessage({ message }: { message: string }) {
+function ErrorRow({ message }: { message: string }) {
   return (
     <article
       className="grid max-w-3xl gap-2 select-text text-xs leading-6 text-red-700 dark:text-red-400"
@@ -129,36 +120,30 @@ function ErrorMessage({ message }: { message: string }) {
   );
 }
 
-export function TranscriptRow({ message }: TranscriptRowProps) {
+export function ChatEventRow({ message }: ChatEventRowProps) {
   switch (message.kind) {
-    case "user":
-      return <UserMessage text={message.text} />;
-    case "assistant":
-      return <AssistantMessage text={message.text} />;
-    case "reasoning":
-      return <ReasoningMessage text={message.text} />;
     case "status":
       return (
-        <StatusMessage
+        <StatusRow
           category={message.category}
           subtitle={message.subtitle}
           title={message.title}
         />
       );
     case "status_output":
-      return <StatusOutputMessage text={message.text} />;
+      return <StatusOutputRow text={message.text} />;
     case "tool_start":
-      return <ToolStartMessage name={message.name} />;
+      return <ToolStartRow name={message.name} />;
     case "tool_end":
       return (
-        <ToolEndMessage
+        <ToolEndRow
           isError={message.isError}
           name={message.name}
           summary={message.summary}
         />
       );
     case "error":
-      return <ErrorMessage message={message.message} />;
+      return <ErrorRow message={message.message} />;
     default:
       return null;
   }

@@ -9,133 +9,23 @@ import {
   TriangleAlert,
 } from "lucide-react";
 
-import type {
-  OutputPreview,
-  ToolResultDetail,
-} from "../services/desktop/contracts";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from "./ui/collapsible";
-import type { ActivityOperation, ChatThreadItem } from "./chat-thread-model";
-import { cn } from "../lib/utils";
+} from "../ui/collapsible";
+import type { ActivityOperation, ChatThreadItem } from "./chatThreadModel";
+import { ChatMarkdown } from "./ChatMarkdown";
+import {
+  buildGenericOutputText,
+  formatOperationLabel,
+  getShellDetail,
+} from "./chatActivityUtils";
+import { cn } from "../../lib/utils";
 
-interface TranscriptActivityRowProps {
+interface ChatActivityRowProps {
   item: Extract<ChatThreadItem, { kind: "activity" }>;
   workspacePath: string | null;
-}
-
-function formatPath(path: string, workspacePath: string | null): string {
-  if (workspacePath == null || !path.startsWith(workspacePath)) {
-    return path;
-  }
-
-  const trimmed = path.slice(workspacePath.length).replace(/^\/+/, "");
-  return trimmed.length === 0 ? "." : trimmed;
-}
-
-function formatLineRange(startLine?: number, endLine?: number): string {
-  if (startLine == null && endLine == null) {
-    return "";
-  }
-  if (startLine != null && endLine != null) {
-    return `:${startLine}-${endLine}`;
-  }
-  if (startLine != null) {
-    return `:${startLine}`;
-  }
-
-  return `:1-${endLine}`;
-}
-
-function formatOperationLabel(
-  operation: ActivityOperation,
-  workspacePath: string | null,
-): string {
-  switch (operation.detail.kind) {
-    case "file_read":
-      return `Read ${formatPath(operation.detail.path, workspacePath)}${formatLineRange(operation.detail.startLine, operation.detail.endLine)}`;
-    case "file_update": {
-      const verb = (() => {
-        switch (operation.detail.operation) {
-          case "create":
-            return "Created";
-          case "overwrite":
-            return "Overwrote";
-          case "replace":
-            return "Updated";
-          case "remove":
-            return "Removed";
-          case "undo":
-            return "Undid";
-          default:
-            return "Updated";
-        }
-      })();
-
-      return `${verb} ${formatPath(operation.detail.path, workspacePath)}`;
-    }
-    case "shell":
-      return operation.detail.command;
-    case "search":
-      return `Searched ${operation.detail.path ? formatPath(operation.detail.path, workspacePath) : "."} for ${operation.detail.pattern}`;
-    case "codebase_search":
-      return `Codebase search: ${operation.detail.queries.join(" · ")}`;
-    case "fetch":
-      return `Fetched ${operation.detail.url}`;
-    case "followup":
-      return `Asked follow-up: ${operation.detail.question}`;
-    case "plan":
-      return `Updated plan ${operation.detail.planName}`;
-    case "skill":
-      return `Loaded skill ${operation.detail.name}`;
-    case "task":
-      return `Delegated to ${operation.detail.agentId}`;
-    case "todo_read":
-      return "Read todos";
-    case "todo_write":
-      return `Updated ${operation.detail.count} todo item${operation.detail.count === 1 ? "" : "s"}`;
-    case "unknown":
-      return `Ran ${operation.detail.name}`;
-    default:
-      return operation.name;
-  }
-}
-
-function buildPreviewText(
-  command: string,
-  stdout?: OutputPreview,
-  stderr?: OutputPreview,
-): string {
-  const lines = [`$ ${command}`];
-
-  if (stdout?.content) {
-    lines.push("", stdout.content);
-  }
-  if (stderr?.content) {
-    lines.push("", "[stderr]", stderr.content);
-  }
-
-  return lines.join("\n").trim();
-}
-
-function buildGenericOutputText(operation: ActivityOperation): string | null {
-  const detail = operation.resultDetail;
-  if (detail?.kind === "shell_output") {
-    return buildPreviewText(detail.command, detail.stdout, detail.stderr);
-  }
-
-  const genericText =
-    operation.outputText ??
-    (detail?.kind === "text" ? detail.text : undefined) ??
-    operation.summary;
-
-  return genericText?.trim() ? genericText.trim() : null;
-}
-
-function getShellDetail(detail: ToolResultDetail | undefined) {
-  return detail?.kind === "shell_output" ? detail : null;
 }
 
 function ActivityStatusIcon({
@@ -247,6 +137,26 @@ function OperationOutputCard({ operation }: { operation: ActivityOperation }) {
   );
 }
 
+function ThinkingOutputCard({ text }: { text: string }) {
+  if (text.trim().length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="min-w-0 max-w-full overflow-hidden rounded-2xl border border-neutral-200 bg-neutral-50 dark:border-neutral-800 dark:bg-neutral-950/70">
+      <div className="border-b border-neutral-200 px-4 py-2 text-[11px] uppercase tracking-[0.18em] text-neutral-500 dark:border-neutral-800 dark:text-neutral-400">
+        Thinking
+      </div>
+      <div className="max-h-72 overflow-x-auto overflow-y-auto px-4 py-3">
+        <ChatMarkdown
+          text={text}
+          className="text-xs leading-6 text-neutral-700 dark:text-neutral-200"
+        />
+      </div>
+    </div>
+  );
+}
+
 function ActivityOperationRow({
   operation,
   workspacePath,
@@ -307,10 +217,7 @@ function ActivityOperationRow({
   );
 }
 
-export function TranscriptActivityRow({
-  item,
-  workspacePath,
-}: TranscriptActivityRowProps) {
+export function ChatActivityRow({ item, workspacePath }: ChatActivityRowProps) {
   const [open, setOpen] = useState(item.isRunning);
   const previousRunningRef = useRef(item.isRunning);
 
@@ -326,12 +233,22 @@ export function TranscriptActivityRow({
 
   if (item.isThinking) {
     return (
-      <article className="grid max-w-3xl gap-2 text-sm leading-6 text-neutral-400 dark:text-neutral-500">
-        <div className="inline-flex items-center gap-2">
-          <LoaderCircle className="size-3.5 animate-spin" />
-          <span>Thinking</span>
-        </div>
-      </article>
+      <Collapsible open={open} onOpenChange={setOpen}>
+        <article className="grid min-w-0 max-w-3xl gap-2">
+          <CollapsibleTrigger className="inline-flex min-w-0 items-center gap-2 text-left text-sm leading-6 text-neutral-400 transition hover:text-neutral-600 dark:text-neutral-500 dark:hover:text-neutral-300">
+            <ActivityChevron open={open} />
+            {item.isRunning ? (
+              <LoaderCircle className="size-3.5 animate-spin" />
+            ) : null}
+            <span>{item.summary}</span>
+          </CollapsibleTrigger>
+          {item.reasoningText ? (
+            <CollapsibleContent className="min-w-0 max-w-full">
+              <ThinkingOutputCard text={item.reasoningText} />
+            </CollapsibleContent>
+          ) : null}
+        </article>
+      </Collapsible>
     );
   }
 

@@ -4,10 +4,11 @@ import {
 } from "@legendapp/list/react";
 import { useMemo } from "react";
 
-import type { TranscriptMessage } from "../services/desktop/contracts";
-import { buildChatThreadItems, type ChatThreadItem } from "./chat-thread-model";
-import { TranscriptActivityRow } from "./TranscriptActivityRow";
-import { TranscriptRow } from "./TranscriptRow";
+import type { TranscriptMessage } from "../../services/desktop/contracts";
+import { ChatActivityRow } from "./ChatActivityRow";
+import { ChatEventRow } from "./ChatEventRow";
+import { ChatMessageRow } from "./ChatMessageRow";
+import { buildChatThreadItems, type ChatThreadItem } from "./chatThreadModel";
 
 interface ChatThreadProps {
   activeRequestIds: string[];
@@ -84,17 +85,31 @@ function estimateChatThreadItemSize(item: ChatThreadItem): number {
     : estimateActivityItemSize(item);
 }
 
+function renderChatMessage(message: TranscriptMessage) {
+  switch (message.kind) {
+    case "user":
+    case "assistant":
+    case "reasoning":
+      return <ChatMessageRow message={message} />;
+    default:
+      return <ChatEventRow message={message} />;
+  }
+}
+
 function renderChatThreadItem(
   { item }: LegendListRenderItemProps<ChatThreadItem>,
   workspacePath: string | null,
 ) {
+  const row =
+    item.kind === "message" ? (
+      renderChatMessage(item.message)
+    ) : (
+      <ChatActivityRow item={item} workspacePath={workspacePath} />
+    );
+
   return (
     <div className="mx-auto min-w-0 w-full max-w-3xl px-6 pb-4 select-text">
-      {item.kind === "message" ? (
-        <TranscriptRow message={item.message} />
-      ) : (
-        <TranscriptActivityRow item={item} workspacePath={workspacePath} />
-      )}
+      {row}
     </div>
   );
 }
