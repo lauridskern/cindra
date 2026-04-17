@@ -35,6 +35,7 @@ reqwest = { version = "0.12", default-features = false, features = ["json", "rus
 reqwest-eventsource = "0.6"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
+roxmltree = "0.20"
 tauri = { version = "2.10.3", features = ["macos-private-api"] }
 tauri-plugin-dialog = "2"
 tauri-plugin-log = "2"

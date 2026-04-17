@@ -1,3 +1,4 @@
+mod activity;
 mod chat;
 mod conversation;
 mod followup;

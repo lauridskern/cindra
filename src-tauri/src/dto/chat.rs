@@ -1,9 +1,12 @@
 use forge_domain::{
-    Category, ChatResponse, ChatResponseContent, ConversationId, InterruptionReason, ToolResult,
+    Category, ChatResponse, ChatResponseContent, ConversationId, InterruptionReason,
 };
 use serde::{Deserialize, Serialize};
 
-const TOOL_SUMMARY_LIMIT: usize = 220;
+use super::activity::{
+    ToolCallDetailDto, ToolResultDetailDto, map_tool_call_detail, map_tool_result_detail,
+    summarize_tool_result,
+};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -49,12 +52,18 @@ pub enum ChatEventKind {
     },
     ToolStart {
         name: String,
+        #[serde(rename = "callId")]
+        call_id: Option<String>,
+        detail: ToolCallDetailDto,
     },
     ToolEnd {
         name: String,
+        #[serde(rename = "callId")]
+        call_id: Option<String>,
         summary: Option<String>,
         #[serde(rename = "isError")]
         is_error: bool,
+        detail: Option<ToolResultDetailDto>,
     },
     Retry {
         cause: String,
@@ -113,11 +122,21 @@ pub fn map_chat_response(response: &ChatResponse) -> Option<ChatEventKind> {
         ChatResponse::TaskComplete => Some(ChatEventKind::Complete),
         ChatResponse::ToolCallStart { tool_call, .. } => Some(ChatEventKind::ToolStart {
             name: tool_call.name.to_string(),
+            call_id: tool_call
+                .call_id
+                .as_ref()
+                .map(|call_id| call_id.as_str().to_string()),
+            detail: map_tool_call_detail(tool_call),
         }),
         ChatResponse::ToolCallEnd(result) => Some(ChatEventKind::ToolEnd {
             name: result.name.to_string(),
+            call_id: result
+                .call_id
+                .as_ref()
+                .map(|call_id| call_id.as_str().to_string()),
             summary: summarize_tool_result(result),
             is_error: result.is_error(),
+            detail: map_tool_result_detail(result),
         }),
         ChatResponse::RetryAttempt { cause, duration } => Some(ChatEventKind::Retry {
             cause: cause.as_str().to_string(),
@@ -127,22 +146,6 @@ pub fn map_chat_response(response: &ChatResponse) -> Option<ChatEventKind> {
             reason: format_interruption(reason),
         }),
     }
-}
-
-fn summarize_tool_result(result: &ToolResult) -> Option<String> {
-    let text = result.output.as_str()?.trim();
-    if text.is_empty() {
-        return None;
-    }
-
-    let summary = if text.chars().count() <= TOOL_SUMMARY_LIMIT {
-        text.to_string()
-    } else {
-        let truncated = text.chars().take(TOOL_SUMMARY_LIMIT).collect::<String>();
-        format!("{truncated}…")
-    };
-
-    Some(summary)
 }
 
 fn format_interruption(reason: &InterruptionReason) -> String {

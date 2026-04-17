@@ -3,6 +3,11 @@ use std::path::Path;
 use forge_domain::{ContextMessage, Conversation, Role};
 use serde::{Deserialize, Serialize};
 
+use super::activity::{
+    ToolCallDetailDto, ToolResultDetailDto, map_tool_call_detail, map_tool_result_detail,
+    summarize_tool_result,
+};
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct ConversationListItemDto {
@@ -55,14 +60,23 @@ pub struct ConversationTranscriptDto {
 
 impl ConversationTranscriptDto {
     pub fn from_conversation(conversation: &Conversation) -> Self {
-        let request_id = format!("history:{}", conversation.id.into_string());
         let mut messages = Vec::new();
+        let mut turn_index = 0usize;
+        let mut saw_user_message = false;
 
         if let Some(context) = &conversation.context {
             for (index, entry) in context.messages.iter().enumerate() {
                 match &entry.message {
                     ContextMessage::Text(text) => match text.role {
                         Role::User => {
+                            if saw_user_message {
+                                turn_index += 1;
+                            } else {
+                                saw_user_message = true;
+                            }
+
+                            let request_id =
+                                format!("history:{}:{turn_index}", conversation.id.into_string());
                             let content = text.content.trim();
                             if !content.is_empty() {
                                 messages.push(ConversationMessageDto::User {
@@ -73,6 +87,8 @@ impl ConversationTranscriptDto {
                             }
                         }
                         Role::Assistant => {
+                            let request_id =
+                                format!("history:{}:{turn_index}", conversation.id.into_string());
                             let reasoning = text
                                 .reasoning_details
                                 .as_ref()
@@ -103,28 +119,39 @@ impl ConversationTranscriptDto {
                                     text: content.to_string(),
                                 });
                             }
+
+                            if let Some(tool_calls) = &text.tool_calls {
+                                for (tool_index, tool_call) in tool_calls.iter().enumerate() {
+                                    messages.push(ConversationMessageDto::ToolStart {
+                                        id: format!("history-tool-start:{index}:{tool_index}"),
+                                        request_id: request_id.clone(),
+                                        name: tool_call.name.to_string(),
+                                        call_id: tool_call
+                                            .call_id
+                                            .as_ref()
+                                            .map(|call_id| call_id.as_str().to_string()),
+                                        detail: map_tool_call_detail(tool_call),
+                                    });
+                                }
+                            }
                         }
                         Role::System => {}
                     },
                     ContextMessage::Tool(result) => {
-                        let output = result.output.as_str().map(str::trim).unwrap_or_default();
-                        if output.is_empty() {
-                            continue;
-                        }
-
-                        if result.is_error() {
-                            messages.push(ConversationMessageDto::Error {
-                                id: format!("history-error:{index}"),
-                                request_id: request_id.clone(),
-                                message: output.to_string(),
-                            });
-                        } else {
-                            messages.push(ConversationMessageDto::StatusOutput {
-                                id: format!("history-tool:{index}"),
-                                request_id: request_id.clone(),
-                                text: output.to_string(),
-                            });
-                        }
+                        let request_id =
+                            format!("history:{}:{turn_index}", conversation.id.into_string());
+                        messages.push(ConversationMessageDto::ToolEnd {
+                            id: format!("history-tool-end:{index}"),
+                            request_id: request_id.clone(),
+                            name: result.name.to_string(),
+                            call_id: result
+                                .call_id
+                                .as_ref()
+                                .map(|call_id| call_id.as_str().to_string()),
+                            summary: summarize_tool_result(result),
+                            is_error: result.is_error(),
+                            detail: map_tool_result_detail(result),
+                        });
                     }
                     ContextMessage::Image(_) => {}
                 }
@@ -139,7 +166,11 @@ impl ConversationTranscriptDto {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(tag = "kind", rename_all = "snake_case")]
+#[serde(
+    tag = "kind",
+    rename_all = "snake_case",
+    rename_all_fields = "camelCase"
+)]
 pub enum ConversationMessageDto {
     User {
         id: String,
@@ -160,6 +191,22 @@ pub enum ConversationMessageDto {
         id: String,
         request_id: String,
         text: String,
+    },
+    ToolStart {
+        id: String,
+        request_id: String,
+        name: String,
+        call_id: Option<String>,
+        detail: ToolCallDetailDto,
+    },
+    ToolEnd {
+        id: String,
+        request_id: String,
+        name: String,
+        call_id: Option<String>,
+        summary: Option<String>,
+        is_error: bool,
+        detail: Option<ToolResultDetailDto>,
     },
     Error {
         id: String,
