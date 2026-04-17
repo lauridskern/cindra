@@ -13,16 +13,30 @@ impl RuntimeManager {
         workspace_path: &str,
         conversation_id: &str,
     ) -> anyhow::Result<()> {
-        if self
+        let existing = self
             .state
             .lock()
             .await
             .conversations
-            .contains_key(conversation_id)
-        {
+            .get(conversation_id)
+            .cloned();
+        if existing.as_ref().is_some_and(|conversation| {
+            conversation.active_request_ids.is_empty() == false || conversation.is_local_draft
+        }) {
             return Ok(());
         }
 
+        let existing_order = existing.map(|conversation| conversation.order);
+        self.reload_conversation_from_persistence(workspace_path, conversation_id, existing_order)
+            .await
+    }
+
+    pub(super) async fn reload_conversation_from_persistence(
+        &self,
+        workspace_path: &str,
+        conversation_id: &str,
+        order_hint: Option<u64>,
+    ) -> anyhow::Result<()> {
         let runtime = self.ensure_workspace_runtime(workspace_path).await?;
         let parsed = ConversationId::parse(conversation_id)?;
         let conversation = runtime
@@ -33,7 +47,7 @@ impl RuntimeManager {
         let persisted = PersistedConversationSummary::from_conversation(&conversation);
 
         let mut state = self.state.lock().await;
-        let order = state.allocate_order();
+        let order = order_hint.unwrap_or_else(|| state.allocate_order());
         state.conversations.insert(
             conversation_id.to_string(),
             hydrate_conversation_state(workspace_path, conversation, persisted, order),

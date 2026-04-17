@@ -281,6 +281,16 @@ impl RuntimeManager {
         }
 
         let _ = self.refresh_workspace_conversations(workspace_path).await;
+        let order_hint = self
+            .state
+            .lock()
+            .await
+            .conversations
+            .get(conversation_id)
+            .map(|conversation| conversation.order);
+        let _ = self
+            .reload_conversation_from_persistence(workspace_path, conversation_id, order_hint)
+            .await;
         let snapshot = self.snapshot().await?;
         self.emit_snapshot(snapshot)?;
         Ok(())
