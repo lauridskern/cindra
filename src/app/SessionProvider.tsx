@@ -657,14 +657,23 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const conversationState = useMemo(
     () => ({
       activeWorkspaceLabel,
+      activeRequestIds:
+        sessionState.currentConversationId == null
+          ? []
+          : (sessionState.activeRequestIdsByConversation[
+              sessionState.currentConversationId
+            ] ?? []),
       hasCurrentWorkspace,
       isOpeningProject,
       messages,
       runtimeStatus,
       uiError,
+      workspacePath: runtimeStatus?.workspacePath ?? null,
     }),
     [
       activeWorkspaceLabel,
+      sessionState.activeRequestIdsByConversation,
+      sessionState.currentConversationId,
       hasCurrentWorkspace,
       isOpeningProject,
       messages,

@@ -262,11 +262,13 @@ export function ConversationPanel({
   const hasInitializedPreferredAppRef = React.useRef(false);
   const {
     activeWorkspaceLabel,
+    activeRequestIds,
     hasCurrentWorkspace,
     isOpeningProject,
     messages,
     runtimeStatus,
     uiError,
+    workspacePath,
   } = useConversationSession();
   const {
     checkoutBranch,
@@ -678,7 +680,11 @@ export function ConversationPanel({
       ) : null}
 
       <section className="min-h-0 flex-1 overflow-hidden select-text">
-        <ChatThread messages={messages} />
+        <ChatThread
+          messages={messages}
+          activeRequestIds={activeRequestIds}
+          workspacePath={workspacePath}
+        />
       </section>
 
       <PromptComposer />

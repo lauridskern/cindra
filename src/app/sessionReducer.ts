@@ -6,44 +6,44 @@ import type {
   RuntimeStatus,
   StatusCategory,
   TranscriptMessage,
-} from '../services/desktop/contracts'
+} from "../services/desktop/contracts";
 
 export interface AppState {
-  runtimeStatus: RuntimeStatus | null
-  projects: ProjectConversationGroup[]
-  transcripts: Record<string, TranscriptMessage[]>
-  conversationWorkspaceById: Record<string, string>
-  selectedConversationByWorkspace: Record<string, string | null>
-  currentConversationId: string | null
-  activeRequestIdsByConversation: Record<string, string[]>
-  followup: FollowupRequest | null
-  uiError: string | null
+  runtimeStatus: RuntimeStatus | null;
+  projects: ProjectConversationGroup[];
+  transcripts: Record<string, TranscriptMessage[]>;
+  conversationWorkspaceById: Record<string, string>;
+  selectedConversationByWorkspace: Record<string, string | null>;
+  currentConversationId: string | null;
+  activeRequestIdsByConversation: Record<string, string[]>;
+  followup: FollowupRequest | null;
+  uiError: string | null;
 }
 
 export type SessionAction =
-  | { type: 'runtime_status_loaded'; status: RuntimeStatus }
-  | { type: 'workspace_opened'; status: RuntimeStatus }
-  | { type: 'projects_loaded'; items: ProjectConversationGroup[] }
-  | { type: 'conversation_loaded'; item: ConversationTranscript }
-  | { type: 'ui_error'; message: string }
+  | { type: "runtime_status_loaded"; status: RuntimeStatus }
+  | { type: "workspace_opened"; status: RuntimeStatus }
+  | { type: "projects_loaded"; items: ProjectConversationGroup[] }
+  | { type: "conversation_loaded"; item: ConversationTranscript }
+  | { type: "ui_error"; message: string }
   | {
-      type: 'prompt_queued'
-      workspacePath: string
-      originConversationId: string | null
-      conversationId: string
-      requestId: string
-      prompt: string
+      type: "prompt_queued";
+      workspacePath: string;
+      originConversationId: string | null;
+      conversationId: string;
+      requestId: string;
+      prompt: string;
     }
-  | { type: 'chat_event_received'; payload: ChatEventEnvelope }
-  | { type: 'followup_received'; payload: FollowupRequest }
-  | { type: 'followup_cleared' }
-  | { type: 'conversation_selected'; conversationId: string }
+  | { type: "chat_event_received"; payload: ChatEventEnvelope }
+  | { type: "followup_received"; payload: FollowupRequest }
+  | { type: "followup_cleared" }
+  | { type: "conversation_selected"; conversationId: string }
   | {
-      type: 'chat_reset'
-      workspacePath: string
-      originConversationId: string | null
-      conversationId: string
-    }
+      type: "chat_reset";
+      workspacePath: string;
+      originConversationId: string | null;
+      conversationId: string;
+    };
 
 export const initialSessionState: AppState = {
   runtimeStatus: null,
@@ -55,10 +55,10 @@ export const initialSessionState: AppState = {
   activeRequestIdsByConversation: {},
   followup: null,
   uiError: null,
-}
+};
 
 function assertNever(value: never): never {
-  throw new Error(`Unhandled state transition: ${String(value)}`)
+  throw new Error(`Unhandled state transition: ${String(value)}`);
 }
 
 function getSelectedConversationForWorkspace(
@@ -67,14 +67,14 @@ function getSelectedConversationForWorkspace(
 ): string | null {
   return workspacePath == null
     ? null
-    : state.selectedConversationByWorkspace[workspacePath] ?? null
+    : (state.selectedConversationByWorkspace[workspacePath] ?? null);
 }
 
 function getTranscript(
   transcripts: Record<string, TranscriptMessage[]>,
   conversationId: string,
 ): TranscriptMessage[] {
-  return transcripts[conversationId] ?? []
+  return transcripts[conversationId] ?? [];
 }
 
 function withTranscript(
@@ -88,7 +88,7 @@ function withTranscript(
       ...state.transcripts,
       [conversationId]: messages,
     },
-  }
+  };
 }
 
 function updateTranscript(
@@ -100,7 +100,7 @@ function updateTranscript(
     state,
     conversationId,
     updater(getTranscript(state.transcripts, conversationId)),
-  )
+  );
 }
 
 function appendTranscriptMessage(
@@ -108,25 +108,29 @@ function appendTranscriptMessage(
   conversationId: string,
   message: TranscriptMessage,
 ): AppState {
-  return updateTranscript(state, conversationId, (messages) => [...messages, message])
+  return updateTranscript(state, conversationId, (messages) => [
+    ...messages,
+    message,
+  ]);
 }
 
-function createMessageId(prefix: string, requestId: string, index: number): string {
-  return `${prefix}:${requestId}:${index}`
+function createMessageId(
+  prefix: string,
+  requestId: string,
+  index: number,
+): string {
+  return `${prefix}:${requestId}:${index}`;
 }
 
 function appendStreamedMessage(
   messages: TranscriptMessage[],
-  kind: 'assistant' | 'reasoning',
+  kind: "assistant" | "reasoning",
   requestId: string,
   text: string,
 ): TranscriptMessage[] {
-  const last = messages.at(-1)
+  const last = messages.at(-1);
   if (last?.kind === kind && last.requestId === requestId) {
-    return [
-      ...messages.slice(0, -1),
-      { ...last, text: `${last.text}${text}` },
-    ]
+    return [...messages.slice(0, -1), { ...last, text: `${last.text}${text}` }];
   }
 
   return [
@@ -137,7 +141,7 @@ function appendStreamedMessage(
       requestId,
       text,
     },
-  ]
+  ];
 }
 
 function appendStatusMessage(
@@ -150,14 +154,14 @@ function appendStatusMessage(
   return [
     ...messages,
     {
-      id: createMessageId('status', requestId, messages.length),
-      kind: 'status',
+      id: createMessageId("status", requestId, messages.length),
+      kind: "status",
       requestId,
       title,
       subtitle,
       category,
     },
-  ]
+  ];
 }
 
 function appendConversationEvent(
@@ -166,10 +170,16 @@ function appendConversationEvent(
   requestId: string,
   prefix: string,
   message:
-    | Omit<Extract<TranscriptMessage, { kind: 'status_output' }>, 'id' | 'requestId'>
-    | Omit<Extract<TranscriptMessage, { kind: 'tool_start' }>, 'id' | 'requestId'>
-    | Omit<Extract<TranscriptMessage, { kind: 'tool_end' }>, 'id' | 'requestId'>
-    | Omit<Extract<TranscriptMessage, { kind: 'error' }>, 'id' | 'requestId'>,
+    | Omit<
+        Extract<TranscriptMessage, { kind: "status_output" }>,
+        "id" | "requestId"
+      >
+    | Omit<
+        Extract<TranscriptMessage, { kind: "tool_start" }>,
+        "id" | "requestId"
+      >
+    | Omit<Extract<TranscriptMessage, { kind: "tool_end" }>, "id" | "requestId">
+    | Omit<Extract<TranscriptMessage, { kind: "error" }>, "id" | "requestId">,
 ): AppState {
   return updateTranscript(state, conversationId, (messages) => [
     ...messages,
@@ -178,7 +188,7 @@ function appendConversationEvent(
       requestId,
       ...message,
     },
-  ])
+  ]);
 }
 
 function selectConversationForWorkspace(
@@ -187,7 +197,8 @@ function selectConversationForWorkspace(
   conversationId: string | null,
   options?: { updateCurrentConversationId?: boolean },
 ): AppState {
-  const updateCurrentConversationId = options?.updateCurrentConversationId ?? true
+  const updateCurrentConversationId =
+    options?.updateCurrentConversationId ?? true;
 
   return {
     ...state,
@@ -198,7 +209,7 @@ function selectConversationForWorkspace(
       ...state.selectedConversationByWorkspace,
       [workspacePath]: conversationId,
     },
-  }
+  };
 }
 
 function withRuntimeStatus(state: AppState, status: RuntimeStatus): AppState {
@@ -210,7 +221,7 @@ function withRuntimeStatus(state: AppState, status: RuntimeStatus): AppState {
       status.workspacePath,
     ),
     uiError: null,
-  }
+  };
 }
 
 function withTrackedConversationWorkspace(
@@ -224,7 +235,7 @@ function withTrackedConversationWorkspace(
       ...state.conversationWorkspaceById,
       [conversationId]: workspacePath,
     },
-  }
+  };
 }
 
 function withActiveRequest(
@@ -232,9 +243,10 @@ function withActiveRequest(
   conversationId: string,
   requestId: string,
 ): AppState {
-  const currentRequestIds = state.activeRequestIdsByConversation[conversationId] ?? []
+  const currentRequestIds =
+    state.activeRequestIdsByConversation[conversationId] ?? [];
   if (currentRequestIds.includes(requestId)) {
-    return state
+    return state;
   }
 
   return {
@@ -243,7 +255,7 @@ function withActiveRequest(
       ...state.activeRequestIdsByConversation,
       [conversationId]: [...currentRequestIds, requestId],
     },
-  }
+  };
 }
 
 function withoutActiveRequest(
@@ -251,26 +263,29 @@ function withoutActiveRequest(
   conversationId: string,
   requestId: string,
 ): AppState {
-  const currentRequestIds = state.activeRequestIdsByConversation[conversationId]
+  const currentRequestIds =
+    state.activeRequestIdsByConversation[conversationId];
   if (currentRequestIds == null || !currentRequestIds.includes(requestId)) {
-    return state
+    return state;
   }
 
-  const nextRequestIds = currentRequestIds.filter((current) => current !== requestId)
+  const nextRequestIds = currentRequestIds.filter(
+    (current) => current !== requestId,
+  );
   const nextActiveRequestIdsByConversation = {
     ...state.activeRequestIdsByConversation,
-  }
+  };
 
   if (nextRequestIds.length === 0) {
-    delete nextActiveRequestIdsByConversation[conversationId]
+    delete nextActiveRequestIdsByConversation[conversationId];
   } else {
-    nextActiveRequestIdsByConversation[conversationId] = nextRequestIds
+    nextActiveRequestIdsByConversation[conversationId] = nextRequestIds;
   }
 
   return {
     ...state,
     activeRequestIdsByConversation: nextActiveRequestIdsByConversation,
-  }
+  };
 }
 
 function shouldRetargetVisibleConversation(
@@ -281,25 +296,25 @@ function shouldRetargetVisibleConversation(
   return (
     workspacePath === state.runtimeStatus?.workspacePath &&
     state.currentConversationId === originConversationId
-  )
+  );
 }
 
 function applyChatEvent(state: AppState, payload: ChatEventEnvelope): AppState {
-  const { conversationId, requestId, event } = payload
-  const nextState = state
+  const { conversationId, requestId, event } = payload;
+  const nextState = state;
 
   switch (event.type) {
-    case 'started':
-      return withActiveRequest(nextState, conversationId, requestId)
-    case 'assistant_markdown':
+    case "started":
+      return withActiveRequest(nextState, conversationId, requestId);
+    case "assistant_markdown":
       return updateTranscript(nextState, conversationId, (messages) =>
-        appendStreamedMessage(messages, 'assistant', requestId, event.text),
-      )
-    case 'reasoning':
+        appendStreamedMessage(messages, "assistant", requestId, event.text),
+      );
+    case "reasoning":
       return updateTranscript(nextState, conversationId, (messages) =>
-        appendStreamedMessage(messages, 'reasoning', requestId, event.text),
-      )
-    case 'status':
+        appendStreamedMessage(messages, "reasoning", requestId, event.text),
+      );
+    case "status":
       return updateTranscript(nextState, conversationId, (messages) =>
         appendStatusMessage(
           messages,
@@ -308,74 +323,105 @@ function applyChatEvent(state: AppState, payload: ChatEventEnvelope): AppState {
           event.category,
           event.subtitle,
         ),
-      )
-    case 'status_output':
-      return appendConversationEvent(nextState, conversationId, requestId, 'status-output', {
-        kind: 'status_output',
-        text: event.text,
-      })
-    case 'tool_start':
-      return appendConversationEvent(nextState, conversationId, requestId, 'tool-start', {
-        kind: 'tool_start',
-        name: event.name,
-      })
-    case 'tool_end':
-      return appendConversationEvent(nextState, conversationId, requestId, 'tool-end', {
-        kind: 'tool_end',
-        name: event.name,
-        summary: event.summary,
-        isError: event.isError,
-      })
-    case 'retry':
+      );
+    case "status_output":
+      return appendConversationEvent(
+        nextState,
+        conversationId,
+        requestId,
+        "status-output",
+        {
+          kind: "status_output",
+          text: event.text,
+        },
+      );
+    case "tool_start":
+      return appendConversationEvent(
+        nextState,
+        conversationId,
+        requestId,
+        "tool-start",
+        {
+          kind: "tool_start",
+          name: event.name,
+          callId: event.callId,
+          detail: event.detail,
+        },
+      );
+    case "tool_end":
+      return appendConversationEvent(
+        nextState,
+        conversationId,
+        requestId,
+        "tool-end",
+        {
+          kind: "tool_end",
+          name: event.name,
+          callId: event.callId,
+          summary: event.summary,
+          isError: event.isError,
+          detail: event.detail,
+        },
+      );
+    case "retry":
       return updateTranscript(nextState, conversationId, (messages) =>
         appendStatusMessage(
           messages,
           requestId,
-          'Retrying request',
-          'warning',
+          "Retrying request",
+          "warning",
           `${event.cause} (${event.durationMs} ms)`,
         ),
-      )
-    case 'interrupt':
+      );
+    case "interrupt":
       return updateTranscript(nextState, conversationId, (messages) =>
-        appendStatusMessage(messages, requestId, 'Interrupted', 'warning', event.reason),
-      )
-    case 'complete':
-      return withoutActiveRequest(nextState, conversationId, requestId)
-    case 'error': {
+        appendStatusMessage(
+          messages,
+          requestId,
+          "Interrupted",
+          "warning",
+          event.reason,
+        ),
+      );
+    case "complete":
+      return withoutActiveRequest(nextState, conversationId, requestId);
+    case "error": {
       const withError = appendConversationEvent(
         withoutActiveRequest(nextState, conversationId, requestId),
         conversationId,
         requestId,
-        'error',
+        "error",
         {
-          kind: 'error',
+          kind: "error",
           message: event.message,
         },
-      )
+      );
 
       return {
         ...withError,
         followup: null,
-      }
+      };
     }
     default:
-      return assertNever(event)
+      return assertNever(event);
   }
 }
 
-function createUserQueuedMessage(requestId: string, prompt: string): TranscriptMessage {
+function createUserQueuedMessage(
+  requestId: string,
+  prompt: string,
+): TranscriptMessage {
   return {
-    id: createMessageId('user', requestId, 0),
-    kind: 'user',
+    id: createMessageId("user", requestId, 0),
+    kind: "user",
     requestId,
     text: prompt,
-  }
+  };
 }
 
 function appendQueuedPrompt(
   state: AppState,
-  action: Extract<SessionAction, { type: 'prompt_queued' }>,
+  action: Extract<SessionAction, { type: "prompt_queued" }>,
 ): AppState {
   const queuedState = withTrackedConversationWorkspace(
     withActiveRequest(
@@ -388,7 +434,7 @@ function appendQueuedPrompt(
     ),
     action.conversationId,
     action.workspacePath,
-  )
+  );
 
   return appendTranscriptMessage(
     shouldRetargetVisibleConversation(
@@ -404,12 +450,12 @@ function appendQueuedPrompt(
       : queuedState,
     action.conversationId,
     createUserQueuedMessage(action.requestId, action.prompt),
-  )
+  );
 }
 
 function resetChatConversation(
   state: AppState,
-  action: Extract<SessionAction, { type: 'chat_reset' }>,
+  action: Extract<SessionAction, { type: "chat_reset" }>,
 ): AppState {
   const resetState = withTranscript(
     withTrackedConversationWorkspace(
@@ -422,7 +468,7 @@ function resetChatConversation(
     ),
     action.conversationId,
     [],
-  )
+  );
 
   return shouldRetargetVisibleConversation(
     state,
@@ -434,18 +480,21 @@ function resetChatConversation(
         action.workspacePath,
         action.conversationId,
       )
-    : resetState
+    : resetState;
 }
 
-export function sessionReducer(state: AppState, action: SessionAction): AppState {
+export function sessionReducer(
+  state: AppState,
+  action: SessionAction,
+): AppState {
   switch (action.type) {
-    case 'runtime_status_loaded':
-      return withRuntimeStatus(state, action.status)
-    case 'workspace_opened':
-      return withRuntimeStatus(state, action.status)
-    case 'projects_loaded':
-      return { ...state, projects: action.items }
-    case 'conversation_loaded':
+    case "runtime_status_loaded":
+      return withRuntimeStatus(state, action.status);
+    case "workspace_opened":
+      return withRuntimeStatus(state, action.status);
+    case "projects_loaded":
+      return { ...state, projects: action.items };
+    case "conversation_loaded":
       return withTranscript(
         state.runtimeStatus?.workspacePath == null
           ? state
@@ -456,28 +505,28 @@ export function sessionReducer(state: AppState, action: SessionAction): AppState
             ),
         action.item.conversationId,
         action.item.messages,
-      )
-    case 'ui_error':
-      return { ...state, uiError: action.message }
-    case 'prompt_queued':
-      return appendQueuedPrompt(state, action)
-    case 'chat_event_received':
-      return applyChatEvent(state, action.payload)
-    case 'followup_received':
-      return { ...state, followup: action.payload }
-    case 'followup_cleared':
-      return { ...state, followup: null }
-    case 'conversation_selected':
+      );
+    case "ui_error":
+      return { ...state, uiError: action.message };
+    case "prompt_queued":
+      return appendQueuedPrompt(state, action);
+    case "chat_event_received":
+      return applyChatEvent(state, action.payload);
+    case "followup_received":
+      return { ...state, followup: action.payload };
+    case "followup_cleared":
+      return { ...state, followup: null };
+    case "conversation_selected":
       return state.runtimeStatus?.workspacePath == null
         ? { ...state, currentConversationId: action.conversationId }
         : selectConversationForWorkspace(
             state,
             state.runtimeStatus.workspacePath,
             action.conversationId,
-          )
-    case 'chat_reset':
-      return resetChatConversation(state, action)
+          );
+    case "chat_reset":
+      return resetChatConversation(state, action);
     default:
-      return assertNever(action)
+      return assertNever(action);
   }
 }

@@ -9,11 +9,13 @@ import type { ProjectSummary } from "./sessionSelectors";
 
 export interface ConversationStateContextValue {
   activeWorkspaceLabel: string;
+  activeRequestIds: string[];
   hasCurrentWorkspace: boolean;
   isOpeningProject: boolean;
   messages: TranscriptMessage[];
   runtimeStatus: RuntimeStatus | null;
   uiError: string | null;
+  workspacePath: string | null;
 }
 
 export interface SidebarStateContextValue {
