@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useCallback, useMemo, useState, type ReactNode } from "react";
 
 import type { SessionSnapshot } from "../services/desktop/contracts";
 import { useLatestRef } from "../hooks/useLatestRef";
@@ -9,6 +9,7 @@ import { useSessionCommands } from "../hooks/useSessionCommands";
 import {
   ConversationStateContext,
   PromptDraftContext,
+  type RequestTimingInfo,
   SessionActionsContext,
   SidebarStateContext,
 } from "./SessionContext";
@@ -23,8 +24,50 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [sessionSnapshot, setSessionSnapshot] = useState<SessionSnapshot | null>(
     null,
   );
+  const [requestTimingsByConversationId, setRequestTimingsByConversationId] =
+    useState<Record<string, Record<string, RequestTimingInfo>>>({});
   const [isOpeningProject, setIsOpeningProject] = useState(false);
   const sessionSnapshotRef = useLatestRef(sessionSnapshot);
+
+  const applySessionSnapshot = useCallback((snapshot: SessionSnapshot) => {
+    const activeConversationId = snapshot.activeConversationId;
+    if (activeConversationId != null) {
+      const activeRequestIds = snapshot.visibleActiveRequestIds ?? [];
+      setRequestTimingsByConversationId((current) => {
+        const currentConversationTimings = current[activeConversationId] ?? {};
+        const nextConversationTimings = { ...currentConversationTimings };
+        const activeRequestIdSet = new Set(activeRequestIds);
+        const now = Date.now();
+
+        for (const requestId of activeRequestIds) {
+          if (nextConversationTimings[requestId] == null) {
+            nextConversationTimings[requestId] = {
+              startedAtMs: now,
+              completedAtMs: null,
+            };
+          }
+        }
+
+        for (const [requestId, timing] of Object.entries(
+          nextConversationTimings,
+        )) {
+          if (timing.completedAtMs == null && !activeRequestIdSet.has(requestId)) {
+            nextConversationTimings[requestId] = {
+              ...timing,
+              completedAtMs: now,
+            };
+          }
+        }
+
+        return {
+          ...current,
+          [activeConversationId]: nextConversationTimings,
+        };
+      });
+    }
+
+    setSessionSnapshot(snapshot);
+  }, []);
 
   const currentPromptDraftKey = getPromptDraftKey(
     sessionSnapshot?.activeWorkspacePath,
@@ -32,7 +75,6 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   );
   const promptDraftStore = usePromptDraftStore(currentPromptDraftKey);
 
-  useSessionBootstrap({ setSessionSnapshot });
   const { refreshRuntimeStatus, runtimeStatus, setRuntimeStatus } =
     useRuntimeStatus(sessionSnapshot?.activeWorkspacePath ?? null);
 
@@ -42,10 +84,11 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     sessionSnapshotRef,
     setIsOpeningProject,
     setRuntimeStatus,
-    setSessionSnapshot,
+    setSessionSnapshot: applySessionSnapshot,
   });
 
   const hasCurrentWorkspace = sessionSnapshot?.activeWorkspacePath != null;
+  const activeConversationId = sessionSnapshot?.activeConversationId ?? null;
   const activeWorkspace = getActiveWorkspace(sessionSnapshot);
   const activeConversation = getActiveConversation(sessionSnapshot);
   const followupRequest = sessionSnapshot?.visibleFollowup ?? null;
@@ -55,12 +98,21 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     runtimeStatus?.configurationError ??
     activeWorkspace?.configurationError ??
     null;
+  useSessionBootstrap({ setSessionSnapshot: applySessionSnapshot });
+
   const canCompose =
     hasCurrentWorkspace &&
     activeWorkspaceConfigured &&
     followupRequest == null &&
     promptDraftStore.isSendingPrompt === false &&
     (activeConversation?.isRunning ?? false) === false;
+  const requestTimingsById = useMemo(
+    () =>
+      activeConversationId == null
+        ? {}
+        : requestTimingsByConversationId[activeConversationId] ?? {},
+    [activeConversationId, requestTimingsByConversationId],
+  );
 
   const conversationState = useMemo(
     () => ({
@@ -71,6 +123,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       hasCurrentWorkspace,
       isOpeningProject,
       messages: sessionSnapshot?.visibleMessages ?? [],
+      requestTimingsById,
       runtimeStatus,
       uiError: sessionSnapshot?.uiError ?? null,
       workspacePath: sessionSnapshot?.activeWorkspacePath ?? null,
@@ -80,6 +133,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       activeWorkspaceConfigured,
       hasCurrentWorkspace,
       isOpeningProject,
+      requestTimingsById,
       runtimeStatus,
       sessionSnapshot,
     ],

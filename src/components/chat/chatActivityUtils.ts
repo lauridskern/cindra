@@ -13,30 +13,13 @@ function formatPath(path: string, workspacePath: string | null): string {
   return trimmed.length === 0 ? "." : trimmed;
 }
 
-function formatLineRange(
-  startLine?: number | null,
-  endLine?: number | null,
-): string {
-  if (startLine == null && endLine == null) {
-    return "";
-  }
-  if (startLine != null && endLine != null) {
-    return `:${startLine}-${endLine}`;
-  }
-  if (startLine != null) {
-    return `:${startLine}`;
-  }
-
-  return `:1-${endLine}`;
-}
-
 export function formatOperationLabel(
   operation: ActivityOperation,
   workspacePath: string | null,
 ): string {
   switch (operation.detail.kind) {
     case "file_read":
-      return `Read ${formatPath(operation.detail.path, workspacePath)}${formatLineRange(operation.detail.startLine, operation.detail.endLine)}`;
+      return `Read ${formatPath(operation.detail.path, workspacePath)}`;
     case "file_update": {
       const verb = (() => {
         switch (operation.detail.operation) {
@@ -104,6 +87,10 @@ function buildPreviewText(
 export function buildGenericOutputText(
   operation: ActivityOperation,
 ): string | null {
+  if (operation.detail.kind === "file_read") {
+    return null;
+  }
+
   const detail = operation.resultDetail;
   if (detail?.kind === "shell_output") {
     return buildPreviewText(detail.command, detail.stdout, detail.stderr);

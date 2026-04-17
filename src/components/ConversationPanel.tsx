@@ -272,6 +272,7 @@ export function ConversationPanel({
     hasCurrentWorkspace,
     isOpeningProject,
     messages,
+    requestTimingsById,
     runtimeStatus,
     uiError,
     workspacePath,
@@ -683,6 +684,7 @@ export function ConversationPanel({
         <ChatThread
           messages={messages}
           activeRequestIds={activeRequestIds}
+          requestTimingsById={requestTimingsById}
           workspacePath={workspacePath}
         />
       </section>

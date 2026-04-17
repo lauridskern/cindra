@@ -17,6 +17,17 @@ export interface ActivityOperation {
   summary?: string | null;
 }
 
+export interface ActivityItem {
+  kind: "activity";
+  key: string;
+  requestId: string;
+  summary: string;
+  operations: ActivityOperation[];
+  isRunning: boolean;
+  isThinking: boolean;
+  reasoningText?: string;
+}
+
 export type ChatThreadItem =
   | {
       kind: "message";
@@ -24,14 +35,11 @@ export type ChatThreadItem =
       message: TranscriptMessage;
     }
   | {
-      kind: "activity";
+      kind: "request_work";
       key: string;
       requestId: string;
-      summary: string;
-      operations: ActivityOperation[];
+      activities: ActivityItem[];
       isRunning: boolean;
-      isThinking: boolean;
-      reasoningText?: string;
     };
 
 interface ActivityGroupBuilder {
@@ -63,42 +71,110 @@ export function buildChatThreadItems(
 ): ChatThreadItem[] {
   const items: ChatThreadItem[] = [];
   const activeRequestIdSet = new Set(activeRequestIds);
+  const pendingActivitiesByRequestId = new Map<string, ActivityItem[]>();
+  const emittedWorkItemRequestIds = new Set<string>();
+  const requestIdsInEncounterOrder: string[] = [];
+  const seenRequestIds = new Set<string>();
   let currentGroup: ActivityGroupBuilder | null = null;
 
-  const flushGroup = () => {
+  const trackRequestId = (requestId: string) => {
+    if (seenRequestIds.has(requestId)) {
+      return;
+    }
+
+    seenRequestIds.add(requestId);
+    requestIdsInEncounterOrder.push(requestId);
+  };
+
+  const createActivityItems = (
+    group: ActivityGroupBuilder,
+    isRunning: boolean,
+  ): ActivityItem[] => {
+    const activityItems: ActivityItem[] = [];
+
+    if (group.reasoningText.trim().length > 0) {
+      activityItems.push({
+        kind: "activity",
+        key: `activity:${group.requestId}:thinking`,
+        requestId: group.requestId,
+        summary: "Thinking",
+        operations: [],
+        isRunning,
+        isThinking: true,
+        reasoningText: group.reasoningText.trim(),
+      });
+    }
+
+    const operationGroups = splitActivityOperationGroups(group.operations);
+    operationGroups.forEach((operations, index) => {
+      activityItems.push({
+        kind: "activity",
+        key: `activity:${group.requestId}:${index}`,
+        requestId: group.requestId,
+        summary: summarizeActivityGroup(operations),
+        operations,
+        isRunning: isRunning && index === operationGroups.length - 1,
+        isThinking: false,
+        reasoningText: undefined,
+      });
+    });
+
+    return activityItems;
+  };
+
+  const pushWorkItem = (
+    requestId: string,
+    activities: ActivityItem[],
+    isRunning: boolean,
+  ) => {
+    trackRequestId(requestId);
+
+    items.push({
+      kind: "request_work",
+      key: `request-work:${requestId}:${items.length}`,
+      requestId,
+      activities,
+      isRunning,
+    });
+    emittedWorkItemRequestIds.add(requestId);
+  };
+
+  const appendPendingActivities = (
+    requestId: string,
+    activities: ActivityItem[],
+  ) => {
+    trackRequestId(requestId);
+    if (activities.length === 0) {
+      return;
+    }
+
+    const existingActivities = pendingActivitiesByRequestId.get(requestId) ?? [];
+    pendingActivitiesByRequestId.set(requestId, [
+      ...existingActivities,
+      ...activities,
+    ]);
+  };
+
+  const takePendingActivities = (requestId: string): ActivityItem[] => {
+    trackRequestId(requestId);
+    const activities = pendingActivitiesByRequestId.get(requestId) ?? [];
+    pendingActivitiesByRequestId.delete(requestId);
+    return activities;
+  };
+
+  const flushGroup = (options?: { includeEmpty?: boolean }) => {
     if (currentGroup == null) {
       return;
     }
 
     const isRunning = activeRequestIdSet.has(currentGroup.requestId);
-    if (currentGroup.operations.length === 0) {
-      if (currentGroup.reasoningText.trim().length > 0) {
-        items.push({
-          kind: "activity",
-          key: `activity:${currentGroup.requestId}:thinking`,
-          requestId: currentGroup.requestId,
-          summary: "Thinking",
-          operations: [],
-          isRunning,
-          isThinking: true,
-          reasoningText: currentGroup.reasoningText.trim(),
-        });
-      }
-
-      currentGroup = null;
-      return;
+    const activities = createActivityItems(currentGroup, isRunning);
+    if (activities.length > 0) {
+      appendPendingActivities(currentGroup.requestId, activities);
+    } else if (options?.includeEmpty === true) {
+      trackRequestId(currentGroup.requestId);
     }
 
-    items.push({
-      kind: "activity",
-      key: `activity:${currentGroup.requestId}:${items.length}`,
-      requestId: currentGroup.requestId,
-      summary: summarizeActivityGroup(currentGroup.operations),
-      operations: currentGroup.operations,
-      isRunning,
-      isThinking: false,
-      reasoningText: undefined,
-    });
     currentGroup = null;
   };
 
@@ -127,9 +203,22 @@ export function buildChatThreadItems(
   for (const message of messages) {
     switch (message.kind) {
       case "user":
+        flushGroup();
+        items.push({
+          kind: "message",
+          key: message.id,
+          message,
+        });
+        break;
       case "assistant":
       case "error":
-        flushGroup();
+        flushGroup({ includeEmpty: true });
+        pushWorkItem(
+          message.requestId,
+          takePendingActivities(message.requestId),
+          activeRequestIdSet.has(message.requestId),
+        );
+
         items.push({
           kind: "message",
           key: message.id,
@@ -220,6 +309,21 @@ export function buildChatThreadItems(
   }
 
   flushGroup();
+
+  for (const requestId of activeRequestIds) {
+    trackRequestId(requestId);
+  }
+
+  for (const requestId of requestIdsInEncounterOrder) {
+    if (!emittedWorkItemRequestIds.has(requestId)) {
+      const activities = takePendingActivities(requestId);
+      const isRunning = activeRequestIdSet.has(requestId);
+      if (activities.length > 0 || isRunning) {
+        pushWorkItem(requestId, activities, isRunning);
+      }
+    }
+  }
+
   return items;
 }
 
@@ -306,6 +410,49 @@ function mergeOutputText(current: string | undefined, next: string): string {
   return `${current}\n\n${trimmed}`;
 }
 
+function splitActivityOperationGroups(
+  operations: ActivityOperation[],
+): ActivityOperation[][] {
+  const groups: ActivityOperation[][] = [];
+
+  for (const operation of operations) {
+    const previousGroup = groups.at(-1);
+    if (
+      previousGroup == null ||
+      getOperationGroupKey(previousGroup[0]) !== getOperationGroupKey(operation)
+    ) {
+      groups.push([operation]);
+      continue;
+    }
+
+    previousGroup.push(operation);
+  }
+
+  return groups;
+}
+
+function getOperationGroupKey(operation: ActivityOperation): string {
+  switch (operation.detail.kind) {
+    case "file_read":
+      return "file_read";
+    case "file_update":
+      return "file_update";
+    case "shell":
+      return "shell";
+    case "search":
+    case "codebase_search":
+      return "search";
+    case "fetch":
+      return "fetch";
+    case "todo_read":
+      return "todo_read";
+    case "todo_write":
+      return "todo_write";
+    default:
+      return operation.detail.kind;
+  }
+}
+
 function summarizeActivityGroup(operations: ActivityOperation[]): string {
   let fileReads = 0;
   let fileUpdates = 0;
@@ -338,30 +485,24 @@ function summarizeActivityGroup(operations: ActivityOperation[]): string {
     }
   }
 
-  const parts: string[] = [];
   if (fileReads > 0) {
-    parts.push(`explored ${fileReads} file${fileReads === 1 ? "" : "s"}`);
+    return `Explored ${fileReads} file${fileReads === 1 ? "" : "s"}`;
   }
   if (commands > 0) {
-    parts.push(`ran ${commands} command${commands === 1 ? "" : "s"}`);
+    return `Ran ${commands} command${commands === 1 ? "" : "s"}`;
   }
   if (fileUpdates > 0) {
-    parts.push(`updated ${fileUpdates} file${fileUpdates === 1 ? "" : "s"}`);
+    return `Updated ${fileUpdates} file${fileUpdates === 1 ? "" : "s"}`;
   }
   if (searches > 0) {
-    parts.push(`ran ${searches} search${searches === 1 ? "" : "es"}`);
+    return `Ran ${searches} search${searches === 1 ? "" : "es"}`;
   }
   if (fetches > 0) {
-    parts.push(`fetched ${fetches} URL${fetches === 1 ? "" : "s"}`);
+    return `Fetched ${fetches} URL${fetches === 1 ? "" : "s"}`;
   }
   if (others > 0) {
-    parts.push(`used ${others} tool${others === 1 ? "" : "s"}`);
+    return `Used ${others} tool${others === 1 ? "" : "s"}`;
   }
 
-  if (parts.length === 0) {
-    return "Activity";
-  }
-
-  const [first, ...rest] = parts;
-  return `${first.charAt(0).toUpperCase()}${first.slice(1)}${rest.length > 0 ? `, ${rest.join(", ")}` : ""}`;
+  return "Activity";
 }

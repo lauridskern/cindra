@@ -3,6 +3,7 @@ import type {
   TranscriptMessage,
 } from "../../services/desktop/contracts";
 import { cn } from "../../lib/utils";
+import { ChatInlineText } from "./chatInlineText";
 
 type ChatEventMessage = Extract<
   TranscriptMessage,
@@ -22,7 +23,7 @@ function statusToneClass(category: StatusCategory): string {
     case "completion":
       return "text-emerald-700 dark:text-emerald-400";
     default:
-      return "text-neutral-500 dark:text-neutral-400";
+      return "text-neutral-950 dark:text-neutral-400";
   }
 }
 
@@ -40,8 +41,8 @@ function StatusRow({
     subtitle
   ) {
     return (
-      <article className="grid max-w-3xl gap-2 select-text text-sm leading-6 text-neutral-700 dark:text-neutral-200">
-        <p>{subtitle}</p>
+      <article className="grid max-w-3xl gap-1.5 select-text text-[13px] leading-[1.4rem] text-neutral-950 dark:text-neutral-200">
+        <ChatInlineText as="p" text={subtitle} />
       </article>
     );
   }
@@ -53,13 +54,17 @@ function StatusRow({
   return (
     <article
       className={cn(
-        "grid max-w-3xl gap-2 select-text text-xs leading-6",
+        "grid max-w-3xl gap-1.5 select-text text-[13px] leading-[1.4rem]",
         statusToneClass(category),
       )}
     >
-      <p>{title}</p>
+      <ChatInlineText as="p" text={title} />
       {subtitle ? (
-        <p className="text-neutral-700 dark:text-neutral-200">{subtitle}</p>
+        <ChatInlineText
+          as="p"
+          className="text-neutral-950 dark:text-neutral-200"
+          text={subtitle}
+        />
       ) : null}
     </article>
   );
@@ -67,8 +72,8 @@ function StatusRow({
 
 function StatusOutputRow({ text }: { text: string }) {
   return (
-    <article className="max-w-3xl min-w-0 select-text overflow-x-auto text-sm text-neutral-500 dark:text-neutral-400">
-      <pre className="m-0 max-w-full overflow-x-auto whitespace-pre font-mono">
+    <article className="max-w-3xl min-w-0 select-text overflow-x-auto text-[13px] leading-[1.4rem] text-neutral-950 dark:text-neutral-400">
+      <pre className="m-0 max-w-full overflow-x-auto whitespace-pre font-mono leading-[1.4rem]">
         {text}
       </pre>
     </article>
@@ -77,8 +82,8 @@ function StatusOutputRow({ text }: { text: string }) {
 
 function ToolStartRow({ name }: { name: string }) {
   return (
-    <article className="grid max-w-3xl gap-2 select-text text-xs leading-6 text-neutral-500 dark:text-neutral-400">
-      <p>Started `{name}`</p>
+    <article className="grid max-w-3xl gap-1.5 select-text text-[13px] leading-[1.4rem] text-neutral-950 dark:text-neutral-400">
+      <ChatInlineText as="p" text={`Started ${name}`} />
     </article>
   );
 }
@@ -95,15 +100,19 @@ function ToolEndRow({
   return (
     <article
       className={cn(
-        "grid max-w-3xl gap-2 select-text text-xs leading-6",
+        "grid max-w-3xl gap-1.5 select-text text-[13px] leading-[1.4rem]",
         isError
           ? "text-red-700 dark:text-red-400"
           : "text-emerald-700 dark:text-emerald-400",
       )}
     >
-      <p>Finished `{name}`</p>
+      <ChatInlineText as="p" text={`Finished ${name}`} />
       {summary ? (
-        <p className="text-neutral-700 dark:text-neutral-200">{summary}</p>
+        <ChatInlineText
+          as="p"
+          className="text-neutral-950 dark:text-neutral-200"
+          text={summary}
+        />
       ) : null}
     </article>
   );
@@ -112,10 +121,10 @@ function ToolEndRow({
 function ErrorRow({ message }: { message: string }) {
   return (
     <article
-      className="grid max-w-3xl gap-2 select-text text-xs leading-6 text-red-700 dark:text-red-400"
+      className="grid max-w-3xl gap-1.5 select-text text-[13px] leading-[1.4rem] text-red-700 dark:text-red-400"
       role="alert"
     >
-      <p>{message}</p>
+      <ChatInlineText as="p" text={message} />
     </article>
   );
 }

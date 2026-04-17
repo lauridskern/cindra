@@ -1,5 +1,6 @@
 import type { TranscriptMessage } from "../../services/desktop/contracts";
 import { ChatMarkdown } from "./ChatMarkdown";
+import { ChatInlineText } from "./chatInlineText";
 
 type ChatContentMessage = Extract<
   TranscriptMessage,
@@ -13,8 +14,8 @@ interface ChatMessageRowProps {
 function UserChatMessage({ text }: { text: string }) {
   return (
     <article className="flex w-full justify-end select-text">
-      <div className="max-w-[min(42rem,85%)] rounded-3xl bg-neutral-100 px-6 py-4 text-sm leading-6 text-neutral-900 dark:bg-neutral-900 dark:text-neutral-100">
-        <p>{text}</p>
+      <div className="max-w-[min(42rem,85%)] rounded-3xl bg-neutral-200/60 px-5 py-3 text-[13px] leading-[1.4rem] text-neutral-950 dark:bg-neutral-800/60 dark:text-neutral-100">
+        <ChatInlineText as="p" text={text} />
       </div>
     </article>
   );
@@ -42,14 +43,14 @@ export function ChatMessageRow({ message }: ChatMessageRowProps) {
       return (
         <MarkdownChatMessage
           text={message.text}
-          toneClassName="text-sm leading-6 text-neutral-700 dark:text-neutral-200"
+          toneClassName="text-[13px] leading-[1.4rem] text-neutral-950 dark:text-neutral-200"
         />
       );
     case "reasoning":
       return (
         <MarkdownChatMessage
           text={message.text}
-          toneClassName="text-sm leading-6 text-neutral-500 dark:text-neutral-400"
+          toneClassName="text-[13px] leading-[1.4rem] text-neutral-950 dark:text-neutral-300"
         />
       );
     default:

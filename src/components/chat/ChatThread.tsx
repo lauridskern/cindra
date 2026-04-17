@@ -4,15 +4,17 @@ import {
 } from "@legendapp/list/react";
 import { useMemo } from "react";
 
+import type { RequestTimingInfo } from "../../app/SessionContext";
 import type { TranscriptMessage } from "../../services/desktop/contracts";
-import { ChatActivityRow } from "./ChatActivityRow";
 import { ChatEventRow } from "./ChatEventRow";
 import { ChatMessageRow } from "./ChatMessageRow";
+import { ChatWorkRow } from "./ChatWorkRow";
 import { buildChatThreadItems, type ChatThreadItem } from "./chatThreadModel";
 
 interface ChatThreadProps {
   activeRequestIds: string[];
   messages: TranscriptMessage[];
+  requestTimingsById: Record<string, RequestTimingInfo>;
   workspacePath: string | null;
 }
 
@@ -53,36 +55,16 @@ function estimateMessageItemSize(message: TranscriptMessage): number {
   }
 }
 
-function estimateActivityItemSize(
-  item: Extract<ChatThreadItem, { kind: "activity" }>,
+function estimateRequestWorkItemSize(
+  item: Extract<ChatThreadItem, { kind: "request_work" }>,
 ) {
-  if (item.isThinking) {
-    return 44;
-  }
-
-  const summaryLines = Math.max(1, Math.ceil(item.summary.length / 72));
-  if (item.isRunning === false) {
-    return 32 + summaryLines * 24;
-  }
-
-  const operationLines = item.operations.reduce((total, operation) => {
-    const detailLength =
-      operation.detail.kind === "shell"
-        ? operation.detail.command.length
-        : operation.name.length;
-
-    return total + Math.max(1, Math.ceil(detailLength / 84));
-  }, 0);
-
-  return (
-    40 + summaryLines * 24 + item.operations.length * 28 + operationLines * 8
-  );
+  return item.isRunning ? 40 : 44;
 }
 
 function estimateChatThreadItemSize(item: ChatThreadItem): number {
   return item.kind === "message"
     ? estimateMessageItemSize(item.message)
-    : estimateActivityItemSize(item);
+    : estimateRequestWorkItemSize(item);
 }
 
 function renderChatMessage(message: TranscriptMessage) {
@@ -98,25 +80,39 @@ function renderChatMessage(message: TranscriptMessage) {
 
 function renderChatThreadItem(
   { item }: LegendListRenderItemProps<ChatThreadItem>,
+  previousItem: ChatThreadItem | undefined,
+  requestTimingsById: Record<string, RequestTimingInfo>,
   workspacePath: string | null,
 ) {
   const row =
     item.kind === "message" ? (
       renderChatMessage(item.message)
     ) : (
-      <ChatActivityRow item={item} workspacePath={workspacePath} />
+      <ChatWorkRow
+        item={item}
+        requestTiming={requestTimingsById[item.requestId]}
+        workspacePath={workspacePath}
+      />
     );
 
-  return (
-    <div className="mx-auto min-w-0 w-full max-w-3xl px-6 pb-4 select-text">
-      {row}
-    </div>
-  );
+  const className =
+    item.kind === "message" &&
+    item.message.kind === "assistant" &&
+    previousItem?.kind === "request_work"
+      ? "mx-auto min-w-0 w-full max-w-3xl select-text pt-4"
+      : item.kind === "request_work" &&
+          previousItem?.kind === "message" &&
+          previousItem.message.kind === "user"
+        ? "mx-auto min-w-0 w-full max-w-3xl select-text pt-4"
+      : "mx-auto min-w-0 w-full max-w-3xl select-text";
+
+  return <div className={className}>{row}</div>;
 }
 
 export function ChatThread({
   activeRequestIds,
   messages,
+  requestTimingsById,
   workspacePath,
 }: ChatThreadProps) {
   const items = useMemo(
@@ -127,10 +123,17 @@ export function ChatThread({
   return (
     <LegendList
       data={items}
-      renderItem={(props) => renderChatThreadItem(props, workspacePath)}
+      renderItem={(props) =>
+        renderChatThreadItem(
+          props,
+          props.index > 0 ? items[props.index - 1] : undefined,
+          requestTimingsById,
+          workspacePath,
+        )
+      }
       keyExtractor={(item) => item.key}
       getItemType={(item) =>
-        item.kind === "message" ? item.message.kind : "activity"
+        item.kind === "message" ? item.message.kind : "request_work"
       }
       getEstimatedItemSize={estimateChatThreadItemSize}
       maintainScrollAtEnd
@@ -138,7 +141,7 @@ export function ChatThread({
       maintainVisibleContentPosition
       estimatedItemSize={88}
       style={{ height: "100%" }}
-      contentContainerStyle={{ paddingTop: 28, paddingBottom: 20 }}
+      contentContainerStyle={{ paddingTop: 20, paddingBottom: 12 }}
       ListEmptyComponent={<div className="min-h-px" aria-hidden="true" />}
     />
   );

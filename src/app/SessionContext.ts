@@ -7,6 +7,11 @@ import type {
   WorkspaceSession,
 } from "../services/desktop/contracts";
 
+export interface RequestTimingInfo {
+  completedAtMs: number | null;
+  startedAtMs: number;
+}
+
 export interface ConversationStateContextValue {
   activeRequestIds: string[];
   activeWorkspaceConfigurationError: string | null;
@@ -15,6 +20,7 @@ export interface ConversationStateContextValue {
   hasCurrentWorkspace: boolean;
   isOpeningProject: boolean;
   messages: TranscriptMessage[];
+  requestTimingsById: Record<string, RequestTimingInfo>;
   runtimeStatus: RuntimeStatus | null;
   uiError: string | null;
   workspacePath: string | null;
