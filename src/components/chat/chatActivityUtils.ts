@@ -5,7 +5,7 @@ import type {
 import type { ActivityOperation } from "./chatThreadModel";
 
 function formatPath(path: string, workspacePath: string | null): string {
-  if (workspacePath == null || !path.startsWith(workspacePath)) {
+  if (workspacePath == null || path.startsWith(workspacePath) === false) {
     return path;
   }
 

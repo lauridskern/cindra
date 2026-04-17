@@ -1,12 +1,9 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 
-import * as desktopClient from "../services/desktop/client";
-import type {
-  RuntimeStatus,
-  SessionSnapshot,
-} from "../services/desktop/contracts";
+import type { SessionSnapshot } from "../services/desktop/contracts";
 import { useLatestRef } from "../hooks/useLatestRef";
 import { usePromptDraftStore } from "../hooks/usePromptDraftStore";
+import { useRuntimeStatus } from "../hooks/useRuntimeStatus";
 import { useSessionBootstrap } from "../hooks/useSessionBootstrap";
 import { useSessionCommands } from "../hooks/useSessionCommands";
 import {
@@ -26,7 +23,6 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [sessionSnapshot, setSessionSnapshot] = useState<SessionSnapshot | null>(
     null,
   );
-  const [runtimeStatus, setRuntimeStatus] = useState<RuntimeStatus | null>(null);
   const [isOpeningProject, setIsOpeningProject] = useState(false);
   const sessionSnapshotRef = useLatestRef(sessionSnapshot);
 
@@ -37,30 +33,12 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const promptDraftStore = usePromptDraftStore(currentPromptDraftKey);
 
   useSessionBootstrap({ setSessionSnapshot });
-
-  useEffect(() => {
-    let cancelled = false;
-
-    void (async () => {
-      try {
-        const nextRuntimeStatus = await desktopClient.getRuntimeStatus();
-        if (!cancelled) {
-          setRuntimeStatus(nextRuntimeStatus);
-        }
-      } catch {
-        if (!cancelled) {
-          setRuntimeStatus(null);
-        }
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [sessionSnapshot?.activeWorkspacePath]);
+  const { refreshRuntimeStatus, runtimeStatus, setRuntimeStatus } =
+    useRuntimeStatus(sessionSnapshot?.activeWorkspacePath ?? null);
 
   const actionState = useSessionCommands({
     promptDraftStore,
+    refreshRuntimeStatus,
     sessionSnapshotRef,
     setIsOpeningProject,
     setRuntimeStatus,
@@ -81,8 +59,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     hasCurrentWorkspace &&
     activeWorkspaceConfigured &&
     followupRequest == null &&
-    !promptDraftStore.isSendingPrompt &&
-    !(activeConversation?.isRunning ?? false);
+    promptDraftStore.isSendingPrompt === false &&
+    (activeConversation?.isRunning ?? false) === false;
 
   const conversationState = useMemo(
     () => ({

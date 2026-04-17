@@ -1,3 +1,4 @@
+mod actions;
 mod conversation;
 mod factory;
 mod manager;
@@ -21,6 +22,6 @@ pub(crate) use state::{
 pub(crate) use stream::create_message_id;
 pub(crate) use transforms::{
     PersistedConversationSummary, derive_conversation_title_from_messages,
-    session_messages_from_conversation, workspace_name,
+    session_messages_from_conversation, user_prompt_text_for_display, workspace_name,
 };
 pub(crate) use workspace::canonicalize_workspace_path;

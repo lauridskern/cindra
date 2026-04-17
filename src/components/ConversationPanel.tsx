@@ -116,6 +116,10 @@ const DEFAULT_APP_TARGET_ID: AppTargetId = appTargets[0].id;
 const EMPTY_STRING_ARRAY: string[] = [];
 const OPEN_IN_PREFERRED_APP_STORAGE_KEY = "agent-ui:preferred-open-app";
 
+function isAppTargetId(value: string): value is AppTargetId {
+  return appTargets.some((target) => target.id === value);
+}
+
 function ConversationHeaderActions({
   isGitBusy,
   isOpenTargetBusy,
@@ -325,15 +329,19 @@ export function ConversationPanel({
   const isOpenTargetPending = pendingHeaderAction === "open-target";
 
   React.useEffect(() => {
-    if (hasInitializedPreferredAppRef.current || openTargets.length === 0) {
+    if (
+      hasInitializedPreferredAppRef.current ||
+      openTargets.length === 0
+    ) {
       return;
     }
 
     const storedPreferredAppId = window.localStorage.getItem(
       OPEN_IN_PREFERRED_APP_STORAGE_KEY,
-    ) as AppTargetId | null;
+    );
     const nextPreferredAppId =
-      storedPreferredAppId &&
+      storedPreferredAppId != null &&
+      isAppTargetId(storedPreferredAppId) &&
       openTargets.some((target) => target.id === storedPreferredAppId)
         ? storedPreferredAppId
         : openTargets[0].id;
@@ -354,7 +362,7 @@ export function ConversationPanel({
   }, [openTargets, resolvedPreferredAppId]);
 
   React.useEffect(() => {
-    if (!isBranchMenuOpen) {
+    if (isBranchMenuOpen === false) {
       return;
     }
 
@@ -366,7 +374,7 @@ export function ConversationPanel({
     return () => window.cancelAnimationFrame(frame);
   }, [isBranchMenuOpen]);
 
-  if (!hasCurrentWorkspace) {
+  if (hasCurrentWorkspace === false) {
     return (
       <LandingScreen
         isOpeningProject={isOpeningProject}
@@ -381,15 +389,13 @@ export function ConversationPanel({
     try {
       await checkoutBranch(candidate);
       setIsBranchMenuOpen(false);
-    } catch {
-      return;
     } finally {
       setPendingHeaderAction(null);
     }
   }
 
   async function handleBranchCreate() {
-    if (!canCreateBranch) {
+    if (canCreateBranch === false) {
       return;
     }
 
@@ -397,8 +403,6 @@ export function ConversationPanel({
     try {
       await createBranch(branchQuery.trim());
       setIsBranchMenuOpen(false);
-    } catch {
-      return;
     } finally {
       setPendingHeaderAction(null);
     }
@@ -408,15 +412,13 @@ export function ConversationPanel({
     setPendingHeaderAction("push");
     try {
       await pushBranch();
-    } catch {
-      return;
     } finally {
       setPendingHeaderAction(null);
     }
   }
 
   async function handleOpenTarget(appId: AppTargetId) {
-    if (!openTargets.some((target) => target.id === appId)) {
+    if (openTargets.some((target) => target.id === appId) === false) {
       return;
     }
 
@@ -424,8 +426,6 @@ export function ConversationPanel({
     setPendingHeaderAction("open-target");
     try {
       await openInTarget(appId);
-    } catch {
-      return;
     } finally {
       setPendingHeaderAction((current) =>
         current === "open-target" ? null : current,
@@ -445,8 +445,6 @@ export function ConversationPanel({
       await commitChanges(trimmedMessage);
       setCommitMessage("");
       setIsCommitDialogOpen(false);
-    } catch {
-      return;
     } finally {
       setPendingHeaderAction(null);
     }
@@ -492,7 +490,7 @@ export function ConversationPanel({
                           open={isBranchMenuOpen}
                           onOpenChange={(open) => {
                             setIsBranchMenuOpen(open);
-                            if (!open) {
+                            if (open === false) {
                               setBranchQuery("");
                             }
                           }}
@@ -531,7 +529,7 @@ export function ConversationPanel({
                                   if (
                                     event.key === "Enter" &&
                                     canCreateBranch &&
-                                    !isGitActionPending
+                                    isGitActionPending === false
                                   ) {
                                     event.preventDefault();
                                     void handleBranchCreate();
@@ -616,7 +614,7 @@ export function ConversationPanel({
           }
 
           setIsCommitDialogOpen(open);
-          if (!open) {
+          if (open === false) {
             setCommitMessage("");
           }
         }}

@@ -102,7 +102,7 @@ export function LandingScreen({
     }
 
     setCloneDialogOpen(open);
-    if (!open) {
+    if (open === false) {
       resetCloneForm();
     }
   }
@@ -113,7 +113,7 @@ export function LandingScreen({
     }
 
     setQuickStartDialogOpen(open);
-    if (!open) {
+    if (open === false) {
       resetQuickStartForm();
     }
   }
@@ -125,7 +125,7 @@ export function LandingScreen({
         current.repositoryUrl,
       );
       const shouldSyncDirectoryName =
-        !cloneDirectoryManuallyEdited ||
+        cloneDirectoryManuallyEdited === false ||
         current.directoryName.trim().length === 0 ||
         current.directoryName === previousDerivedName;
 
@@ -169,7 +169,7 @@ export function LandingScreen({
 
   async function handleCloneSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!cloneFormValid || isBusy) {
+    if (cloneFormValid === false || isBusy) {
       return;
     }
 
@@ -194,7 +194,7 @@ export function LandingScreen({
 
   async function handleQuickStartSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!quickStartFormValid || isBusy) {
+    if (quickStartFormValid === false || isBusy) {
       return;
     }
 
@@ -289,7 +289,7 @@ export function LandingScreen({
 
           <form
             className="grid gap-4"
-            onSubmit={(event) => void handleCloneSubmit(event)}
+            onSubmit={handleCloneSubmit}
           >
             <div className="grid gap-2">
               <Label htmlFor="clone-repository-url">Repository URL</Label>
@@ -359,7 +359,10 @@ export function LandingScreen({
               >
                 Cancel
               </Button>
-              <Button type="submit" disabled={!cloneFormValid || isBusy}>
+              <Button
+                type="submit"
+                disabled={cloneFormValid === false || isBusy}
+              >
                 {pendingAction === "clone" ? (
                   <>
                     <LoaderCircle
@@ -395,7 +398,7 @@ export function LandingScreen({
 
           <form
             className="grid gap-4"
-            onSubmit={(event) => void handleQuickStartSubmit(event)}
+            onSubmit={handleQuickStartSubmit}
           >
             <div className="grid gap-2">
               <Label htmlFor="quick-start-project-name">Project name</Label>
@@ -481,7 +484,10 @@ export function LandingScreen({
               >
                 Cancel
               </Button>
-              <Button type="submit" disabled={!quickStartFormValid || isBusy}>
+              <Button
+                type="submit"
+                disabled={quickStartFormValid === false || isBusy}
+              >
                 {pendingAction === "quick-start" ? (
                   <>
                     <LoaderCircle

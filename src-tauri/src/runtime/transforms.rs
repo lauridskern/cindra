@@ -1,8 +1,12 @@
 use std::path::Path;
 
 use forge_domain::{ContextMessage, Conversation, Role};
+use roxmltree::{Document, Node};
 
-use crate::dto::SessionMessageDto;
+use crate::dto::{SessionMessageDto, normalize_tool_output_text};
+
+const DISPLAY_PROMPT_TAGS: &[&str] = &["feedback", "task"];
+const HIDDEN_PROMPT_TAGS: &[&str] = &["system_date"];
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct PersistedConversationSummary {
@@ -36,12 +40,12 @@ pub(crate) fn session_messages_from_conversation(
             match &entry.message {
                 ContextMessage::Text(text) => match text.role {
                     Role::User => {
-                        let content = text.content.trim();
+                        let content = user_prompt_text_for_display(&text.content);
                         if !content.is_empty() {
                             messages.push(SessionMessageDto::User {
                                 id: format!("history-user:{index}"),
                                 request_id: request_id.clone(),
-                                text: content.to_string(),
+                                text: content,
                             });
                         }
                     }
@@ -80,22 +84,25 @@ pub(crate) fn session_messages_from_conversation(
                     Role::System => {}
                 },
                 ContextMessage::Tool(result) => {
-                    let output = result.output.as_str().map(str::trim).unwrap_or_default();
-                    if output.is_empty() {
+                    let Some(output) = result
+                        .output
+                        .as_str()
+                        .and_then(normalize_tool_output_text)
+                    else {
                         continue;
-                    }
+                    };
 
                     if result.is_error() {
                         messages.push(SessionMessageDto::Error {
                             id: format!("history-error:{index}"),
                             request_id: request_id.clone(),
-                            message: output.to_string(),
+                            message: output,
                         });
                     } else {
                         messages.push(SessionMessageDto::StatusOutput {
                             id: format!("history-tool:{index}"),
                             request_id: request_id.clone(),
-                            text: output.to_string(),
+                            text: output,
                         });
                     }
                 }
@@ -108,14 +115,23 @@ pub(crate) fn session_messages_from_conversation(
 }
 
 pub(crate) fn derive_conversation_title_from_messages(messages: &[SessionMessageDto]) -> String {
-    if let Some(text) = messages.iter().find_map(first_user_or_assistant_text) {
-        let collapsed = collapse_whitespace(text);
-        if !collapsed.is_empty() {
-            return collapsed.chars().take(72).collect();
-        }
+    if let Some(title) = messages.iter().find_map(title_candidate_from_message) {
+        return title;
     }
 
     "New chat".to_string()
+}
+
+pub(crate) fn user_prompt_text_for_display(value: &str) -> String {
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
+        return String::new();
+    }
+
+    match extract_structured_prompt_text(trimmed) {
+        Some(text) if !text.is_empty() => text,
+        _ => trimmed.to_string(),
+    }
 }
 
 pub(crate) fn workspace_name(path: &Path) -> String {
@@ -132,26 +148,81 @@ fn conversation_title(conversation: &Conversation) -> String {
         .map(str::trim)
         .filter(|title| !title.is_empty())
     {
-        return title.to_string();
+        return user_prompt_text_for_display(title);
     }
 
     derive_conversation_title_from_messages(&session_messages_from_conversation(conversation))
 }
 
-fn first_user_or_assistant_text(message: &SessionMessageDto) -> Option<&str> {
+fn title_candidate_from_message(message: &SessionMessageDto) -> Option<String> {
     match message {
-        SessionMessageDto::User { text, .. }
-        | SessionMessageDto::Assistant { text, .. }
-        | SessionMessageDto::Reasoning { text, .. } => Some(text.as_str()),
-        SessionMessageDto::StatusOutput { text, .. } => Some(text.as_str()),
-        SessionMessageDto::Status { title, .. } => Some(title.as_str()),
-        SessionMessageDto::ToolStart { name, .. } | SessionMessageDto::ToolEnd { name, .. } => {
-            Some(name.as_str())
+        SessionMessageDto::User { text, .. } => {
+            let display = user_prompt_text_for_display(text);
+            if display.is_empty() {
+                None
+            } else {
+                Some(display.chars().take(72).collect())
+            }
         }
-        SessionMessageDto::Error { message, .. } => Some(message.as_str()),
+        SessionMessageDto::Assistant { text, .. } => {
+            let collapsed = collapse_whitespace(text);
+            if collapsed.is_empty() {
+                None
+            } else {
+                Some(collapsed.chars().take(72).collect())
+            }
+        }
+        _ => None,
     }
 }
 
 fn collapse_whitespace(value: &str) -> String {
     value.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+fn extract_structured_prompt_text(value: &str) -> Option<String> {
+    let wrapped = format!("<prompt_display>{value}</prompt_display>");
+    let document = Document::parse(&wrapped).ok()?;
+    let root = document.root_element();
+    let mut parts = Vec::new();
+
+    for child in root.children() {
+        if child.is_text() {
+            if !child.text().unwrap_or_default().trim().is_empty() {
+                return None;
+            }
+            continue;
+        }
+
+        if child.is_element() == false {
+            continue;
+        }
+
+        let tag_name = child.tag_name().name();
+        if HIDDEN_PROMPT_TAGS.contains(&tag_name) {
+            continue;
+        }
+        if DISPLAY_PROMPT_TAGS.contains(&tag_name) == false {
+            return None;
+        }
+
+        let text = collapse_whitespace(&collect_node_text(child));
+        if !text.is_empty() {
+            parts.push(text);
+        }
+    }
+
+    if parts.is_empty() {
+        None
+    } else {
+        Some(parts.join(" "))
+    }
+}
+
+fn collect_node_text(node: Node<'_, '_>) -> String {
+    node.descendants()
+        .filter(|child| child.is_text())
+        .filter_map(|child| child.text())
+        .collect::<Vec<_>>()
+        .join(" ")
 }

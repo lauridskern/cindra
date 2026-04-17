@@ -32,7 +32,7 @@ function ActivityStatusIcon({
   completed,
   isError,
 }: Pick<ActivityOperation, "completed" | "isError">) {
-  if (!completed) {
+  if (completed === false) {
     return (
       <LoaderCircle className="size-3.5 animate-spin text-neutral-400 dark:text-neutral-500" />
     );
@@ -222,9 +222,9 @@ export function ChatActivityRow({ item, workspacePath }: ChatActivityRowProps) {
   const previousRunningRef = useRef(item.isRunning);
 
   useEffect(() => {
-    if (previousRunningRef.current && !item.isRunning) {
+    if (previousRunningRef.current && item.isRunning === false) {
       setOpen(false);
-    } else if (!previousRunningRef.current && item.isRunning) {
+    } else if (previousRunningRef.current === false && item.isRunning) {
       setOpen(true);
     }
 

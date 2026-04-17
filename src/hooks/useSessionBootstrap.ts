@@ -1,4 +1,4 @@
-import { useEffect, useEffectEvent } from 'react'
+import { useEffect, useEffectEvent, useRef } from 'react'
 
 import * as desktopClient from '../services/desktop/client'
 import type { SessionSnapshot } from '../services/desktop/contracts'
@@ -8,13 +8,18 @@ interface UseSessionBootstrapOptions {
 }
 
 export function useSessionBootstrap({ setSessionSnapshot }: UseSessionBootstrapOptions) {
+  const mountedRef = useRef<boolean>(true)
+  const receivedSessionUpdateRef = useRef<boolean>(false)
   const handleSessionUpdate = useEffectEvent((payload: SessionSnapshot) => {
+    receivedSessionUpdateRef.current = true
     setSessionSnapshot(payload)
   })
 
   useEffect(() => {
-    let mounted = true
+    mountedRef.current = true
+    receivedSessionUpdateRef.current = false
     let stopListening: (() => void) | null = null
+    const isMounted = () => mountedRef.current
 
     void (async () => {
       try {
@@ -22,7 +27,7 @@ export function useSessionBootstrap({ setSessionSnapshot }: UseSessionBootstrapO
           handleSessionUpdate(payload)
         })
 
-        if (!mounted) {
+        if (isMounted() === false) {
           cleanup()
           return
         }
@@ -30,20 +35,23 @@ export function useSessionBootstrap({ setSessionSnapshot }: UseSessionBootstrapO
         stopListening = cleanup
 
         const snapshot = await desktopClient.getSessionSnapshot()
-        if (!mounted) {
+        if (isMounted() === false) {
+          return
+        }
+        if (receivedSessionUpdateRef.current) {
           return
         }
 
         setSessionSnapshot(snapshot)
       } catch {
-        if (!mounted) {
+        if (isMounted() === false) {
           return
         }
       }
     })()
 
     return () => {
-      mounted = false
+      mountedRef.current = false
       stopListening?.()
     }
   }, [setSessionSnapshot])

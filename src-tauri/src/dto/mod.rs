@@ -5,6 +5,7 @@ mod runtime;
 mod session;
 
 pub use activity::{FileOperationDto, OutputPreviewDto, ToolCallDetailDto, ToolResultDetailDto};
+pub(crate) use activity::normalize_tool_output_text;
 pub use chat::{ChatEventDto, ChatEventKind, StatusCategoryDto, map_chat_response};
 pub use followup::{FollowupKind, FollowupOptionDto, FollowupRequestDto, FollowupResponseDto};
 pub use runtime::{

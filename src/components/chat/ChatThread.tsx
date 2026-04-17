@@ -61,7 +61,7 @@ function estimateActivityItemSize(
   }
 
   const summaryLines = Math.max(1, Math.ceil(item.summary.length / 72));
-  if (!item.isRunning) {
+  if (item.isRunning === false) {
     return 32 + summaryLines * 24;
   }
 

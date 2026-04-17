@@ -6,7 +6,7 @@ use ts_rs::TS;
 
 use super::activity::{
     ToolCallDetailDto, ToolResultDetailDto, map_tool_call_detail, map_tool_result_detail,
-    summarize_tool_result,
+    normalize_tool_output_text, summarize_tool_result,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, TS)]
@@ -111,9 +111,8 @@ pub fn map_chat_response(response: &ChatResponse) -> Option<ChatEventKind> {
                 subtitle: title.sub_title.clone(),
                 category: title.category.clone().into(),
             }),
-            ChatResponseContent::ToolOutput(text) => {
-                Some(ChatEventKind::StatusOutput { text: text.clone() })
-            }
+            ChatResponseContent::ToolOutput(text) => normalize_tool_output_text(text)
+                .map(|text| ChatEventKind::StatusOutput { text }),
             ChatResponseContent::Markdown { text, .. } => {
                 Some(ChatEventKind::AssistantMarkdown { text: text.clone() })
             }

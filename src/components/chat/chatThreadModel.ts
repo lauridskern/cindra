@@ -179,17 +179,19 @@ export function buildChatThreadItems(
         });
         break;
       case "status_output": {
-        const group = currentGroup as ActivityGroupBuilder | null;
-        if (group == null || group.requestId !== message.requestId) {
-          break;
-        }
-
-        const operation = findOperationForOutput(group.operations);
+        const operation = findOperationForStatusOutput(currentGroup, message);
         if (operation != null) {
           operation.outputText = mergeOutputText(
             operation.outputText,
             message.text,
           );
+        } else {
+          flushGroup();
+          items.push({
+            kind: "message",
+            key: message.id,
+            message,
+          });
         }
         break;
       }
@@ -207,7 +209,7 @@ export function buildChatThreadItems(
         operation.summary = message.summary;
         operation.resultDetail = message.detail;
 
-        if (!group.operations.includes(operation)) {
+        if (group.operations.includes(operation) === false) {
           group.operations.push(operation);
         }
         break;
@@ -238,6 +240,17 @@ function findOperationForOutput(
   return [...operations]
     .reverse()
     .find((operation) => !operation.completed || operation.outputText == null);
+}
+
+function findOperationForStatusOutput(
+  group: ActivityGroupBuilder | null,
+  message: Extract<TranscriptMessage, { kind: "status_output" }>,
+): ActivityOperation | undefined {
+  if (group == null || group.requestId !== message.requestId) {
+    return undefined;
+  }
+
+  return findOperationForOutput(group.operations);
 }
 
 function findMatchingOperation(

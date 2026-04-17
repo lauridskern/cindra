@@ -184,6 +184,15 @@ pub fn map_tool_result_detail(result: &ToolResult) -> Option<ToolResultDetailDto
     };
     let root = document.root_element();
 
+    if root.tag_name().name() == "tool_call_error" {
+        let text = parse_tool_call_error_text(root);
+        return if text.is_empty() {
+            None
+        } else {
+            Some(ToolResultDetailDto::Text { text })
+        };
+    }
+
     if root.tag_name().name() == "shell_output" {
         return Some(ToolResultDetailDto::ShellOutput {
             command: root.attribute("command").unwrap_or_default().to_string(),
@@ -210,19 +219,56 @@ pub fn map_tool_result_detail(result: &ToolResult) -> Option<ToolResultDetailDto
 }
 
 pub fn summarize_tool_result(result: &ToolResult) -> Option<String> {
-    let text = result.output.as_str()?.trim();
-    if text.is_empty() {
-        return None;
-    }
+    let text = normalize_tool_output_text(result.output.as_str()?)?;
 
     let summary = if text.chars().count() <= TOOL_SUMMARY_LIMIT {
-        text.to_string()
+        text
     } else {
         let truncated = text.chars().take(TOOL_SUMMARY_LIMIT).collect::<String>();
         format!("{truncated}…")
     };
 
     Some(summary)
+}
+
+pub(crate) fn normalize_tool_output_text(text: &str) -> Option<String> {
+    let trimmed = text.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+
+    let document = match Document::parse(trimmed) {
+        Ok(document) => document,
+        Err(_) => return Some(trimmed.to_string()),
+    };
+    let root = document.root_element();
+
+    match root.tag_name().name() {
+        "shell_output" => {
+            let preview = build_shell_output_text(root);
+            if preview.is_empty() {
+                Some(trimmed.to_string())
+            } else {
+                Some(preview)
+            }
+        }
+        "tool_call_error" => {
+            let error = parse_tool_call_error_text(root);
+            if error.is_empty() {
+                Some(trimmed.to_string())
+            } else {
+                Some(error)
+            }
+        }
+        _ => {
+            let plain_text = collect_node_text(root);
+            if plain_text.is_empty() {
+                Some(trimmed.to_string())
+            } else {
+                Some(plain_text)
+            }
+        }
+    }
 }
 
 fn parse_output_preview(node: Node<'_, '_>) -> Option<OutputPreviewDto> {
@@ -263,6 +309,42 @@ fn parse_output_preview(node: Node<'_, '_>) -> Option<OutputPreviewDto> {
     })
 }
 
+fn build_shell_output_text(node: Node<'_, '_>) -> String {
+    let command = node.attribute("command").unwrap_or_default().trim();
+    let stdout = node
+        .children()
+        .find(|child| child.has_tag_name("stdout"))
+        .and_then(parse_output_preview);
+    let stderr = node
+        .children()
+        .find(|child| child.has_tag_name("stderr"))
+        .and_then(parse_output_preview);
+
+    let mut sections = Vec::new();
+    if !command.is_empty() {
+        sections.push(format!("$ {command}"));
+    }
+    if let Some(stdout) = stdout.filter(|stdout| !stdout.content.is_empty()) {
+        sections.push(stdout.content);
+    }
+    if let Some(stderr) = stderr.filter(|stderr| !stderr.content.is_empty()) {
+        sections.push("[stderr]".to_string());
+        sections.push(stderr.content);
+    }
+
+    sections.join("\n\n").trim().to_string()
+}
+
+fn parse_tool_call_error_text(node: Node<'_, '_>) -> String {
+    let cause = node
+        .children()
+        .find(|child| child.has_tag_name("cause"))
+        .map(collect_node_text)
+        .filter(|text| !text.is_empty());
+
+    cause.unwrap_or_else(|| collect_node_text(node))
+}
+
 fn collect_preformatted_text(node: Node<'_, '_>) -> String {
     node.children()
         .filter(|child| child.is_text())
@@ -272,6 +354,7 @@ fn collect_preformatted_text(node: Node<'_, '_>) -> String {
 
 fn collect_node_text(node: Node<'_, '_>) -> String {
     node.descendants()
+        .filter(|child| child.is_text())
         .filter_map(|child| child.text())
         .map(str::trim)
         .filter(|text| !text.trim().is_empty())
