@@ -263,6 +263,8 @@ export function ConversationPanel({
   const {
     activeWorkspaceLabel,
     activeRequestIds,
+    activeWorkspaceConfigured,
+    activeWorkspaceConfigurationError,
     hasCurrentWorkspace,
     isOpeningProject,
     messages,
@@ -669,12 +671,12 @@ export function ConversationPanel({
         </div>
       ) : null}
 
-      {runtimeStatus?.configured === false ? (
+      {activeWorkspaceConfigured === false ? (
         <div
           className="mx-6 mt-2.5 text-sm leading-6 text-amber-700 dark:text-amber-400"
           role="alert"
         >
-          {runtimeStatus.configurationError ??
+          {activeWorkspaceConfigurationError ??
             "No session is configured. Configure the terminal session first."}
         </div>
       ) : null}

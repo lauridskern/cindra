@@ -7,6 +7,7 @@ license = "UNLICENSED"
 repository = "https://github.com/laurids/agent-ui"
 edition = "2024"
 rust-version = "1.94"
+default-run = "agent_ui"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -41,8 +42,6 @@ tauri-plugin-dialog = "2"
 tauri-plugin-log = "2"
 tokio = { version = "1.51.0", features = ["macros", "rt-multi-thread", "sync", "time"] }
 tonic = { version = "0.14.5", features = ["tls-webpki-roots"] }
+ts-rs = "12.0.1"
 url = { version = "2.5.8", features = ["serde"] }
 uuid = { version = "1.23.0", features = ["v4", "serde"] }
-
-[dev-dependencies]
-tempfile = "3.23"

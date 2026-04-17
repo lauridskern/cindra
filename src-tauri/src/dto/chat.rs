@@ -2,14 +2,16 @@ use forge_domain::{
     Category, ChatResponse, ChatResponseContent, ConversationId, InterruptionReason,
 };
 use serde::{Deserialize, Serialize};
+use ts_rs::TS;
 
 use super::activity::{
     ToolCallDetailDto, ToolResultDetailDto, map_tool_call_detail, map_tool_result_detail,
     summarize_tool_result,
 };
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, TS)]
 #[serde(rename_all = "snake_case")]
+#[ts(rename = "StatusCategory")]
 pub enum StatusCategoryDto {
     Action,
     Info,

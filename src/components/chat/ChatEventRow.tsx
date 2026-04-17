@@ -32,7 +32,7 @@ function StatusRow({
   title,
 }: {
   category: StatusCategory;
-  subtitle?: string;
+  subtitle?: string | null;
   title: string;
 }) {
   if (
@@ -90,7 +90,7 @@ function ToolEndRow({
 }: {
   isError: boolean;
   name: string;
-  summary?: string;
+  summary?: string | null;
 }) {
   return (
     <article

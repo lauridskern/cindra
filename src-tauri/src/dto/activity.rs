@@ -1,12 +1,14 @@
 use forge_domain::{ToolCallFull, ToolCatalog, ToolResult};
 use roxmltree::{Document, Node};
 use serde::{Deserialize, Serialize};
+use ts_rs::TS;
 
 const TOOL_SUMMARY_LIMIT: usize = 220;
 const TRUNCATED_OUTPUT_LABEL: &str = "… output truncated …";
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, TS)]
 #[serde(rename_all = "snake_case")]
+#[ts(rename = "FileOperation")]
 pub enum FileOperationDto {
     Create,
     Overwrite,
@@ -15,8 +17,9 @@ pub enum FileOperationDto {
     Undo,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, TS)]
 #[serde(tag = "kind", rename_all = "snake_case")]
+#[ts(rename = "ToolCallDetail")]
 pub enum ToolCallDetailDto {
     FileRead {
         path: String,
@@ -70,8 +73,9 @@ pub enum ToolCallDetailDto {
     },
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, TS)]
 #[serde(rename_all = "camelCase")]
+#[ts(rename = "OutputPreview")]
 pub struct OutputPreviewDto {
     pub content: String,
     pub total_lines: usize,
@@ -80,8 +84,9 @@ pub struct OutputPreviewDto {
     pub full_output_path: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, TS)]
 #[serde(tag = "kind", rename_all = "snake_case")]
+#[ts(rename = "ToolResultDetail")]
 pub enum ToolResultDetailDto {
     ShellOutput {
         command: String,

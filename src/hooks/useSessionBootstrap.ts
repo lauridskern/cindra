@@ -1,64 +1,50 @@
-import { useEffect, useEffectEvent, type Dispatch } from 'react'
+import { useEffect, useEffectEvent } from 'react'
 
 import * as desktopClient from '../services/desktop/client'
-import type { ChatEventEnvelope, FollowupRequest } from '../services/desktop/contracts'
-import type { SessionAction } from '../app/sessionReducer'
-import { formatError } from '../utils/errors'
+import type { SessionSnapshot } from '../services/desktop/contracts'
 
 interface UseSessionBootstrapOptions {
-  dispatch: Dispatch<SessionAction>
+  setSessionSnapshot: (snapshot: SessionSnapshot) => void
 }
 
-export function useSessionBootstrap({ dispatch }: UseSessionBootstrapOptions) {
-  const handleChatEvent = useEffectEvent((payload: ChatEventEnvelope) => {
-    dispatch({ type: 'chat_event_received', payload })
-  })
-
-  const handleFollowupEvent = useEffectEvent((payload: FollowupRequest) => {
-    dispatch({ type: 'followup_received', payload })
+export function useSessionBootstrap({ setSessionSnapshot }: UseSessionBootstrapOptions) {
+  const handleSessionUpdate = useEffectEvent((payload: SessionSnapshot) => {
+    setSessionSnapshot(payload)
   })
 
   useEffect(() => {
     let mounted = true
-    let stopChat: (() => void) | null = null
-    let stopFollowups: (() => void) | null = null
+    let stopListening: (() => void) | null = null
 
     void (async () => {
       try {
-        const [chatCleanup, followupCleanup] = await Promise.all([
-          desktopClient.listenChatEvents((payload) => {
-            handleChatEvent(payload)
-          }),
-          desktopClient.listenFollowupRequests((payload) => {
-            handleFollowupEvent(payload)
-          }),
-        ])
+        const cleanup = await desktopClient.listenSessionUpdates((payload) => {
+          handleSessionUpdate(payload)
+        })
 
         if (!mounted) {
-          chatCleanup()
-          followupCleanup()
+          cleanup()
           return
         }
 
-        stopChat = chatCleanup
-        stopFollowups = followupCleanup
+        stopListening = cleanup
 
-        const status = await desktopClient.getRuntimeStatus()
-        dispatch({ type: 'runtime_status_loaded', status })
+        const snapshot = await desktopClient.getSessionSnapshot()
+        if (!mounted) {
+          return
+        }
 
-        const projects = await desktopClient.listProjects()
-        dispatch({ type: 'projects_loaded', items: projects })
-      } catch (error) {
-        if (mounted) {
-          dispatch({ type: 'ui_error', message: formatError(error) })
+        setSessionSnapshot(snapshot)
+      } catch {
+        if (!mounted) {
+          return
         }
       }
     })()
 
     return () => {
       mounted = false
-      stopChat?.()
-      stopFollowups?.()
+      stopListening?.()
     }
-  }, [dispatch])
+  }, [setSessionSnapshot])
 }

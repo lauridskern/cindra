@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { FolderPlus } from "lucide-react";
 
 import { useSessionActions, useSidebarSession } from "../hooks/useSession";
+import { handleWindowDragStart } from "../utils/window";
 import { ProjectSidebarActions } from "./ProjectSidebarActions";
 import { ProjectSidebarProject } from "./ProjectSidebarProject";
 import { Button } from "./ui/button";
@@ -12,18 +13,32 @@ import {
   SidebarGroupContent,
   SidebarGroupLabel,
   SidebarHeader,
-  SidebarMenu,
 } from "./ui/sidebar";
-import { handleWindowDragStart } from "../utils/window";
 
 export function ProjectSidebar() {
-  const [expandedProjectPaths, setExpandedProjectPaths] = useState<string[]>(
-    [],
-  );
-  const { openWorkspacePicker, openProject, selectConversation, startNewChat } =
-    useSessionActions();
-  const { hasCurrentWorkspace, isOpeningProject, projectSummaries } =
-    useSidebarSession();
+  const [expandedProjectPaths, setExpandedProjectPaths] = useState<string[]>([]);
+  const {
+    openWorkspacePicker,
+    openProject,
+    selectConversation,
+    startNewChat,
+  } = useSessionActions();
+  const {
+    activeWorkspacePath,
+    hasCurrentWorkspace,
+    isOpeningProject,
+    workspaces,
+  } = useSidebarSession();
+
+  const visibleExpandedProjectPaths = useMemo(() => {
+    if (activeWorkspacePath == null) {
+      return expandedProjectPaths;
+    }
+
+    return expandedProjectPaths.includes(activeWorkspacePath)
+      ? expandedProjectPaths
+      : [...expandedProjectPaths, activeWorkspacePath];
+  }, [activeWorkspacePath, expandedProjectPaths]);
 
   function toggleProjectExpanded(workspacePath: string) {
     setExpandedProjectPaths((current) =>
@@ -33,21 +48,7 @@ export function ProjectSidebar() {
     );
   }
 
-  function ensureProjectExpanded(workspacePath: string) {
-    setExpandedProjectPaths((current) =>
-      current.includes(workspacePath) ? current : [...current, workspacePath],
-    );
-  }
-
-  async function handleOpenWorkspacePicker() {
-    const workspacePath = await openWorkspacePicker();
-    if (workspacePath != null) {
-      ensureProjectExpanded(workspacePath);
-    }
-  }
-
   function handleOpenProject(workspacePath: string) {
-    ensureProjectExpanded(workspacePath);
     void openProject(workspacePath);
   }
 
@@ -55,15 +56,10 @@ export function ProjectSidebar() {
     workspacePath: string,
     conversationId: string,
   ) {
-    ensureProjectExpanded(workspacePath);
     void selectConversation(workspacePath, conversationId);
   }
 
   function handleStartNewChat(workspacePath?: string) {
-    if (workspacePath != null) {
-      ensureProjectExpanded(workspacePath);
-    }
-
     void startNewChat(workspacePath);
   }
 
@@ -78,7 +74,7 @@ export function ProjectSidebar() {
           hasCurrentWorkspace={hasCurrentWorkspace}
           isOpeningProject={isOpeningProject}
           onStartNewChat={() => handleStartNewChat()}
-          onOpenWorkspacePicker={() => void handleOpenWorkspacePicker()}
+          onOpenWorkspacePicker={() => void openWorkspacePicker()}
         />
       </SidebarHeader>
 
@@ -95,21 +91,21 @@ export function ProjectSidebar() {
               className="-mr-2"
               aria-label="Open project"
               title="Open project"
-              onClick={() => void handleOpenWorkspacePicker()}
+              onClick={() => void openWorkspacePicker()}
             >
               <FolderPlus strokeWidth={2} className="size-3.5 shrink-0" />
             </Button>
           </div>
 
           <SidebarGroupContent>
-            {projectSummaries.length === 0 ? (
-              <p className="px-2 py-1 text-xs font-medium text-sidebar-foreground/60">
-                No projects yet
-              </p>
-            ) : (
-              <SidebarMenu>
-                {projectSummaries.map((project) => {
-                  const isExpanded = expandedProjectPaths.includes(
+            <div className="grid gap-1.5">
+              {workspaces.length === 0 ? (
+                <p className="mt-0.5 px-2 text-xs text-neutral-400 dark:text-neutral-500">
+                  No projects yet
+                </p>
+              ) : (
+                workspaces.map((project) => {
+                  const isExpanded = visibleExpandedProjectPaths.includes(
                     project.workspacePath,
                   );
 
@@ -117,17 +113,17 @@ export function ProjectSidebar() {
                     <ProjectSidebarProject
                       key={project.workspacePath}
                       isExpanded={isExpanded}
+                      isActive={project.workspacePath === activeWorkspacePath}
                       project={project}
-                      onEnsureProjectExpanded={ensureProjectExpanded}
                       onOpenProject={handleOpenProject}
                       onSelectConversation={handleSelectConversation}
                       onStartNewChat={handleStartNewChat}
                       onToggleProjectExpanded={toggleProjectExpanded}
                     />
                   );
-                })}
-              </SidebarMenu>
-            )}
+                })
+              )}
+            </div>
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>

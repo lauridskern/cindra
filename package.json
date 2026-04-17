@@ -6,8 +6,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
-    "lint": "eslint .",
+    "gen:desktop-contracts": "cargo run --quiet --manifest-path src-tauri/Cargo.toml --bin generate_desktop_contracts",
+    "build": "bun run gen:desktop-contracts && tsc -b && vite build",
+    "lint": "bun run gen:desktop-contracts && eslint .",
     "preview": "vite preview",
     "tauri": "tauri"
   },

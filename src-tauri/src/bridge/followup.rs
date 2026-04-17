@@ -1,13 +1,23 @@
 use std::collections::HashMap;
 use std::fmt::Display;
-use std::sync::Arc;
+use std::future::Future;
 
 use anyhow::Context;
-use tokio::sync::{Mutex, oneshot};
+use tokio::sync::{Mutex, mpsc, oneshot};
 use uuid::Uuid;
 
-use crate::bridge::emitter::UiEventEmitter;
 use crate::dto::{FollowupKind, FollowupOptionDto, FollowupRequestDto, FollowupResponseDto};
+
+tokio::task_local! {
+    static FOLLOWUP_CONTEXT: FollowupContext;
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FollowupContext {
+    pub workspace_path: String,
+    pub conversation_id: String,
+    pub request_id: String,
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct FollowupResolution {
@@ -17,14 +27,14 @@ struct FollowupResolution {
 }
 
 pub struct FollowupBridge {
-    emitter: Arc<dyn UiEventEmitter>,
+    notifications: mpsc::UnboundedSender<FollowupRequestDto>,
     pending: Mutex<HashMap<String, oneshot::Sender<FollowupResolution>>>,
 }
 
 impl FollowupBridge {
-    pub fn new(emitter: Arc<dyn UiEventEmitter>) -> Self {
+    pub fn new(notifications: mpsc::UnboundedSender<FollowupRequestDto>) -> Self {
         Self {
-            emitter,
+            notifications,
             pending: Mutex::new(HashMap::new()),
         }
     }
@@ -130,6 +140,9 @@ impl FollowupBridge {
         question: String,
         options: Option<Vec<FollowupOptionDto>>,
     ) -> anyhow::Result<FollowupResolution> {
+        let context = FOLLOWUP_CONTEXT
+            .try_with(|current| current.clone())
+            .map_err(|_| anyhow::anyhow!("Follow-up requested outside an active chat context."))?;
         let followup_id = Uuid::new_v4().to_string();
         let (sender, receiver) = oneshot::channel();
         self.pending
@@ -139,18 +152,28 @@ impl FollowupBridge {
 
         let payload = FollowupRequestDto {
             followup_id: followup_id.clone(),
+            workspace_path: context.workspace_path,
+            conversation_id: context.conversation_id,
+            request_id: context.request_id,
             kind,
             question,
             options,
         };
 
-        if let Err(error) = self.emitter.emit_followup(payload) {
+        if let Err(error) = self.notifications.send(payload) {
             self.pending.lock().await.remove(&followup_id);
-            return Err(error);
+            return Err(anyhow::anyhow!(error.to_string()));
         }
 
         Ok(receiver.await.unwrap_or_else(|_| cancelled_resolution()))
     }
+}
+
+pub async fn with_followup_context<T, F>(context: FollowupContext, future: F) -> T
+where
+    F: Future<Output = T>,
+{
+    FOLLOWUP_CONTEXT.scope(context, future).await
 }
 
 fn map_options<T>(options: Vec<T>) -> Vec<(String, FollowupOptionDto, T)>

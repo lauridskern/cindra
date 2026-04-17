@@ -1,0 +1,107 @@
+use serde::{Deserialize, Serialize};
+use ts_rs::TS;
+
+use super::activity::{ToolCallDetailDto, ToolResultDetailDto};
+use super::chat::StatusCategoryDto;
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, TS)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+#[ts(rename = "SessionMessage")]
+pub enum SessionMessageDto {
+    User {
+        id: String,
+        #[serde(rename = "requestId")]
+        request_id: String,
+        text: String,
+    },
+    Assistant {
+        id: String,
+        #[serde(rename = "requestId")]
+        request_id: String,
+        text: String,
+    },
+    Reasoning {
+        id: String,
+        #[serde(rename = "requestId")]
+        request_id: String,
+        text: String,
+    },
+    Status {
+        id: String,
+        #[serde(rename = "requestId")]
+        request_id: String,
+        title: String,
+        subtitle: Option<String>,
+        category: StatusCategoryDto,
+    },
+    StatusOutput {
+        id: String,
+        #[serde(rename = "requestId")]
+        request_id: String,
+        text: String,
+    },
+    ToolStart {
+        id: String,
+        #[serde(rename = "requestId")]
+        request_id: String,
+        name: String,
+        #[serde(rename = "callId")]
+        call_id: Option<String>,
+        detail: ToolCallDetailDto,
+    },
+    ToolEnd {
+        id: String,
+        #[serde(rename = "requestId")]
+        request_id: String,
+        name: String,
+        #[serde(rename = "callId")]
+        call_id: Option<String>,
+        summary: Option<String>,
+        #[serde(rename = "isError")]
+        is_error: bool,
+        detail: Option<ToolResultDetailDto>,
+    },
+    Error {
+        id: String,
+        #[serde(rename = "requestId")]
+        request_id: String,
+        message: String,
+    },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(rename = "ConversationSessionSummary")]
+pub struct ConversationSessionSummaryDto {
+    pub conversation_id: String,
+    pub title: String,
+    pub updated_at: Option<String>,
+    pub is_draft: bool,
+    pub is_running: bool,
+    pub has_pending_followup: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(rename = "WorkspaceSession")]
+pub struct WorkspaceSessionDto {
+    pub workspace_path: String,
+    pub workspace_name: String,
+    pub configured: bool,
+    pub configuration_error: Option<String>,
+    pub selected_conversation_id: Option<String>,
+    pub conversations: Vec<ConversationSessionSummaryDto>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(rename = "SessionSnapshot")]
+pub struct SessionSnapshotDto {
+    pub active_workspace_path: Option<String>,
+    pub active_conversation_id: Option<String>,
+    pub visible_messages: Vec<SessionMessageDto>,
+    pub visible_active_request_ids: Vec<String>,
+    pub visible_followup: Option<super::followup::FollowupRequestDto>,
+    pub ui_error: Option<String>,
+    pub workspaces: Vec<WorkspaceSessionDto>,
+}

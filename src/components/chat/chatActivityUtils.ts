@@ -13,7 +13,10 @@ function formatPath(path: string, workspacePath: string | null): string {
   return trimmed.length === 0 ? "." : trimmed;
 }
 
-function formatLineRange(startLine?: number, endLine?: number): string {
+function formatLineRange(
+  startLine?: number | null,
+  endLine?: number | null,
+): string {
   if (startLine == null && endLine == null) {
     return "";
   }
@@ -83,8 +86,8 @@ export function formatOperationLabel(
 
 function buildPreviewText(
   command: string,
-  stdout?: OutputPreview,
-  stderr?: OutputPreview,
+  stdout?: OutputPreview | null,
+  stderr?: OutputPreview | null,
 ): string {
   const lines = [`$ ${command}`];
 
@@ -114,6 +117,6 @@ export function buildGenericOutputText(
   return genericText?.trim() ? genericText.trim() : null;
 }
 
-export function getShellDetail(detail: ToolResultDetail | undefined) {
+export function getShellDetail(detail: ToolResultDetail | null | undefined) {
   return detail?.kind === "shell_output" ? detail : null;
 }

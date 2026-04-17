@@ -4,12 +4,14 @@ import type {
   FollowupRequest,
   RuntimeStatus,
   TranscriptMessage,
+  WorkspaceSession,
 } from "../services/desktop/contracts";
-import type { ProjectSummary } from "./sessionSelectors";
 
 export interface ConversationStateContextValue {
-  activeWorkspaceLabel: string;
   activeRequestIds: string[];
+  activeWorkspaceConfigurationError: string | null;
+  activeWorkspaceConfigured: boolean;
+  activeWorkspaceLabel: string;
   hasCurrentWorkspace: boolean;
   isOpeningProject: boolean;
   messages: TranscriptMessage[];
@@ -19,9 +21,10 @@ export interface ConversationStateContextValue {
 }
 
 export interface SidebarStateContextValue {
+  activeWorkspacePath: string | null;
   hasCurrentWorkspace: boolean;
   isOpeningProject: boolean;
-  projectSummaries: ProjectSummary[];
+  workspaces: WorkspaceSession[];
 }
 
 export interface PromptDraftContextValue {

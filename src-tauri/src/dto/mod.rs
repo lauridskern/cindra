@@ -1,14 +1,16 @@
 mod activity;
 mod chat;
-mod conversation;
 mod followup;
 mod runtime;
+mod session;
 
-pub use chat::{ChatEventDto, ChatEventKind, map_chat_response};
-pub use conversation::{ConversationTranscriptDto, ProjectSummaryDto};
+pub use activity::{FileOperationDto, OutputPreviewDto, ToolCallDetailDto, ToolResultDetailDto};
+pub use chat::{ChatEventDto, ChatEventKind, StatusCategoryDto, map_chat_response};
 pub use followup::{FollowupKind, FollowupOptionDto, FollowupRequestDto, FollowupResponseDto};
 pub use runtime::{
     CheckoutGitBranchInput, CloneRepositoryInput, CommitGitChangesInput, CreateGitBranchInput,
-    QuickStartProjectInput, QuickStartVisibility, ResetChatResultDto, RuntimeStatusDto,
-    SendPromptInput, SendPromptResultDto,
+    QuickStartProjectInput, QuickStartVisibility, RuntimeStatusDto, SendPromptInput,
+};
+pub use session::{
+    ConversationSessionSummaryDto, SessionMessageDto, SessionSnapshotDto, WorkspaceSessionDto,
 };

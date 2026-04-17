@@ -8,13 +8,13 @@ export interface ActivityOperation {
   id: string;
   requestId: string;
   name: string;
-  callId?: string;
+  callId?: string | null;
   detail: ToolCallDetail;
   completed: boolean;
   isError: boolean;
   outputText?: string;
-  resultDetail?: ToolResultDetail;
-  summary?: string;
+  resultDetail?: ToolResultDetail | null;
+  summary?: string | null;
 }
 
 export type ChatThreadItem =
@@ -242,7 +242,7 @@ function findOperationForOutput(
 
 function findMatchingOperation(
   operations: ActivityOperation[],
-  callId: string | undefined,
+  callId: string | null | undefined,
   name: string,
 ): ActivityOperation | undefined {
   if (callId != null) {

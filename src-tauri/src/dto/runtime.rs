@@ -3,9 +3,11 @@ use std::path::Path;
 use std::process::Command;
 
 use serde::{Deserialize, Serialize};
+use ts_rs::TS;
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, TS)]
 #[serde(rename_all = "camelCase")]
+#[ts(rename = "RuntimeStatus")]
 pub struct RuntimeStatusDto {
     pub workspace_path: Option<String>,
     pub workspace_name: Option<String>,
@@ -161,63 +163,57 @@ fn parse_git_remote_name(remote_url: &str) -> Option<String> {
     ))
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, TS)]
 #[serde(rename_all = "camelCase")]
 pub struct SendPromptInput {
+    pub workspace_path: String,
     pub prompt: String,
     pub conversation_id: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, TS)]
 #[serde(rename_all = "camelCase")]
-pub struct SendPromptResultDto {
-    pub request_id: String,
-    pub conversation_id: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
-pub struct ResetChatResultDto {
-    pub conversation_id: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
+#[ts(rename = "CloneRepositoryInput")]
 pub struct CloneRepositoryInput {
     pub repository_url: String,
     pub parent_directory: String,
     pub directory_name: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, TS)]
 #[serde(rename_all = "camelCase")]
+#[ts(rename = "QuickStartVisibility")]
 pub enum QuickStartVisibility {
     Public,
     Private,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, TS)]
 #[serde(rename_all = "camelCase")]
+#[ts(rename = "QuickStartProjectInput")]
 pub struct QuickStartProjectInput {
     pub project_name: String,
     pub parent_directory: String,
     pub visibility: QuickStartVisibility,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, TS)]
 #[serde(rename_all = "camelCase")]
+#[ts(rename = "CheckoutGitBranchInput")]
 pub struct CheckoutGitBranchInput {
     pub branch_name: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, TS)]
 #[serde(rename_all = "camelCase")]
+#[ts(rename = "CreateGitBranchInput")]
 pub struct CreateGitBranchInput {
     pub branch_name: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, TS)]
 #[serde(rename_all = "camelCase")]
+#[ts(rename = "CommitGitChangesInput")]
 pub struct CommitGitChangesInput {
     pub message: String,
 }
