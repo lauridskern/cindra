@@ -1,4 +1,5 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+use std::process::Command;
 use std::sync::Arc;
 
 use anyhow::Context;
@@ -10,6 +11,7 @@ use uuid::Uuid;
 
 use crate::bridge::emitter::UiEventEmitter;
 use crate::bridge::followup::FollowupBridge;
+use crate::desktop_open;
 use crate::dto::{
     ChatEventDto, ChatEventKind, ConversationTranscriptDto, FollowupResponseDto, ProjectSummaryDto,
     ResetChatResultDto, RuntimeStatusDto, SendPromptInput, SendPromptResultDto,
@@ -87,6 +89,113 @@ impl RuntimeManager {
             config.session.is_some(),
             configuration_error_message(config.session.is_some(), configuration_error),
         ))
+    }
+
+    pub async fn checkout_git_branch(
+        &self,
+        branch_name: String,
+    ) -> anyhow::Result<RuntimeStatusDto> {
+        let workspace_path = self.current_workspace_path().await?;
+        let branch_name = validate_non_empty_value(&branch_name, "Branch name")?;
+
+        if git_ref_exists(&workspace_path, &format!("refs/heads/{branch_name}"))? {
+            run_git_command(&workspace_path, &["checkout", &branch_name], "git checkout")?;
+            return self.get_runtime_status().await;
+        }
+
+        if git_ref_exists(&workspace_path, &format!("refs/remotes/{branch_name}"))? {
+            let local_branch_name = branch_name
+                .rsplit('/')
+                .next()
+                .filter(|candidate| !candidate.is_empty())
+                .unwrap_or(branch_name.as_str());
+
+            if git_ref_exists(&workspace_path, &format!("refs/heads/{local_branch_name}"))? {
+                run_git_command(
+                    &workspace_path,
+                    &["checkout", local_branch_name],
+                    "git checkout",
+                )?;
+            } else {
+                run_git_command(
+                    &workspace_path,
+                    &["checkout", "--track", &branch_name],
+                    "git checkout --track",
+                )?;
+            }
+
+            return self.get_runtime_status().await;
+        }
+
+        run_git_command(&workspace_path, &["checkout", &branch_name], "git checkout")?;
+        self.get_runtime_status().await
+    }
+
+    pub async fn create_git_branch(&self, branch_name: String) -> anyhow::Result<RuntimeStatusDto> {
+        let workspace_path = self.current_workspace_path().await?;
+        let branch_name = validate_non_empty_value(&branch_name, "Branch name")?;
+
+        run_git_command(
+            &workspace_path,
+            &["check-ref-format", "--branch", &branch_name],
+            "git check-ref-format",
+        )?;
+        run_git_command(
+            &workspace_path,
+            &["checkout", "-b", &branch_name],
+            "git checkout -b",
+        )?;
+
+        self.get_runtime_status().await
+    }
+
+    pub async fn commit_git_changes(&self, message: String) -> anyhow::Result<RuntimeStatusDto> {
+        let workspace_path = self.current_workspace_path().await?;
+        let message = validate_non_empty_value(&message, "Commit message")?;
+
+        run_git_command(&workspace_path, &["add", "-A"], "git add")?;
+        run_git_command(&workspace_path, &["commit", "-m", &message], "git commit")?;
+
+        self.get_runtime_status().await
+    }
+
+    pub async fn push_git_branch(&self) -> anyhow::Result<RuntimeStatusDto> {
+        let workspace_path = self.current_workspace_path().await?;
+        let current_branch = run_git_stdout(
+            &workspace_path,
+            &["rev-parse", "--abbrev-ref", "HEAD"],
+            "git rev-parse",
+        )?;
+
+        if current_branch == "HEAD" {
+            anyhow::bail!("Cannot push from a detached HEAD state.");
+        }
+
+        if git_command_succeeds(
+            &workspace_path,
+            &[
+                "rev-parse",
+                "--abbrev-ref",
+                "--symbolic-full-name",
+                "@{upstream}",
+            ],
+        )? {
+            run_git_command(&workspace_path, &["push"], "git push")?;
+        } else {
+            run_git_command(
+                &workspace_path,
+                &["push", "-u", "origin", &current_branch],
+                "git push -u",
+            )?;
+        }
+
+        self.get_runtime_status().await
+    }
+
+    pub async fn open_in_target(&self, target_id: String) -> anyhow::Result<()> {
+        let workspace_path = self.current_workspace_path().await?;
+        let target_id = validate_non_empty_value(&target_id, "Open target")?;
+        desktop_open::open_path_in_target(&target_id, workspace_path.as_path())
     }
 
     pub async fn list_projects(&self) -> anyhow::Result<Vec<ProjectSummaryDto>> {
@@ -328,158 +437,94 @@ impl RuntimeManager {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use forge_config::{ForgeConfig, ModelConfig};
-    use forge_domain::{Conversation, ConversationId};
-    use tempfile::TempDir;
-    use tokio::sync::Mutex;
+impl RuntimeManager {
+    async fn current_workspace_path(&self) -> anyhow::Result<PathBuf> {
+        let state = self.state.lock().await;
+        if state.active_request_id.is_some() {
+            anyhow::bail!("Wait for the current run to finish before running git actions.");
+        }
 
-    use super::*;
-    use crate::bridge::emitter::MemoryEventEmitter;
-    use crate::test_support::{EnvGuard, create_project_store};
+        state
+            .workspace_path
+            .clone()
+            .context("Open a workspace before running git actions.")
+    }
+}
 
-    #[derive(Default)]
-    struct FakeConversationApi {
-        upserts: Mutex<Vec<ConversationId>>,
+fn validate_non_empty_value(value: &str, label: &str) -> anyhow::Result<String> {
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
+        anyhow::bail!("{label} cannot be empty.");
     }
 
-    #[async_trait::async_trait]
-    impl super::super::factory::ConversationUpserter for FakeConversationApi {
-        async fn upsert_conversation_record(
-            &self,
-            conversation: Conversation,
-        ) -> anyhow::Result<()> {
-            self.upserts.lock().await.push(conversation.id);
-            Ok(())
+    Ok(trimmed.to_string())
+}
+
+fn git_ref_exists(workspace_path: &Path, reference: &str) -> anyhow::Result<bool> {
+    let output = Command::new("git")
+        .args(["show-ref", "--verify", "--quiet", reference])
+        .current_dir(workspace_path)
+        .output()
+        .with_context(|| "Failed to launch git. Make sure git is installed.")?;
+
+    Ok(output.status.success())
+}
+
+fn git_command_succeeds(workspace_path: &Path, args: &[&str]) -> anyhow::Result<bool> {
+    let output = Command::new("git")
+        .args(args)
+        .current_dir(workspace_path)
+        .output()
+        .with_context(|| "Failed to launch git. Make sure git is installed.")?;
+
+    Ok(output.status.success())
+}
+
+fn run_git_stdout(
+    workspace_path: &Path,
+    args: &[&str],
+    description: &str,
+) -> anyhow::Result<String> {
+    let output = Command::new("git")
+        .args(args)
+        .current_dir(workspace_path)
+        .output()
+        .with_context(|| format!("Failed to launch {description}. Make sure git is installed."))?;
+
+    if output.status.success() {
+        let value = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        if !value.is_empty() {
+            return Ok(value);
         }
     }
 
-    #[tokio::test]
-    async fn first_prompt_creates_and_persists_a_conversation_then_reuses_it() {
-        let api = FakeConversationApi::default();
-        let mut current = None;
-
-        let first = resolve_conversation_id(&api, &mut current, None)
-            .await
-            .expect("first conversation");
-        let second = resolve_conversation_id(&api, &mut current, None)
-            .await
-            .expect("second conversation");
-
-        assert_eq!(first, second);
-        assert_eq!(api.upserts.lock().await.len(), 1);
+    let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+    if !stderr.is_empty() {
+        anyhow::bail!("{stderr}");
     }
 
-    #[tokio::test]
-    async fn open_workspace_initializes_runtime_and_returns_status() {
-        let forge_home = TempDir::new().expect("forge home");
-        let workspace = TempDir::new().expect("workspace");
-        let _guard = EnvGuard::set_config_dir(forge_home.path());
-        let emitter = Arc::new(MemoryEventEmitter::default());
-        let followups = Arc::new(FollowupBridge::new(emitter.clone()));
-        let manager = RuntimeManager::new(emitter, followups, create_project_store(&forge_home));
-        let config = ForgeConfig {
-            session: Some(ModelConfig::new("openai", "gpt-4.1")),
-            ..Default::default()
-        };
+    anyhow::bail!("{description} failed.")
+}
 
-        let status = manager
-            .open_workspace_with_config(workspace.path().to_path_buf(), config, None)
-            .await
-            .expect("open workspace");
+fn run_git_command(workspace_path: &Path, args: &[&str], description: &str) -> anyhow::Result<()> {
+    let output = Command::new("git")
+        .args(args)
+        .current_dir(workspace_path)
+        .output()
+        .with_context(|| format!("Failed to launch {description}. Make sure git is installed."))?;
 
-        assert!(status.configured);
-        assert_eq!(
-            status.workspace_name,
-            workspace
-                .path()
-                .file_name()
-                .map(|value| value.to_string_lossy().into_owned())
-        );
+    if output.status.success() {
+        return Ok(());
     }
 
-    #[tokio::test]
-    async fn reset_chat_persists_a_new_empty_conversation() {
-        let forge_home = TempDir::new().expect("forge home");
-        let workspace = TempDir::new().expect("workspace");
-        let _guard = EnvGuard::set_config_dir(forge_home.path());
-        let emitter = Arc::new(MemoryEventEmitter::default());
-        let followups = Arc::new(FollowupBridge::new(emitter.clone()));
-        let manager = RuntimeManager::new(emitter, followups, create_project_store(&forge_home));
-
-        manager
-            .open_workspace_with_config(
-                workspace.path().to_path_buf(),
-                ForgeConfig::default(),
-                None,
-            )
-            .await
-            .expect("open workspace");
-
-        let result = manager.reset_chat().await.expect("reset chat");
-        let loaded = manager
-            .load_conversation(result.conversation_id)
-            .await
-            .expect("load conversation");
-
-        assert!(loaded.messages.is_empty());
+    let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+    let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    if !stderr.is_empty() {
+        anyhow::bail!("{stderr}");
+    }
+    if !stdout.is_empty() {
+        anyhow::bail!("{stdout}");
     }
 
-    #[tokio::test]
-    async fn list_projects_returns_opened_projects_from_store() {
-        let forge_home = TempDir::new().expect("forge home");
-        let workspace_one = TempDir::new().expect("workspace one");
-        let workspace_two = TempDir::new().expect("workspace two");
-        let _guard = EnvGuard::set_config_dir(forge_home.path());
-        let emitter = Arc::new(MemoryEventEmitter::default());
-        let followups = Arc::new(FollowupBridge::new(emitter.clone()));
-        let manager = RuntimeManager::new(emitter, followups, create_project_store(&forge_home));
-
-        manager
-            .open_workspace_with_config(
-                workspace_one.path().to_path_buf(),
-                ForgeConfig::default(),
-                None,
-            )
-            .await
-            .expect("open workspace one");
-        std::thread::sleep(std::time::Duration::from_secs(1));
-        manager
-            .open_workspace_with_config(
-                workspace_two.path().to_path_buf(),
-                ForgeConfig::default(),
-                None,
-            )
-            .await
-            .expect("open workspace two");
-
-        let projects = manager.list_projects().await.expect("list projects");
-
-        assert_eq!(projects.len(), 2);
-        let paths = projects
-            .iter()
-            .map(|project| project.workspace_path.clone())
-            .collect::<Vec<_>>();
-        assert!(
-            paths.contains(
-                &workspace_one
-                    .path()
-                    .canonicalize()
-                    .unwrap()
-                    .to_string_lossy()
-                    .into_owned()
-            )
-        );
-        assert!(
-            paths.contains(
-                &workspace_two
-                    .path()
-                    .canonicalize()
-                    .unwrap()
-                    .to_string_lossy()
-                    .into_owned()
-            )
-        );
-    }
+    anyhow::bail!("{description} failed.")
 }

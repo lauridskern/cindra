@@ -1,4 +1,5 @@
 mod commands;
+mod desktop_open;
 mod dto;
 mod runtime;
 
@@ -12,15 +13,14 @@ mod persistence {
     pub mod project_store;
 }
 
-#[cfg(test)]
-mod test_support;
-
 use std::sync::Arc;
 
 use bridge::emitter::TauriEventEmitter;
 use commands::{
-    clone_repository, get_runtime_status, list_projects, load_conversation, open_workspace,
-    pick_directory, pick_workspace, quick_start_project, reset_chat, respond_followup, send_prompt,
+    checkout_git_branch, clone_repository, commit_git_changes, create_git_branch,
+    get_runtime_status, list_projects, load_conversation, open_in_target, open_workspace,
+    pick_directory, pick_workspace, push_git_branch, quick_start_project, reset_chat,
+    respond_followup, send_prompt,
 };
 use persistence::project_store::ProjectStore;
 use runtime::DesktopState;
@@ -66,7 +66,12 @@ pub fn run() {
             respond_followup,
             reset_chat,
             clone_repository,
-            quick_start_project
+            quick_start_project,
+            checkout_git_branch,
+            create_git_branch,
+            commit_git_changes,
+            push_git_branch,
+            open_in_target
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

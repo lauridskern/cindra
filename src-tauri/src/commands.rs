@@ -1,7 +1,8 @@
 use crate::dto::{
-    CloneRepositoryInput, ConversationTranscriptDto, FollowupResponseDto, ProjectSummaryDto,
-    QuickStartProjectInput, QuickStartVisibility, ResetChatResultDto, RuntimeStatusDto,
-    SendPromptInput, SendPromptResultDto,
+    CheckoutGitBranchInput, CloneRepositoryInput, CommitGitChangesInput, ConversationTranscriptDto,
+    CreateGitBranchInput, FollowupResponseDto, ProjectSummaryDto, QuickStartProjectInput,
+    QuickStartVisibility, ResetChatResultDto, RuntimeStatusDto, SendPromptInput,
+    SendPromptResultDto,
 };
 use crate::runtime::DesktopState;
 use anyhow::Context;
@@ -122,6 +123,65 @@ pub(crate) async fn clone_repository(input: CloneRepositoryInput) -> Result<Stri
 #[tauri::command]
 pub(crate) async fn quick_start_project(input: QuickStartProjectInput) -> Result<String, String> {
     create_github_project(input).map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub(crate) async fn checkout_git_branch(
+    input: CheckoutGitBranchInput,
+    state: tauri::State<'_, DesktopState>,
+) -> Result<RuntimeStatusDto, String> {
+    state
+        .manager
+        .checkout_git_branch(input.branch_name)
+        .await
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub(crate) async fn create_git_branch(
+    input: CreateGitBranchInput,
+    state: tauri::State<'_, DesktopState>,
+) -> Result<RuntimeStatusDto, String> {
+    state
+        .manager
+        .create_git_branch(input.branch_name)
+        .await
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub(crate) async fn commit_git_changes(
+    input: CommitGitChangesInput,
+    state: tauri::State<'_, DesktopState>,
+) -> Result<RuntimeStatusDto, String> {
+    state
+        .manager
+        .commit_git_changes(input.message)
+        .await
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub(crate) async fn push_git_branch(
+    state: tauri::State<'_, DesktopState>,
+) -> Result<RuntimeStatusDto, String> {
+    state
+        .manager
+        .push_git_branch()
+        .await
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub(crate) async fn open_in_target(
+    target_id: String,
+    state: tauri::State<'_, DesktopState>,
+) -> Result<(), String> {
+    state
+        .manager
+        .open_in_target(target_id)
+        .await
+        .map_err(|error| error.to_string())
 }
 
 fn file_path_to_string(path: FilePath) -> Option<String> {

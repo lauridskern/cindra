@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::path::Path;
 use std::process::Command;
 
@@ -11,6 +12,7 @@ pub struct RuntimeStatusDto {
     pub git_repo_name: Option<String>,
     pub git_branch_name: Option<String>,
     pub git_branches: Vec<String>,
+    pub available_open_targets: Vec<String>,
     pub configured: bool,
     pub configuration_error: Option<String>,
 }
@@ -37,6 +39,7 @@ impl RuntimeStatusDto {
             git_branches: git_details
                 .map(|details| details.branch_names)
                 .unwrap_or_default(),
+            available_open_targets: crate::desktop_open::detect_available_open_targets(),
             configured,
             configuration_error,
         }
@@ -53,19 +56,40 @@ struct GitWorkspaceDetails {
 fn read_git_workspace_details(workspace_path: &Path) -> Option<GitWorkspaceDetails> {
     let repo_name = run_git_command(workspace_path, &["remote", "get-url", "origin"])
         .and_then(|remote_url| parse_git_remote_name(&remote_url));
-    let branch_name = run_git_command(
+    let branch_name = run_git_command(workspace_path, &["rev-parse", "--abbrev-ref", "HEAD"])
+        .or_else(|| {
+            run_git_command(
+                workspace_path,
+                &["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"],
+            )
+        });
+    let local_branch_names = run_git_lines_command(
         workspace_path,
-        &["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"],
+        &["for-each-ref", "--format=%(refname:short)", "refs/heads"],
     )
-    .or_else(|| run_git_command(workspace_path, &["rev-parse", "--abbrev-ref", "HEAD"]));
-    let branch_names = run_git_lines_command(
+    .unwrap_or_default();
+    let local_branch_name_set = local_branch_names.iter().cloned().collect::<HashSet<_>>();
+    let remote_branch_names = run_git_lines_command(
         workspace_path,
-        &["for-each-ref", "--format=%(refname:short)", "refs/heads", "refs/remotes"],
+        &["for-each-ref", "--format=%(refname:short)", "refs/remotes"],
     )
+    .unwrap_or_default()
     .into_iter()
-    .flatten()
-    .filter(|branch_name| !branch_name.ends_with("/HEAD"))
+    .filter(|candidate| candidate.contains('/') && !candidate.ends_with("/HEAD"))
+    .filter(|candidate| {
+        let local_equivalent = candidate
+            .split_once('/')
+            .map(|(_, remainder)| remainder)
+            .unwrap_or(candidate.as_str());
+        !local_branch_name_set.contains(local_equivalent)
+    })
     .collect::<Vec<_>>();
+    let mut seen_branch_names = HashSet::new();
+    let branch_names = local_branch_names
+        .into_iter()
+        .chain(remote_branch_names)
+        .filter(|candidate| seen_branch_names.insert(candidate.clone()))
+        .collect::<Vec<_>>();
 
     if repo_name.is_none() && branch_name.is_none() && branch_names.is_empty() {
         return None;
@@ -109,7 +133,10 @@ fn run_git_lines_command(workspace_path: &Path, args: &[&str]) -> Option<Vec<Str
 }
 
 fn parse_git_remote_name(remote_url: &str) -> Option<String> {
-    let normalized = remote_url.trim().trim_end_matches('/').trim_end_matches(".git");
+    let normalized = remote_url
+        .trim()
+        .trim_end_matches('/')
+        .trim_end_matches(".git");
     let path = if let Some((_, remainder)) = normalized.split_once("://") {
         remainder.split_once('/').map(|(_, path)| path)?
     } else if normalized.contains('@') && normalized.contains(':') {
@@ -175,4 +202,22 @@ pub struct QuickStartProjectInput {
     pub project_name: String,
     pub parent_directory: String,
     pub visibility: QuickStartVisibility,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct CheckoutGitBranchInput {
+    pub branch_name: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct CreateGitBranchInput {
+    pub branch_name: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct CommitGitChangesInput {
+    pub message: String,
 }
