@@ -55,7 +55,7 @@ function AppSidebarToggle({
       variant="ghost"
       size="icon"
       aria-label={isSidebarVisible ? "Hide sidebar" : "Show sidebar"}
-      className="absolute left-19 top-1.5 z-20 text-neutral-800 hover:text-white dark:text-neutral-500 dark:hover:text-white"
+      className="absolute left-19 top-1.5 z-20"
       onClick={() => {
         toggleSidebar();
         onToggleDesktopSidebar();
@@ -105,7 +105,7 @@ function AppShell() {
               variant="ghost"
               size="icon"
               aria-label="New chat"
-              className="absolute left-26 top-1.5 z-20 text-neutral-800 hover:text-white disabled:pointer-events-none disabled:opacity-35 dark:text-neutral-500 dark:hover:text-white"
+              className="absolute left-26 top-1.5 z-20 disabled:pointer-events-none disabled:opacity-35"
               onClick={() => {
                 void startNewChat();
               }}

@@ -92,7 +92,7 @@ export function ProjectSidebar() {
               type="button"
               variant="ghost"
               size="icon"
-              className="-mr-2 text-neutral-800 hover:text-white dark:text-neutral-500 dark:hover:text-white"
+              className="-mr-2"
               aria-label="Open project"
               title="Open project"
               onClick={() => void handleOpenWorkspacePicker()}

@@ -89,7 +89,7 @@ function renderChatThreadItem(
   workspacePath: string | null,
 ) {
   return (
-    <div className="mx-auto w-full max-w-3xl px-6 pb-4 select-text">
+    <div className="mx-auto min-w-0 w-full max-w-3xl px-6 pb-4 select-text">
       {item.kind === "message" ? (
         <TranscriptRow message={item.message} />
       ) : (

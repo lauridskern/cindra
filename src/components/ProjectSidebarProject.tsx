@@ -72,7 +72,7 @@ export function ProjectSidebarProject({
           type="button"
           variant="ghost"
           size="icon"
-          className="absolute top-1/2 right-0 -translate-y-1/2 bg-black/0 text-neutral-800 opacity-0 hover:bg-black/0 hover:text-white group-hover/menu-item:opacity-100 focus-visible:opacity-100 dark:bg-white/0 dark:text-neutral-500 dark:hover:bg-white/0 dark:hover:text-white aria-expanded:bg-black/0 dark:aria-expanded:bg-white/0"
+          className="absolute top-1/2 right-0 -translate-y-1/2 bg-black/0 opacity-0 hover:bg-black/0 group-hover/menu-item:opacity-100 focus-visible:opacity-100 dark:bg-white/0 dark:hover:bg-white/0 aria-expanded:bg-black/0 dark:aria-expanded:bg-white/0"
           aria-label={`Start a new chat in ${project.workspaceName}`}
           title="New chat"
           onClick={() => {

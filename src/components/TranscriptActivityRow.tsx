@@ -199,7 +199,7 @@ function OperationOutputCard({ operation }: { operation: ActivityOperation }) {
   }
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-neutral-200 bg-neutral-50 dark:border-neutral-800 dark:bg-neutral-950/70">
+    <div className="min-w-0 max-w-full overflow-hidden rounded-2xl border border-neutral-200 bg-neutral-50 dark:border-neutral-800 dark:bg-neutral-950/70">
       <div className="flex items-center justify-between border-b border-neutral-200 px-4 py-2 text-[11px] uppercase tracking-[0.18em] text-neutral-500 dark:border-neutral-800 dark:text-neutral-400">
         <span>{shellDetail ? "Shell" : "Output"}</span>
         <button
@@ -221,8 +221,10 @@ function OperationOutputCard({ operation }: { operation: ActivityOperation }) {
           {copied ? "Copied" : "Copy"}
         </button>
       </div>
-      <pre className="max-h-72 overflow-auto px-4 py-3 text-xs leading-6 text-neutral-700 dark:text-neutral-200">
-        <code>{previewText}</code>
+      <pre className="block max-h-72 w-full max-w-full overflow-x-auto overflow-y-auto whitespace-pre px-4 py-3 text-xs leading-6 text-neutral-700 dark:text-neutral-200">
+        <code className="inline-block min-w-full w-max align-top whitespace-pre">
+          {previewText}
+        </code>
       </pre>
       <div className="flex items-center justify-between border-t border-neutral-200 px-4 py-2 text-xs text-neutral-500 dark:border-neutral-800 dark:text-neutral-400">
         <span>
@@ -285,18 +287,18 @@ function ActivityOperationRow({
 
   return (
     <Collapsible open={open} onOpenChange={setOpen}>
-      <div className="grid gap-2">
+      <div className="grid min-w-0 gap-2">
         {isExpandable ? (
-          <CollapsibleTrigger className="flex items-start gap-2 text-left text-sm leading-6 text-neutral-500 transition hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200">
+          <CollapsibleTrigger className="flex min-w-0 items-start gap-2 text-left text-sm leading-6 text-neutral-500 transition hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200">
             {content}
           </CollapsibleTrigger>
         ) : (
-          <div className="flex items-start gap-2 text-sm leading-6 text-neutral-500 dark:text-neutral-400">
+          <div className="flex min-w-0 items-start gap-2 text-sm leading-6 text-neutral-500 dark:text-neutral-400">
             {content}
           </div>
         )}
         {isExpandable ? (
-          <CollapsibleContent>
+          <CollapsibleContent className="min-w-0 max-w-full">
             <OperationOutputCard operation={operation} />
           </CollapsibleContent>
         ) : null}
@@ -335,14 +337,14 @@ export function TranscriptActivityRow({
 
   return (
     <Collapsible open={open} onOpenChange={setOpen}>
-      <article className="grid max-w-3xl gap-2">
-        <CollapsibleTrigger className="inline-flex items-center gap-2 text-left text-sm leading-6 text-neutral-400 transition hover:text-neutral-600 dark:text-neutral-500 dark:hover:text-neutral-300">
+      <article className="grid min-w-0 max-w-3xl gap-2">
+        <CollapsibleTrigger className="inline-flex min-w-0 items-center gap-2 text-left text-sm leading-6 text-neutral-400 transition hover:text-neutral-600 dark:text-neutral-500 dark:hover:text-neutral-300">
           <ActivityChevron open={open} />
           {item.isRunning ? <Terminal className="size-3.5" /> : null}
           <span>{item.summary}</span>
         </CollapsibleTrigger>
-        <CollapsibleContent>
-          <div className="grid gap-3 border-l border-neutral-200 pl-4 dark:border-neutral-800">
+        <CollapsibleContent className="min-w-0 max-w-full">
+          <div className="grid min-w-0 gap-3 border-l border-neutral-200 pl-4 dark:border-neutral-800">
             {item.operations.map((operation) => (
               <ActivityOperationRow
                 key={operation.id}

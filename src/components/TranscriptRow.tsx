@@ -34,7 +34,7 @@ function UserMessage({ text }: { text: string }) {
 function AssistantMessage({ text }: { text: string }) {
   return (
     <article
-      className="grid max-w-3xl gap-2 select-text text-sm leading-6 text-neutral-700 dark:text-neutral-200 [&_code]:font-mono [&_ol]:my-0 [&_ol]:pl-5 [&_p]:m-0 [&_pre]:m-0 [&_pre]:overflow-x-auto [&_pre]:whitespace-pre-wrap [&_pre]:break-words [&_ul]:my-0 [&_ul]:pl-5]"
+      className="grid max-w-3xl gap-2 select-text text-sm leading-6 text-neutral-700 dark:text-neutral-200 [&_code]:font-mono [&_ol]:my-0 [&_ol]:pl-5 [&_p]:m-0 [&_pre]:m-0 [&_pre]:max-w-full [&_pre]:overflow-x-auto [&_pre]:overflow-y-hidden [&_pre]:whitespace-pre [&_pre]:break-normal [&_pre_code]:inline-block [&_pre_code]:min-w-full [&_pre_code]:whitespace-pre [&_ul]:my-0 [&_ul]:pl-5]"
       data-testid="assistant-message"
     >
       <ReactMarkdown>{text}</ReactMarkdown>
@@ -76,8 +76,8 @@ function StatusMessage({
 
 function StatusOutputMessage({ text }: { text: string }) {
   return (
-    <article className="max-w-3xl select-text overflow-x-auto text-sm text-neutral-500 dark:text-neutral-400">
-      <pre className="m-0 whitespace-pre-wrap break-words font-mono">
+    <article className="max-w-3xl min-w-0 select-text overflow-x-auto text-sm text-neutral-500 dark:text-neutral-400">
+      <pre className="m-0 max-w-full overflow-x-auto whitespace-pre font-mono">
         {text}
       </pre>
     </article>
