@@ -1,19 +1,14 @@
-import { useState, type FormEvent } from 'react'
-import {
-  FolderOpen,
-  GitBranchPlus,
-  LoaderCircle,
-  Rocket,
-} from 'lucide-react'
+import { useState, type FormEvent } from "react";
+import { FolderOpen, GitBranchPlus, LoaderCircle, Rocket } from "lucide-react";
 
-import { useSessionActions } from '../hooks/useSession'
-import * as desktopClient from '../services/desktop/client'
+import { useSessionActions } from "../hooks/useSession";
+import * as desktopClient from "../services/desktop/client";
 import type {
   QuickStartProjectInput,
   RuntimeStatus,
-} from '../services/desktop/contracts'
-import { formatError } from '../utils/errors'
-import { Button } from './ui/button'
+} from "../services/desktop/contracts";
+import { formatError } from "../utils/errors";
+import { Button } from "./ui/button";
 import {
   Card,
   CardAction,
@@ -21,7 +16,7 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from './ui/card'
+} from "./ui/card";
 import {
   Dialog,
   DialogContent,
@@ -29,107 +24,110 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from './ui/dialog'
-import { Input } from './ui/input'
-import { Label } from './ui/label'
+} from "./ui/dialog";
+import { Input } from "./ui/input";
+import { Label } from "./ui/label";
 
-const REPOSITORY_NAME_PATTERN = /^[A-Za-z0-9._-]+$/
+const REPOSITORY_NAME_PATTERN = /^[A-Za-z0-9._-]+$/;
 
 interface LandingScreenProps {
-  isOpeningProject: boolean
-  runtimeStatus: RuntimeStatus | null
-  uiError: string | null
+  isOpeningProject: boolean;
+  runtimeStatus: RuntimeStatus | null;
+  uiError: string | null;
 }
 
 interface CloneFormState {
-  repositoryUrl: string
-  parentDirectory: string
-  directoryName: string
+  repositoryUrl: string;
+  parentDirectory: string;
+  directoryName: string;
 }
 
-interface QuickStartFormState extends QuickStartProjectInput {}
+type QuickStartFormState = QuickStartProjectInput;
 
-type PendingAction = 'clone' | 'quick-start' | null
+type PendingAction = "clone" | "quick-start" | null;
 
 const initialCloneFormState: CloneFormState = {
-  repositoryUrl: '',
-  parentDirectory: '',
-  directoryName: '',
-}
+  repositoryUrl: "",
+  parentDirectory: "",
+  directoryName: "",
+};
 
 const initialQuickStartFormState: QuickStartFormState = {
-  projectName: '',
-  parentDirectory: '',
-  visibility: 'private',
-}
+  projectName: "",
+  parentDirectory: "",
+  visibility: "private",
+};
 
 export function LandingScreen({
   isOpeningProject,
   runtimeStatus,
   uiError,
 }: LandingScreenProps) {
-  const { openProject, openWorkspacePicker } = useSessionActions()
-  const [cloneDialogOpen, setCloneDialogOpen] = useState(false)
-  const [quickStartDialogOpen, setQuickStartDialogOpen] = useState(false)
-  const [cloneForm, setCloneForm] = useState<CloneFormState>(initialCloneFormState)
-  const [quickStartForm, setQuickStartForm] =
-    useState<QuickStartFormState>(initialQuickStartFormState)
+  const { openProject, openWorkspacePicker } = useSessionActions();
+  const [cloneDialogOpen, setCloneDialogOpen] = useState(false);
+  const [quickStartDialogOpen, setQuickStartDialogOpen] = useState(false);
+  const [cloneForm, setCloneForm] = useState<CloneFormState>(
+    initialCloneFormState,
+  );
+  const [quickStartForm, setQuickStartForm] = useState<QuickStartFormState>(
+    initialQuickStartFormState,
+  );
   const [cloneDirectoryManuallyEdited, setCloneDirectoryManuallyEdited] =
-    useState(false)
-  const [pendingAction, setPendingAction] = useState<PendingAction>(null)
-  const [actionError, setActionError] = useState<string | null>(null)
+    useState(false);
+  const [pendingAction, setPendingAction] = useState<PendingAction>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
-  const isBusy = isOpeningProject || pendingAction != null
-  const visibleError = actionError ?? uiError
+  const isBusy = isOpeningProject || pendingAction != null;
+  const visibleError = actionError ?? uiError;
   const cloneFormValid =
     cloneForm.repositoryUrl.trim().length > 0 &&
     cloneForm.parentDirectory.trim().length > 0 &&
-    REPOSITORY_NAME_PATTERN.test(cloneForm.directoryName.trim())
+    REPOSITORY_NAME_PATTERN.test(cloneForm.directoryName.trim());
   const quickStartFormValid =
     REPOSITORY_NAME_PATTERN.test(quickStartForm.projectName.trim()) &&
-    quickStartForm.parentDirectory.trim().length > 0
+    quickStartForm.parentDirectory.trim().length > 0;
 
   function resetCloneForm() {
-    setCloneForm(initialCloneFormState)
-    setCloneDirectoryManuallyEdited(false)
+    setCloneForm(initialCloneFormState);
+    setCloneDirectoryManuallyEdited(false);
   }
 
   function resetQuickStartForm() {
-    setQuickStartForm(initialQuickStartFormState)
+    setQuickStartForm(initialQuickStartFormState);
   }
 
   function handleCloneDialogChange(open: boolean) {
     if (pendingAction != null) {
-      return
+      return;
     }
 
-    setCloneDialogOpen(open)
+    setCloneDialogOpen(open);
     if (!open) {
-      resetCloneForm()
+      resetCloneForm();
     }
   }
 
   function handleQuickStartDialogChange(open: boolean) {
     if (pendingAction != null) {
-      return
+      return;
     }
 
-    setQuickStartDialogOpen(open)
+    setQuickStartDialogOpen(open);
     if (!open) {
-      resetQuickStartForm()
+      resetQuickStartForm();
     }
   }
 
   function handleCloneRepositoryUrlChange(value: string) {
     setCloneForm((current) => {
-      const nextDerivedName = deriveDirectoryNameFromRepositoryUrl(value)
+      const nextDerivedName = deriveDirectoryNameFromRepositoryUrl(value);
       const previousDerivedName = deriveDirectoryNameFromRepositoryUrl(
         current.repositoryUrl,
-      )
+      );
       const shouldSyncDirectoryName =
         !cloneDirectoryManuallyEdited ||
         current.directoryName.trim().length === 0 ||
-        current.directoryName === previousDerivedName
+        current.directoryName === previousDerivedName;
 
       return {
         ...current,
@@ -137,92 +135,92 @@ export function LandingScreen({
         directoryName: shouldSyncDirectoryName
           ? nextDerivedName
           : current.directoryName,
-      }
-    })
+      };
+    });
   }
 
   async function handleCloneDestinationPick() {
-    setActionError(null)
+    setActionError(null);
     try {
       const parentDirectory = await desktopClient.pickDirectory(
-        'Choose a folder for the cloned repository',
-      )
+        "Choose a folder for the cloned repository",
+      );
       if (parentDirectory != null) {
-        setCloneForm((current) => ({ ...current, parentDirectory }))
+        setCloneForm((current) => ({ ...current, parentDirectory }));
       }
     } catch (error) {
-      setActionError(formatError(error))
+      setActionError(formatError(error));
     }
   }
 
   async function handleQuickStartDestinationPick() {
-    setActionError(null)
+    setActionError(null);
     try {
       const parentDirectory = await desktopClient.pickDirectory(
-        'Choose a folder for the new GitHub project',
-      )
+        "Choose a folder for the new GitHub project",
+      );
       if (parentDirectory != null) {
-        setQuickStartForm((current) => ({ ...current, parentDirectory }))
+        setQuickStartForm((current) => ({ ...current, parentDirectory }));
       }
     } catch (error) {
-      setActionError(formatError(error))
+      setActionError(formatError(error));
     }
   }
 
   async function handleCloneSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
+    event.preventDefault();
     if (!cloneFormValid || isBusy) {
-      return
+      return;
     }
 
-    setActionError(null)
-    setPendingAction('clone')
+    setActionError(null);
+    setPendingAction("clone");
 
     try {
       const workspacePath = await desktopClient.cloneRepository({
         repositoryUrl: cloneForm.repositoryUrl.trim(),
         parentDirectory: cloneForm.parentDirectory.trim(),
         directoryName: cloneForm.directoryName.trim(),
-      })
-      await openProject(workspacePath)
-      setCloneDialogOpen(false)
-      resetCloneForm()
+      });
+      await openProject(workspacePath);
+      setCloneDialogOpen(false);
+      resetCloneForm();
     } catch (error) {
-      setActionError(formatError(error))
+      setActionError(formatError(error));
     } finally {
-      setPendingAction(null)
+      setPendingAction(null);
     }
   }
 
   async function handleQuickStartSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
+    event.preventDefault();
     if (!quickStartFormValid || isBusy) {
-      return
+      return;
     }
 
-    setActionError(null)
-    setPendingAction('quick-start')
+    setActionError(null);
+    setPendingAction("quick-start");
 
     try {
       const workspacePath = await desktopClient.quickStartProject({
         projectName: quickStartForm.projectName.trim(),
         parentDirectory: quickStartForm.parentDirectory.trim(),
         visibility: quickStartForm.visibility,
-      })
-      await openProject(workspacePath)
-      setQuickStartDialogOpen(false)
-      resetQuickStartForm()
+      });
+      await openProject(workspacePath);
+      setQuickStartDialogOpen(false);
+      resetQuickStartForm();
     } catch (error) {
-      setActionError(formatError(error))
+      setActionError(formatError(error));
     } finally {
-      setPendingAction(null)
+      setPendingAction(null);
     }
   }
 
   return (
     <>
       <section className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-3xl border border-white/60 bg-white/80 text-neutral-950 shadow-xl shadow-neutral-950/5 backdrop-blur-xl dark:border-white/10 dark:bg-neutral-900/80 dark:text-neutral-100 dark:shadow-black/20">
-        <div className="flex min-h-0 flex-1 overflow-auto px-6 py-8 max-md:px-4 max-md:py-5">
+        <div className="flex min-h-0 flex-1 overflow-auto px-6 py-8">
           <div className="mx-auto flex w-full max-w-4xl flex-1 flex-col items-center justify-center gap-6">
             {visibleError ? (
               <p
@@ -239,18 +237,18 @@ export function LandingScreen({
                 role="alert"
               >
                 {runtimeStatus.configurationError ??
-                  'No session is configured. Configure the terminal session first.'}
+                  "No session is configured. Configure the terminal session first."}
               </p>
             ) : null}
 
-            <div className="grid w-full gap-4 md:grid-cols-3">
+            <div className="grid w-full grid-cols-3 gap-4">
               <LaunchCard
                 disabled={isBusy}
                 icon={FolderOpen}
-                label={isOpeningProject ? 'Opening...' : 'Open folder'}
+                label={isOpeningProject ? "Opening..." : "Open folder"}
                 onClick={() => {
-                  setActionError(null)
-                  void openWorkspacePicker()
+                  setActionError(null);
+                  void openWorkspacePicker();
                 }}
               />
               <LaunchCard
@@ -258,8 +256,8 @@ export function LandingScreen({
                 icon={GitBranchPlus}
                 label="Clone from Git"
                 onClick={() => {
-                  setActionError(null)
-                  setCloneDialogOpen(true)
+                  setActionError(null);
+                  setCloneDialogOpen(true);
                 }}
               />
               <LaunchCard
@@ -267,8 +265,8 @@ export function LandingScreen({
                 icon={Rocket}
                 label="Quick start"
                 onClick={() => {
-                  setActionError(null)
-                  setQuickStartDialogOpen(true)
+                  setActionError(null);
+                  setQuickStartDialogOpen(true);
                 }}
               />
             </div>
@@ -278,7 +276,7 @@ export function LandingScreen({
 
       <Dialog open={cloneDialogOpen} onOpenChange={handleCloneDialogChange}>
         <DialogContent
-          className="sm:max-w-md"
+          className="max-w-md"
           showCloseButton={pendingAction == null}
         >
           <DialogHeader>
@@ -289,7 +287,10 @@ export function LandingScreen({
             </DialogDescription>
           </DialogHeader>
 
-          <form className="grid gap-4" onSubmit={(event) => void handleCloneSubmit(event)}>
+          <form
+            className="grid gap-4"
+            onSubmit={(event) => void handleCloneSubmit(event)}
+          >
             <div className="grid gap-2">
               <Label htmlFor="clone-repository-url">Repository URL</Label>
               <Input
@@ -336,11 +337,11 @@ export function LandingScreen({
                 placeholder="repo-name"
                 value={cloneForm.directoryName}
                 onChange={(event) => {
-                  setCloneDirectoryManuallyEdited(true)
+                  setCloneDirectoryManuallyEdited(true);
                   setCloneForm((current) => ({
                     ...current,
                     directoryName: event.target.value,
-                  }))
+                  }));
                 }}
                 disabled={isBusy}
               />
@@ -359,16 +360,16 @@ export function LandingScreen({
                 Cancel
               </Button>
               <Button type="submit" disabled={!cloneFormValid || isBusy}>
-                {pendingAction === 'clone' ? (
+                {pendingAction === "clone" ? (
                   <>
                     <LoaderCircle
-                      strokeWidth={2.5}
+                      strokeWidth={2}
                       className="size-3.5 animate-spin"
                     />
                     Cloning...
                   </>
                 ) : (
-                  'Clone and open'
+                  "Clone and open"
                 )}
               </Button>
             </DialogFooter>
@@ -381,7 +382,7 @@ export function LandingScreen({
         onOpenChange={handleQuickStartDialogChange}
       >
         <DialogContent
-          className="sm:max-w-md"
+          className="max-w-md"
           showCloseButton={pendingAction == null}
         >
           <DialogHeader>
@@ -416,7 +417,9 @@ export function LandingScreen({
             </div>
 
             <div className="grid gap-2">
-              <Label htmlFor="quick-start-parent-directory">Destination folder</Label>
+              <Label htmlFor="quick-start-parent-directory">
+                Destination folder
+              </Label>
               <div className="flex gap-2">
                 <Input
                   id="quick-start-parent-directory"
@@ -445,23 +448,23 @@ export function LandingScreen({
               <Label>Visibility</Label>
               <div className="grid grid-cols-2 gap-2">
                 <VisibilityButton
-                  active={quickStartForm.visibility === 'private'}
+                  active={quickStartForm.visibility === "private"}
                   disabled={isBusy}
                   onClick={() =>
                     setQuickStartForm((current) => ({
                       ...current,
-                      visibility: 'private',
+                      visibility: "private",
                     }))
                   }
                   value="Private"
                 />
                 <VisibilityButton
-                  active={quickStartForm.visibility === 'public'}
+                  active={quickStartForm.visibility === "public"}
                   disabled={isBusy}
                   onClick={() =>
                     setQuickStartForm((current) => ({
                       ...current,
-                      visibility: 'public',
+                      visibility: "public",
                     }))
                   }
                   value="Public"
@@ -479,16 +482,16 @@ export function LandingScreen({
                 Cancel
               </Button>
               <Button type="submit" disabled={!quickStartFormValid || isBusy}>
-                {pendingAction === 'quick-start' ? (
+                {pendingAction === "quick-start" ? (
                   <>
                     <LoaderCircle
-                      strokeWidth={2.5}
+                      strokeWidth={2}
                       className="size-3.5 animate-spin"
                     />
                     Creating...
                   </>
                 ) : (
-                  'Create and open'
+                  "Create and open"
                 )}
               </Button>
             </DialogFooter>
@@ -496,7 +499,7 @@ export function LandingScreen({
         </DialogContent>
       </Dialog>
     </>
-  )
+  );
 }
 
 function LaunchCard({
@@ -505,10 +508,10 @@ function LaunchCard({
   label,
   onClick,
 }: {
-  disabled: boolean
-  icon: typeof FolderOpen
-  label: string
-  onClick: () => void
+  disabled: boolean;
+  icon: typeof FolderOpen;
+  label: string;
+  onClick: () => void;
 }) {
   return (
     <button
@@ -521,7 +524,7 @@ function LaunchCard({
         <CardHeader>
           <CardAction className="justify-self-start">
             <div className="flex size-10 items-center justify-center rounded-md border border-input bg-input/20 text-muted-foreground dark:bg-input/30">
-              <Icon strokeWidth={2.5} className="size-3.5" />
+              <Icon strokeWidth={2} className="size-3.5" />
             </div>
           </CardAction>
         </CardHeader>
@@ -533,7 +536,7 @@ function LaunchCard({
         </CardFooter>
       </Card>
     </button>
-  )
+  );
 }
 
 function VisibilityButton({
@@ -542,30 +545,30 @@ function VisibilityButton({
   onClick,
   value,
 }: {
-  active: boolean
-  disabled: boolean
-  onClick: () => void
-  value: string
+  active: boolean;
+  disabled: boolean;
+  onClick: () => void;
+  value: string;
 }) {
   return (
     <Button
       type="button"
-      variant={active ? 'default' : 'outline'}
+      variant={active ? "default" : "outline"}
       className="justify-center"
       onClick={onClick}
       disabled={disabled}
     >
       {value}
     </Button>
-  )
+  );
 }
 
 function deriveDirectoryNameFromRepositoryUrl(repositoryUrl: string): string {
-  const trimmed = repositoryUrl.trim().replace(/\/+$/, '')
+  const trimmed = repositoryUrl.trim().replace(/\/+$/, "");
   if (trimmed.length === 0) {
-    return ''
+    return "";
   }
 
-  const lastSegment = trimmed.split(/[:/]/).at(-1) ?? ''
-  return lastSegment.replace(/\.git$/i, '')
+  const lastSegment = trimmed.split(/[:/]/).at(-1) ?? "";
+  return lastSegment.replace(/\.git$/i, "");
 }

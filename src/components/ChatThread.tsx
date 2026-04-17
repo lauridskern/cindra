@@ -1,49 +1,49 @@
 import {
   LegendList,
   type LegendListRenderItemProps,
-} from '@legendapp/list/react'
+} from "@legendapp/list/react";
 
-import type { TranscriptMessage } from '../services/desktop/contracts'
-import { TranscriptRow } from './TranscriptRow'
+import type { TranscriptMessage } from "../services/desktop/contracts";
+import { TranscriptRow } from "./TranscriptRow";
 
 interface ChatThreadProps {
-  messages: TranscriptMessage[]
+  messages: TranscriptMessage[];
 }
 
 function getMessageText(message: TranscriptMessage): string {
   switch (message.kind) {
-    case 'user':
-    case 'assistant':
-    case 'reasoning':
-    case 'status_output':
-      return message.text
-    case 'error':
-      return message.message
-    case 'status':
-      return `${message.title} ${message.subtitle ?? ''}`
-    case 'tool_start':
-      return message.name
-    case 'tool_end':
-      return `${message.name} ${message.summary ?? ''}`
+    case "user":
+    case "assistant":
+    case "reasoning":
+    case "status_output":
+      return message.text;
+    case "error":
+      return message.message;
+    case "status":
+      return `${message.title} ${message.subtitle ?? ""}`;
+    case "tool_start":
+      return message.name;
+    case "tool_end":
+      return `${message.name} ${message.summary ?? ""}`;
     default:
-      return ''
+      return "";
   }
 }
 
 function estimateChatThreadMessageSize(message: TranscriptMessage): number {
-  const lineCount = Math.max(1, Math.ceil(getMessageText(message).length / 72))
+  const lineCount = Math.max(1, Math.ceil(getMessageText(message).length / 72));
 
   switch (message.kind) {
-    case 'user':
-      return 42 + lineCount * 34
-    case 'assistant':
-      return 32 + lineCount * 26
-    case 'reasoning':
-      return 28 + lineCount * 24
-    case 'status_output':
-      return 36 + lineCount * 18
+    case "user":
+      return 42 + lineCount * 34;
+    case "assistant":
+      return 32 + lineCount * 26;
+    case "reasoning":
+      return 28 + lineCount * 24;
+    case "status_output":
+      return 36 + lineCount * 18;
     default:
-      return 28 + lineCount * 22
+      return 28 + lineCount * 22;
   }
 }
 
@@ -51,10 +51,10 @@ function renderChatThreadItem({
   item,
 }: LegendListRenderItemProps<TranscriptMessage>) {
   return (
-    <div className="mx-auto w-full max-w-3xl px-6 pb-4 select-text max-md:px-4">
+    <div className="mx-auto w-full max-w-3xl px-6 pb-4 select-text">
       <TranscriptRow message={item} />
     </div>
-  )
+  );
 }
 
 export function ChatThread({ messages }: ChatThreadProps) {
@@ -70,9 +70,9 @@ export function ChatThread({ messages }: ChatThreadProps) {
       maintainScrollAtEndThreshold={0.2}
       maintainVisibleContentPosition
       estimatedItemSize={88}
-      style={{ height: '100%' }}
+      style={{ height: "100%" }}
       contentContainerStyle={{ paddingTop: 28, paddingBottom: 20 }}
       ListEmptyComponent={<div className="min-h-px" aria-hidden="true" />}
     />
-  )
+  );
 }

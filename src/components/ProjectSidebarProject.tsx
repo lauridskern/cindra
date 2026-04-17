@@ -1,23 +1,23 @@
-import { ChevronDown, ChevronRight, Folder, PenSquare } from 'lucide-react'
+import { ChevronDown, ChevronRight, Folder, PenSquare } from "lucide-react";
 
-import type { ProjectSummary } from '../app/sessionSelectors'
-import { cn } from '../utils/cn'
-import { ProjectSidebarConversationRow } from './ProjectSidebarConversationRow'
-import { Button } from './ui/button'
+import type { ProjectSummary } from "../app/sessionSelectors";
+import { cn } from "../utils/cn";
+import { ProjectSidebarConversationRow } from "./ProjectSidebarConversationRow";
+import { Button } from "./ui/button";
 import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarMenuSub,
-} from './ui/sidebar'
+} from "./ui/sidebar";
 
 interface ProjectSidebarProjectProps {
-  isExpanded: boolean
-  project: ProjectSummary
-  onEnsureProjectExpanded: (workspacePath: string) => void
-  onOpenProject: (workspacePath: string) => void
-  onSelectConversation: (workspacePath: string, conversationId: string) => void
-  onStartNewChat: (workspacePath: string) => void
-  onToggleProjectExpanded: (workspacePath: string) => void
+  isExpanded: boolean;
+  project: ProjectSummary;
+  onEnsureProjectExpanded: (workspacePath: string) => void;
+  onOpenProject: (workspacePath: string) => void;
+  onSelectConversation: (workspacePath: string, conversationId: string) => void;
+  onStartNewChat: (workspacePath: string) => void;
+  onToggleProjectExpanded: (workspacePath: string) => void;
 }
 
 export function ProjectSidebarProject({
@@ -38,30 +38,29 @@ export function ProjectSidebarProject({
           className="font-medium"
           onClick={() => {
             if (project.isCurrent) {
-              onToggleProjectExpanded(project.workspacePath)
-              return
+              onToggleProjectExpanded(project.workspacePath);
+              return;
             }
 
-            onEnsureProjectExpanded(project.workspacePath)
-            onOpenProject(project.workspacePath)
+            onEnsureProjectExpanded(project.workspacePath);
+            onOpenProject(project.workspacePath);
           }}
         >
           <span className="relative flex size-3.5 shrink-0 items-center justify-center">
             <Folder
-              strokeWidth={2.5}
+              strokeWidth={2}
               className={cn(
-                'size-3.5 transition-opacity duration-150',
-                isExpanded ? 'opacity-0' : 'opacity-100 group-hover/menu-button:opacity-0',
+                "size-3.5 transition-opacity duration-150",
+                isExpanded
+                  ? "opacity-0"
+                  : "opacity-100 group-hover/menu-button:opacity-0",
               )}
             />
             {isExpanded ? (
-              <ChevronDown
-                strokeWidth={2.5}
-                className="absolute size-3.5"
-              />
+              <ChevronDown strokeWidth={2} className="absolute size-3.5" />
             ) : (
               <ChevronRight
-                strokeWidth={2.5}
+                strokeWidth={2}
                 className="absolute size-3.5 opacity-0 transition-opacity duration-150 group-hover/menu-button:opacity-100"
               />
             )}
@@ -77,11 +76,11 @@ export function ProjectSidebarProject({
           aria-label={`Start a new chat in ${project.workspaceName}`}
           title="New chat"
           onClick={() => {
-            onEnsureProjectExpanded(project.workspacePath)
-            onStartNewChat(project.workspacePath)
+            onEnsureProjectExpanded(project.workspacePath);
+            onStartNewChat(project.workspacePath);
           }}
         >
-          <PenSquare strokeWidth={2.5} className="size-3.5 shrink-0" />
+          <PenSquare strokeWidth={2} className="size-3.5 shrink-0" />
         </Button>
       </div>
 
@@ -103,5 +102,5 @@ export function ProjectSidebarProject({
         ) : null
       ) : null}
     </SidebarMenuItem>
-  )
+  );
 }

@@ -12,7 +12,6 @@ import {
 } from "../components/ui/resizable";
 import { SidebarProvider, useSidebar } from "../components/ui/sidebar";
 import { TooltipProvider } from "../components/ui/tooltip";
-import { useIsMobile } from "../hooks/use-mobile";
 import { useConversationSession, useSessionActions } from "../hooks/useSession";
 import { SessionProvider } from "./SessionProvider";
 
@@ -42,47 +41,29 @@ function useSystemThemeClass() {
   }, []);
 }
 
-interface AppSidebarToggleProps {
-  isMobile: boolean;
-  isSidebarVisible: boolean;
-  onToggleDesktopSidebar: () => void;
-}
-
 function AppSidebarToggle({
-  isMobile,
   isSidebarVisible,
   onToggleDesktopSidebar,
-}: AppSidebarToggleProps) {
+}: {
+  isSidebarVisible: boolean;
+  onToggleDesktopSidebar: () => void;
+}) {
   const { toggleSidebar } = useSidebar();
 
   return (
     <Button
       variant="ghost"
       size="icon"
-      aria-label={
-        isMobile
-          ? "Toggle sidebar"
-          : isSidebarVisible
-            ? "Hide sidebar"
-            : "Show sidebar"
-      }
+      aria-label={isSidebarVisible ? "Hide sidebar" : "Show sidebar"}
       className="absolute left-19 top-1.5 z-20 text-neutral-800 hover:text-white dark:text-neutral-500 dark:hover:text-white"
       onClick={() => {
-        if (isMobile) {
-          toggleSidebar();
-          return;
-        }
-
+        toggleSidebar();
         onToggleDesktopSidebar();
       }}
     >
       <PanelLeftIcon strokeWidth={2} className="size-3.5" />
       <span className="sr-only">
-        {isMobile
-          ? "Toggle sidebar"
-          : isSidebarVisible
-            ? "Hide sidebar"
-            : "Show sidebar"}
+        {isSidebarVisible ? "Hide sidebar" : "Show sidebar"}
       </span>
     </Button>
   );
@@ -90,17 +71,12 @@ function AppSidebarToggle({
 
 function AppShell() {
   useSystemThemeClass();
-  const isMobile = useIsMobile();
   const { hasCurrentWorkspace } = useConversationSession();
   const { startNewChat } = useSessionActions();
   const [isDesktopSidebarVisible, setIsDesktopSidebarVisible] = useState(true);
   const sidebarPanelRef = useRef<PanelImperativeHandle | null>(null);
 
   useLayoutEffect(() => {
-    if (isMobile) {
-      return;
-    }
-
     const panel = sidebarPanelRef.current;
     if (panel == null) {
       return;
@@ -112,20 +88,19 @@ function AppShell() {
     }
 
     panel.collapse();
-  }, [isDesktopSidebarVisible, isMobile]);
+  }, [isDesktopSidebarVisible]);
 
   return (
     <TooltipProvider>
       <SidebarProvider className="min-h-screen bg-transparent">
         <main className="app-shell relative flex h-screen w-full overflow-hidden bg-transparent">
           <AppSidebarToggle
-            isMobile={isMobile}
             isSidebarVisible={isDesktopSidebarVisible}
             onToggleDesktopSidebar={() => {
               setIsDesktopSidebarVisible((current) => !current);
             }}
           />
-          {!isMobile && !isDesktopSidebarVisible ? (
+          {!isDesktopSidebarVisible ? (
             <Button
               variant="ghost"
               size="icon"
@@ -140,50 +115,41 @@ function AppShell() {
               <span className="sr-only">New chat</span>
             </Button>
           ) : null}
-          {isMobile ? (
-            <>
+          <ResizablePanelGroup orientation="horizontal">
+            <ResizablePanel
+              id="sidebar-panel"
+              panelRef={sidebarPanelRef}
+              defaultSize={DEFAULT_SIDEBAR_WIDTH}
+              minSize={MIN_SIDEBAR_WIDTH}
+              maxSize={MAX_SIDEBAR_WIDTH}
+              collapsible
+              collapsedSize={0}
+              groupResizeBehavior="preserve-pixel-size"
+              className="overflow-hidden"
+              onResize={(size) => {
+                const nextIsVisible = size.inPixels > 0;
+                setIsDesktopSidebarVisible((current) =>
+                  current === nextIsVisible ? current : nextIsVisible,
+                );
+              }}
+            >
               <ProjectSidebar />
-              <section className="flex min-w-0 flex-1 overflow-hidden max-md:w-full">
-                <ConversationPanel />
+            </ResizablePanel>
+            <ResizableHandle
+              className={
+                isDesktopSidebarVisible
+                  ? "bg-transparent after:w-2 hover:after:bg-border/80"
+                  : "w-0 bg-transparent after:hidden pointer-events-none"
+              }
+            />
+            <ResizablePanel id="chat-panel">
+              <section className="flex h-full min-w-0 flex-1 overflow-hidden">
+                <ConversationPanel
+                  reserveTitlebarInset={!isDesktopSidebarVisible}
+                />
               </section>
-            </>
-          ) : (
-            <ResizablePanelGroup orientation="horizontal">
-              <ResizablePanel
-                id="sidebar-panel"
-                panelRef={sidebarPanelRef}
-                defaultSize={DEFAULT_SIDEBAR_WIDTH}
-                minSize={MIN_SIDEBAR_WIDTH}
-                maxSize={MAX_SIDEBAR_WIDTH}
-                collapsible
-                collapsedSize={0}
-                groupResizeBehavior="preserve-pixel-size"
-                className="overflow-hidden"
-                onResize={(size) => {
-                  const nextIsVisible = size.inPixels > 0;
-                  setIsDesktopSidebarVisible((current) =>
-                    current === nextIsVisible ? current : nextIsVisible,
-                  );
-                }}
-              >
-                <ProjectSidebar />
-              </ResizablePanel>
-              <ResizableHandle
-                className={
-                  isDesktopSidebarVisible
-                    ? "bg-transparent after:w-2 hover:after:bg-border/80"
-                    : "w-0 bg-transparent after:hidden pointer-events-none"
-                }
-              />
-              <ResizablePanel id="chat-panel">
-                <section className="flex h-full min-w-0 flex-1 overflow-hidden">
-                  <ConversationPanel
-                    reserveTitlebarInset={!isDesktopSidebarVisible}
-                  />
-                </section>
-              </ResizablePanel>
-            </ResizablePanelGroup>
-          )}
+            </ResizablePanel>
+          </ResizablePanelGroup>
         </main>
       </SidebarProvider>
     </TooltipProvider>

@@ -1,16 +1,12 @@
-import { Folder, PenSquare } from 'lucide-react'
+import { Folder, PenSquare } from "lucide-react";
 
-import {
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
-} from './ui/sidebar'
+import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "./ui/sidebar";
 
 interface ProjectSidebarActionsProps {
-  hasCurrentWorkspace: boolean
-  isOpeningProject: boolean
-  onOpenWorkspacePicker: () => void
-  onStartNewChat: () => void
+  hasCurrentWorkspace: boolean;
+  isOpeningProject: boolean;
+  onOpenWorkspacePicker: () => void;
+  onStartNewChat: () => void;
 }
 
 export function ProjectSidebarActions({
@@ -28,7 +24,7 @@ export function ProjectSidebarActions({
           disabled={!hasCurrentWorkspace}
           className="font-medium [&_svg]:size-3.5"
         >
-          <PenSquare strokeWidth={2.5} className="size-3.5 shrink-0" />
+          <PenSquare strokeWidth={2} className="size-3.5 shrink-0" />
           <span>New chat</span>
         </SidebarMenuButton>
       </SidebarMenuItem>
@@ -39,10 +35,10 @@ export function ProjectSidebarActions({
           disabled={isOpeningProject}
           className="font-medium [&_svg]:size-3.5"
         >
-          <Folder strokeWidth={2.5} className="size-3.5 shrink-0" />
-          <span>{isOpeningProject ? 'Opening…' : 'Open project'}</span>
+          <Folder strokeWidth={2} className="size-3.5 shrink-0" />
+          <span>{isOpeningProject ? "Opening…" : "Open project"}</span>
         </SidebarMenuButton>
       </SidebarMenuItem>
     </SidebarMenu>
-  )
+  );
 }
