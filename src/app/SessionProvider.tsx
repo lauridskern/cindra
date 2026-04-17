@@ -111,12 +111,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     () => ({
       activeWorkspacePath: sessionSnapshot?.activeWorkspacePath ?? null,
       hasCurrentWorkspace,
-      isOpeningProject,
       workspaces: sessionSnapshot?.workspaces ?? [],
     }),
     [
       hasCurrentWorkspace,
-      isOpeningProject,
       sessionSnapshot?.activeWorkspacePath,
       sessionSnapshot?.workspaces,
     ],

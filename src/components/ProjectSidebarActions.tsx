@@ -4,14 +4,12 @@ import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "./ui/sidebar";
 
 interface ProjectSidebarActionsProps {
   hasCurrentWorkspace: boolean;
-  isOpeningProject: boolean;
   onOpenWorkspacePicker: () => void;
   onStartNewChat: () => void;
 }
 
 export function ProjectSidebarActions({
   hasCurrentWorkspace,
-  isOpeningProject,
   onOpenWorkspacePicker,
   onStartNewChat,
 }: ProjectSidebarActionsProps) {
@@ -32,11 +30,10 @@ export function ProjectSidebarActions({
         <SidebarMenuButton
           tooltip="Open project"
           onClick={onOpenWorkspacePicker}
-          disabled={isOpeningProject}
           className="font-medium [&_svg]:size-3.5"
         >
           <Folder strokeWidth={2} className="size-3.5 shrink-0" />
-          <span>{isOpeningProject ? "Opening…" : "Open project"}</span>
+          <span>Open project</span>
         </SidebarMenuButton>
       </SidebarMenuItem>
     </SidebarMenu>
