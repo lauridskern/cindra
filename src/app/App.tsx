@@ -2,8 +2,8 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { PanelImperativeHandle } from "react-resizable-panels";
 import { PanelLeftIcon, PenSquare } from "lucide-react";
 
-import { ConversationPanel } from "../components/ConversationPanel";
 import { ProjectSidebar } from "../components/ProjectSidebar";
+import { WorkspaceBoard } from "../components/workspace-board/WorkspaceBoard";
 import { Button } from "../components/ui/button";
 import {
   ResizableHandle,
@@ -144,9 +144,7 @@ function AppShell() {
             />
             <ResizablePanel id="chat-panel">
               <section className="flex h-full min-w-0 flex-1 overflow-hidden">
-                <ConversationPanel
-                  reserveTitlebarInset={!isDesktopSidebarVisible}
-                />
+                <WorkspaceBoard />
               </section>
             </ResizablePanel>
           </ResizablePanelGroup>

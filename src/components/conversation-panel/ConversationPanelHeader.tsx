@@ -1,4 +1,6 @@
+import { useRef } from "react";
 import { ChevronRight, GitFork } from "lucide-react";
+import type { DockviewApi, DockviewGroupPanel } from "dockview-react";
 
 import {
   Breadcrumb,
@@ -13,15 +15,30 @@ import { handleWindowDragStart } from "@/utils/window";
 import { BranchSwitcherMenu } from "./BranchSwitcherMenu";
 import { CommitChangesDialog } from "./CommitChangesDialog";
 import { ConversationHeaderActions } from "./ConversationHeaderActions";
+import { useDockviewGroupDragHandle } from "./useDockviewGroupDragHandle";
 import { useConversationHeaderState } from "./useConversationHeaderState";
 
 interface ConversationPanelHeaderProps {
+  canCloseChat?: () => boolean;
+  onCloseChat?: () => void;
+  panelDragHandle?: {
+    containerApi: DockviewApi;
+    group: DockviewGroupPanel;
+  };
+  panelDragEnabled?: boolean;
   reserveTitlebarInset: boolean;
+  windowDragEnabled: boolean;
 }
 
 export function ConversationPanelHeader({
+  canCloseChat,
+  onCloseChat,
+  panelDragHandle,
+  panelDragEnabled = false,
   reserveTitlebarInset,
+  windowDragEnabled,
 }: ConversationPanelHeaderProps) {
+  const panelDragHandleRef = useRef<HTMLDivElement | null>(null);
   const {
     activeWorkspaceLabel,
     branchName,
@@ -51,23 +68,29 @@ export function ConversationPanelHeader({
     openCommitDialog,
   } = useConversationHeaderState();
 
+  useDockviewGroupDragHandle({
+    dragHandle: panelDragHandle,
+    elementRef: panelDragHandleRef,
+    enabled: panelDragEnabled,
+  });
+
   return (
     <>
       <header
         className={cn(
           "flex h-9.5 items-center gap-3 border-b border-black/5 pr-1.5 select-none dark:border-white/5",
-          reserveTitlebarInset && "pl-34",
+          reserveTitlebarInset ? "pl-34" : "pl-3",
         )}
       >
-        <div className="relative z-20 flex min-w-fit shrink-0 items-center text-xs font-medium tracking-tight">
+        <div className="relative z-20 flex min-w-0 shrink items-center overflow-hidden text-xs font-medium tracking-tight">
           {repoName ? (
             <>
               {reserveTitlebarInset ? (
-                <div className="h-9 w-px bg-black/5 dark:bg-white/5" />
+                <div className="mr-3 h-9 w-px shrink-0 bg-black/5 dark:bg-white/5" />
               ) : null}
-              <Breadcrumb className="ml-3 min-w-0">
-                <BreadcrumbList className="flex-nowrap">
-                  <BreadcrumbItem>
+              <Breadcrumb className="min-w-0">
+                <BreadcrumbList className="min-w-0 flex-nowrap">
+                  <BreadcrumbItem className="min-w-0">
                     <BreadcrumbPage className="inline-flex min-w-0 items-center gap-1.5 text-xs font-medium text-neutral-800 dark:text-neutral-100">
                       <GitFork
                         strokeWidth={2}
@@ -103,20 +126,27 @@ export function ConversationPanelHeader({
               </Breadcrumb>
             </>
           ) : (
-            <span className="text-xs font-medium tracking-tight text-neutral-500 dark:text-neutral-400">
+            <span className="truncate text-xs font-medium tracking-tight text-neutral-500 dark:text-neutral-400">
               {activeWorkspaceLabel}
             </span>
           )}
         </div>
 
         <div
-          className="h-full min-w-8 flex-1 cursor-grab bg-transparent active:cursor-grabbing"
-          onMouseDown={handleWindowDragStart}
+          ref={panelDragHandleRef}
+          className={cn(
+            "h-full min-w-8 flex-1 bg-transparent",
+            (panelDragEnabled || windowDragEnabled) &&
+              "cursor-grab active:cursor-grabbing",
+          )}
+          onMouseDown={windowDragEnabled ? handleWindowDragStart : undefined}
         />
 
         <ConversationHeaderActions
+          canCloseChat={canCloseChat}
           isGitBusy={isGitActionPending}
           isOpenTargetBusy={isOpenTargetPending}
+          onCloseChat={onCloseChat}
           onOpenCommitDialog={openCommitDialog}
           onPush={handlePush}
           onSelectOpenTarget={handleOpenTarget}

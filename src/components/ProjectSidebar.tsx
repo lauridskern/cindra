@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { FolderPlus } from "lucide-react";
+import { FolderPlus, PanelsTopLeft } from "lucide-react";
 
 import { useSessionActions, useSidebarSession } from "../hooks/useSession";
 import { handleWindowDragStart } from "../utils/window";
@@ -14,60 +14,33 @@ import {
   SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
 } from "./ui/sidebar";
 
 export function ProjectSidebar() {
-  const [expandedProjectPaths, setExpandedProjectPaths] = useState<string[]>([]);
-  const [collapsedActiveWorkspacePath, setCollapsedActiveWorkspacePath] =
-    useState<string | null>(null);
+  const [collapsedProjectPaths, setCollapsedProjectPaths] = useState<string[]>([]);
   const {
     openWorkspacePicker,
     openProject,
+    openSavedWorkspace,
     selectConversation,
     startNewChat,
   } = useSessionActions();
   const {
+    activeSavedWorkspaceId,
     activeWorkspacePath,
     hasCurrentWorkspace,
+    savedWorkspaces,
     workspaces,
   } = useSidebarSession();
 
-  function clearCollapsedActiveWorkspace(workspacePath?: string) {
-    if (workspacePath == null) {
-      return;
-    }
-
-    setCollapsedActiveWorkspacePath((current) =>
-      current === workspacePath ? null : current,
-    );
-  }
-
   function isWorkspaceExpanded(workspacePath: string) {
-    return (
-      expandedProjectPaths.includes(workspacePath) ||
-      (workspacePath === activeWorkspacePath &&
-        collapsedActiveWorkspacePath !== workspacePath)
-    );
+    return !collapsedProjectPaths.includes(workspacePath);
   }
 
-  function toggleProjectExpanded(workspacePath: string, isActive: boolean) {
-    if (isActive) {
-      if (isWorkspaceExpanded(workspacePath)) {
-        setCollapsedActiveWorkspacePath(workspacePath);
-        setExpandedProjectPaths((current) =>
-          current.filter((path) => path !== workspacePath),
-        );
-        return;
-      }
-
-      setCollapsedActiveWorkspacePath(null);
-      setExpandedProjectPaths((current) =>
-        current.includes(workspacePath) ? current : [...current, workspacePath],
-      );
-      return;
-    }
-
-    setExpandedProjectPaths((current) =>
+  function toggleProjectExpanded(workspacePath: string) {
+    setCollapsedProjectPaths((current) =>
       current.includes(workspacePath)
         ? current.filter((path) => path !== workspacePath)
         : [...current, workspacePath],
@@ -75,7 +48,6 @@ export function ProjectSidebar() {
   }
 
   function handleOpenProject(workspacePath: string) {
-    clearCollapsedActiveWorkspace(workspacePath);
     void openProject(workspacePath);
   }
 
@@ -83,12 +55,10 @@ export function ProjectSidebar() {
     workspacePath: string,
     conversationId: string,
   ) {
-    clearCollapsedActiveWorkspace(workspacePath);
     void selectConversation(workspacePath, conversationId);
   }
 
   function handleStartNewChat(workspacePath?: string) {
-    clearCollapsedActiveWorkspace(workspacePath);
     void startNewChat(workspacePath);
   }
 
@@ -107,6 +77,40 @@ export function ProjectSidebar() {
       </SidebarHeader>
 
       <SidebarContent className="select-none">
+        <SidebarGroup className="pt-0">
+          <div className="mb-1 flex h-7 items-center justify-between px-2">
+            <SidebarGroupLabel className="h-full px-0 font-medium">
+              Workspaces
+            </SidebarGroupLabel>
+          </div>
+
+          <SidebarGroupContent>
+            {savedWorkspaces.length === 0 ? (
+              <p className="px-2 py-1 text-xs font-medium text-sidebar-foreground/60">
+                No workspaces yet
+              </p>
+            ) : (
+              <SidebarMenu>
+                {savedWorkspaces.map((workspace) => (
+                  <SidebarMenuItem key={workspace.id}>
+                    <SidebarMenuButton
+                      isActive={workspace.id === activeSavedWorkspaceId}
+                      tooltip={workspace.name}
+                      className="font-medium"
+                      onClick={() => {
+                        void openSavedWorkspace(workspace.id);
+                      }}
+                    >
+                      <PanelsTopLeft strokeWidth={2} className="size-3.5" />
+                      <span>{workspace.name}</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            )}
+          </SidebarGroupContent>
+        </SidebarGroup>
+
         <SidebarGroup className="pt-0">
           <div className="mb-1 flex h-7 items-center justify-between px-2">
             <SidebarGroupLabel className="h-full px-0 font-medium">
@@ -145,9 +149,7 @@ export function ProjectSidebar() {
                       onOpenProject={handleOpenProject}
                       onSelectConversation={handleSelectConversation}
                       onStartNewChat={handleStartNewChat}
-                      onToggleProjectExpanded={(workspacePath) =>
-                        toggleProjectExpanded(workspacePath, isActive)
-                      }
+                      onToggleProjectExpanded={toggleProjectExpanded}
                     />
                   );
                 })}

@@ -1,0 +1,69 @@
+import type { DockviewApi } from "dockview-react";
+
+import type {
+  WorkspaceBoardContextValue,
+  WorkspaceBoardSelection,
+} from "@/app/SessionContext";
+import type { ChatBinding } from "@/services/desktop/contracts";
+
+import { createChatPanelId, type OuterChatPanelParams } from "./layout";
+
+export function getWorkspaceBoardSelectionKey(
+  selection: WorkspaceBoardSelection,
+): string {
+  switch (selection.kind) {
+    case "empty":
+      return "board:empty";
+    case "single-chat":
+      return `board:single:${createChatPanelId(selection.chat)}`;
+    case "saved-workspace":
+      return `board:saved:${selection.workspace.id}`;
+  }
+}
+
+export function getOuterPanelBinding(
+  panel: { params?: unknown } | undefined,
+): ChatBinding | null {
+  const params = panel?.params as Partial<OuterChatPanelParams> | undefined;
+  if (
+    params == null ||
+    typeof params.workspacePath !== "string" ||
+    typeof params.conversationId !== "string"
+  ) {
+    return null;
+  }
+
+  return {
+    workspacePath: params.workspacePath,
+    conversationId: params.conversationId,
+  };
+}
+
+export function getActiveOuterBinding(
+  api: DockviewApi | null | undefined,
+): ChatBinding | null {
+  return getOuterPanelBinding(api?.activePanel);
+}
+
+export function getChatTitle(
+  binding: ChatBinding,
+  getWorkspace: WorkspaceBoardContextValue["getWorkspace"],
+  getConversationSummary: WorkspaceBoardContextValue["getConversationSummary"],
+): string {
+  const workspace = getWorkspace(binding.workspacePath);
+  const conversation = getConversationSummary(binding);
+
+  if (workspace == null && conversation == null) {
+    return "Chat";
+  }
+
+  if (workspace == null) {
+    return conversation?.title ?? "Chat";
+  }
+
+  if (conversation == null) {
+    return workspace.workspaceName;
+  }
+
+  return `${workspace.workspaceName} · ${conversation.title}`;
+}

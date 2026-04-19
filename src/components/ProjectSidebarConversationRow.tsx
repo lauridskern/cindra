@@ -1,6 +1,10 @@
 import type { ConversationSessionSummary } from "../services/desktop/contracts";
 import { cn } from "../utils/cn";
 import { formatRelativeTimestamp } from "../utils/time";
+import {
+  clearActiveDraggedChatBinding,
+  writeChatBindingToDataTransfer,
+} from "./workspace-board/layout";
 import { SidebarMenuSubButton, SidebarMenuSubItem } from "./ui/sidebar";
 
 interface ProjectSidebarConversationRowProps {
@@ -21,7 +25,7 @@ export function ProjectSidebarConversationRow({
   return (
     <SidebarMenuSubItem className="w-full">
       <SidebarMenuSubButton
-        render={<button type="button" />}
+        render={<button type="button" draggable />}
         isActive={isSelected}
         className={cn(
           "h-auto w-full items-center justify-start gap-2 py-1.5 text-left font-medium",
@@ -31,6 +35,15 @@ export function ProjectSidebarConversationRow({
         onClick={() =>
           onSelectConversation(workspacePath, conversation.conversationId)
         }
+        onDragStart={(event) => {
+          writeChatBindingToDataTransfer(event.dataTransfer, {
+            workspacePath,
+            conversationId: conversation.conversationId,
+          });
+        }}
+        onDragEnd={() => {
+          clearActiveDraggedChatBinding();
+        }}
       >
         <span className="min-w-0 flex-1 truncate pr-2 text-left">
           {conversation.title}

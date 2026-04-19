@@ -16,6 +16,7 @@
         "title": "Agent UI",
         "width": 1280,
         "height": 860,
+        "dragDropEnabled": false,
         "resizable": true,
         "fullscreen": false,
         "transparent": true,

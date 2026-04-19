@@ -1,8 +1,10 @@
 import {
   ChevronDownIcon,
+  EllipsisIcon,
   GitCommitHorizontalIcon,
   GitPullRequestCreateIcon,
   UploadIcon,
+  XIcon,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -21,8 +23,10 @@ import { appTargets } from "./model";
 import type { AppTarget, AppTargetId } from "./model";
 
 interface ConversationHeaderActionsProps {
+  canCloseChat?: () => boolean;
   isGitBusy: boolean;
   isOpenTargetBusy: boolean;
+  onCloseChat?: () => void;
   onOpenCommitDialog: () => void;
   onPush: () => Promise<void>;
   onSelectOpenTarget: (appId: AppTargetId) => Promise<void>;
@@ -31,14 +35,17 @@ interface ConversationHeaderActionsProps {
 }
 
 export function ConversationHeaderActions({
+  canCloseChat,
   isGitBusy,
   isOpenTargetBusy,
+  onCloseChat,
   onOpenCommitDialog,
   onPush,
   onSelectOpenTarget,
   openTargets,
   preferredAppId,
 }: ConversationHeaderActionsProps) {
+  const isCloseChatEnabled = canCloseChat?.() ?? false;
   const preferredApp =
     openTargets.find((target) => target.id === preferredAppId) ??
     openTargets[0] ??
@@ -46,7 +53,7 @@ export function ConversationHeaderActions({
   const PreferredAppIcon = preferredApp?.icon;
 
   return (
-    <div className="relative z-20 ml-auto flex shrink-0 items-center gap-1.5">
+    <div className="relative z-20 ml-auto flex shrink-0 items-center gap-1.5 pointer-events-auto">
       <ButtonGroup aria-label="Open with">
         <Button
           variant="outline"
@@ -156,6 +163,38 @@ export function ConversationHeaderActions({
           </DropdownMenuContent>
         </DropdownMenu>
       </ButtonGroup>
+
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          render={
+            <Button
+              variant="outline"
+              size="icon-sm"
+              aria-label="More actions"
+            />
+          }
+        >
+          <EllipsisIcon />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-40">
+          <DropdownMenuGroup>
+            <DropdownMenuItem
+              variant="destructive"
+              disabled={!isCloseChatEnabled}
+              onClick={() => {
+                if (!isCloseChatEnabled) {
+                  return;
+                }
+
+                onCloseChat?.();
+              }}
+            >
+              <XIcon />
+              Close
+            </DropdownMenuItem>
+          </DropdownMenuGroup>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
   );
 }
