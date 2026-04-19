@@ -1,7 +1,8 @@
 use crate::dto::{
     CheckoutGitBranchInput, CloneRepositoryInput, CommitGitChangesInput, CreateGitBranchInput,
-    FollowupResponseDto, PromptSettingsDto, QuickStartProjectInput, QuickStartVisibility,
-    RuntimeStatusDto, SendPromptInput, SessionSnapshotDto, UpdatePromptSettingsInput,
+    CreateSavedWorkspaceInput, FollowupResponseDto, PromptSettingsDto, QuickStartProjectInput,
+    QuickStartVisibility, RuntimeStatusDto, SaveConversationLayoutInput, SendPromptInput,
+    SessionSnapshotDto, UpdatePromptSettingsInput, UpdateSavedWorkspaceLayoutInput,
 };
 use crate::runtime::DesktopState;
 use anyhow::Context;
@@ -47,11 +48,12 @@ pub(crate) async fn open_workspace(
 
 #[tauri::command]
 pub(crate) async fn get_runtime_status(
+    workspace_path: Option<String>,
     state: tauri::State<'_, DesktopState>,
 ) -> Result<RuntimeStatusDto, String> {
     state
         .manager
-        .get_runtime_status()
+        .get_runtime_status(workspace_path)
         .await
         .map_err(|error| error.to_string())
 }
@@ -69,11 +71,12 @@ pub(crate) async fn get_session_snapshot(
 
 #[tauri::command]
 pub(crate) async fn get_prompt_settings(
+    workspace_path: Option<String>,
     state: tauri::State<'_, DesktopState>,
 ) -> Result<PromptSettingsDto, String> {
     state
         .manager
-        .get_prompt_settings()
+        .get_prompt_settings(workspace_path)
         .await
         .map_err(|error| error.to_string())
 }
@@ -111,6 +114,19 @@ pub(crate) async fn select_conversation(
     state
         .manager
         .select_conversation(workspace_path, conversation_id)
+        .await
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub(crate) async fn ensure_conversation_view(
+    workspace_path: String,
+    conversation_id: String,
+    state: tauri::State<'_, DesktopState>,
+) -> Result<SessionSnapshotDto, String> {
+    state
+        .manager
+        .ensure_conversation_view(workspace_path, conversation_id)
         .await
         .map_err(|error| error.to_string())
 }
@@ -156,7 +172,7 @@ pub(crate) async fn checkout_git_branch(
 ) -> Result<RuntimeStatusDto, String> {
     state
         .manager
-        .checkout_git_branch(input.branch_name)
+        .checkout_git_branch(input.workspace_path, input.branch_name)
         .await
         .map_err(|error| error.to_string())
 }
@@ -168,7 +184,7 @@ pub(crate) async fn create_git_branch(
 ) -> Result<RuntimeStatusDto, String> {
     state
         .manager
-        .create_git_branch(input.branch_name)
+        .create_git_branch(input.workspace_path, input.branch_name)
         .await
         .map_err(|error| error.to_string())
 }
@@ -180,30 +196,92 @@ pub(crate) async fn commit_git_changes(
 ) -> Result<RuntimeStatusDto, String> {
     state
         .manager
-        .commit_git_changes(input.message)
+        .commit_git_changes(input.workspace_path, input.message)
         .await
         .map_err(|error| error.to_string())
 }
 
 #[tauri::command]
 pub(crate) async fn push_git_branch(
+    workspace_path: String,
     state: tauri::State<'_, DesktopState>,
 ) -> Result<RuntimeStatusDto, String> {
     state
         .manager
-        .push_git_branch()
+        .push_git_branch(workspace_path)
         .await
         .map_err(|error| error.to_string())
 }
 
 #[tauri::command]
 pub(crate) async fn open_in_target(
+    workspace_path: String,
     target_id: String,
     state: tauri::State<'_, DesktopState>,
 ) -> Result<(), String> {
     state
         .manager
-        .open_in_target(target_id)
+        .open_in_target(workspace_path, target_id)
+        .await
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub(crate) async fn save_conversation_layout(
+    input: SaveConversationLayoutInput,
+    state: tauri::State<'_, DesktopState>,
+) -> Result<(), String> {
+    state
+        .manager
+        .save_conversation_layout(input)
+        .await
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub(crate) async fn get_conversation_layout(
+    conversation_id: String,
+    state: tauri::State<'_, DesktopState>,
+) -> Result<Option<String>, String> {
+    state
+        .manager
+        .get_conversation_layout(conversation_id)
+        .await
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub(crate) async fn create_saved_workspace(
+    input: CreateSavedWorkspaceInput,
+    state: tauri::State<'_, DesktopState>,
+) -> Result<crate::dto::SavedWorkspaceDetailDto, String> {
+    state
+        .manager
+        .create_saved_workspace(input)
+        .await
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub(crate) async fn update_saved_workspace_layout(
+    input: UpdateSavedWorkspaceLayoutInput,
+    state: tauri::State<'_, DesktopState>,
+) -> Result<crate::dto::SavedWorkspaceDetailDto, String> {
+    state
+        .manager
+        .update_saved_workspace_layout(input)
+        .await
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub(crate) async fn get_saved_workspace(
+    workspace_id: String,
+    state: tauri::State<'_, DesktopState>,
+) -> Result<Option<crate::dto::SavedWorkspaceDetailDto>, String> {
+    state
+        .manager
+        .get_saved_workspace(workspace_id)
         .await
         .map_err(|error| error.to_string())
 }

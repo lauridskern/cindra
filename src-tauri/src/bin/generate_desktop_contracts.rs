@@ -2,12 +2,15 @@ use std::fs;
 use std::path::PathBuf;
 
 use agent_ui_lib::dto::{
-    CheckoutGitBranchInput, CloneRepositoryInput, CommitGitChangesInput,
-    ConversationSessionSummaryDto, CreateGitBranchInput, FileOperationDto, FollowupKind,
-    FollowupOptionDto, FollowupRequestDto, FollowupResponseDto, OutputPreviewDto,
-    PromptModelOptionDto, PromptSettingsDto, QuickStartProjectInput, QuickStartVisibility,
-    RuntimeStatusDto, SendPromptInput, SessionMessageDto, SessionSnapshotDto, StatusCategoryDto,
-    ToolCallDetailDto, ToolResultDetailDto, UpdatePromptSettingsInput, WorkspaceSessionDto,
+    ChatBindingDto, CheckoutGitBranchInput, CloneRepositoryInput, CommitGitChangesInput,
+    ConversationSessionSummaryDto, ConversationViewSnapshotDto, CreateGitBranchInput,
+    CreateSavedWorkspaceInput, FileOperationDto, FollowupKind, FollowupOptionDto,
+    FollowupRequestDto, FollowupResponseDto, OutputPreviewDto, PromptModelOptionDto,
+    PromptSettingsDto, QuickStartProjectInput, QuickStartVisibility, RuntimeStatusDto,
+    SaveConversationLayoutInput, SavedWorkspaceDetailDto, SavedWorkspaceSummaryDto,
+    SendPromptInput, SessionMessageDto, SessionSnapshotDto, StatusCategoryDto,
+    ToolCallDetailDto, ToolResultDetailDto, UpdatePromptSettingsInput,
+    UpdateSavedWorkspaceLayoutInput, WorkspaceSessionDto,
 };
 use anyhow::Context;
 use ts_rs::{Config, TS};
@@ -29,7 +32,11 @@ fn main() -> anyhow::Result<()> {
         export_decl::<FollowupResponseDto>(&config),
         export_decl::<SessionMessageDto>(&config),
         export_decl::<ConversationSessionSummaryDto>(&config),
+        export_decl::<ChatBindingDto>(&config),
+        export_decl::<ConversationViewSnapshotDto>(&config),
         export_decl::<WorkspaceSessionDto>(&config),
+        export_decl::<SavedWorkspaceSummaryDto>(&config),
+        export_decl::<SavedWorkspaceDetailDto>(&config),
         export_decl::<SessionSnapshotDto>(&config),
         export_decl::<PromptModelOptionDto>(&config),
         export_decl::<PromptSettingsDto>(&config),
@@ -42,6 +49,9 @@ fn main() -> anyhow::Result<()> {
         export_decl::<CheckoutGitBranchInput>(&config),
         export_decl::<CreateGitBranchInput>(&config),
         export_decl::<CommitGitChangesInput>(&config),
+        export_decl::<CreateSavedWorkspaceInput>(&config),
+        export_decl::<UpdateSavedWorkspaceLayoutInput>(&config),
+        export_decl::<SaveConversationLayoutInput>(&config),
     ];
 
     let body = declarations

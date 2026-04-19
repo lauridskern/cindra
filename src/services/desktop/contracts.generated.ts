@@ -23,15 +23,23 @@ export type SessionMessage = { "kind": "user", id: string, requestId: string, te
 
 export type ConversationSessionSummary = { conversationId: string, title: string, updatedAt: string | null, isDraft: boolean, isRunning: boolean, hasPendingFollowup: boolean, };
 
+export type ChatBinding = { workspacePath: string, conversationId: string, };
+
+export type ConversationViewSnapshot = { workspacePath: string, conversationId: string, messages: Array<SessionMessage>, activeRequestIds: Array<string>, followup: FollowupRequest | null, };
+
 export type WorkspaceSession = { workspacePath: string, workspaceName: string, configured: boolean, configurationError: string | null, selectedConversationId: string | null, conversations: Array<ConversationSessionSummary>, };
 
-export type SessionSnapshot = { activeWorkspacePath: string | null, activeConversationId: string | null, visibleMessages: Array<SessionMessage>, visibleActiveRequestIds: Array<string>, visibleFollowup: FollowupRequest | null, uiError: string | null, workspaces: Array<WorkspaceSession>, };
+export type SavedWorkspaceSummary = { id: string, name: string, updatedAt: bigint, };
+
+export type SavedWorkspaceDetail = { id: string, name: string, layoutJson: string, updatedAt: bigint, };
+
+export type SessionSnapshot = { activeWorkspacePath: string | null, activeConversationId: string | null, visibleMessages: Array<SessionMessage>, visibleActiveRequestIds: Array<string>, visibleFollowup: FollowupRequest | null, conversationViews: Array<ConversationViewSnapshot>, uiError: string | null, workspaces: Array<WorkspaceSession>, savedWorkspaces: Array<SavedWorkspaceSummary>, };
 
 export type PromptModelOption = { providerId: string, providerName: string, modelId: string, modelName: string | null, contextLength: bigint | null, supportsReasoning: boolean, reasoningEfforts: Array<string>, };
 
 export type PromptSettings = { availableModels: Array<PromptModelOption>, selectedProviderId: string | null, selectedModelId: string | null, selectedReasoningEffort: string | null, };
 
-export type UpdatePromptSettingsInput = { providerId: string, modelId: string, reasoningEffort: string | null, };
+export type UpdatePromptSettingsInput = { workspacePath: string | null, providerId: string, modelId: string, reasoningEffort: string | null, };
 
 export type SendPromptInput = { workspacePath: string, prompt: string, conversationId: string | null, };
 
@@ -43,8 +51,14 @@ export type QuickStartVisibility = "public" | "private";
 
 export type QuickStartProjectInput = { projectName: string, parentDirectory: string, visibility: QuickStartVisibility, };
 
-export type CheckoutGitBranchInput = { branchName: string, };
+export type CheckoutGitBranchInput = { workspacePath: string, branchName: string, };
 
-export type CreateGitBranchInput = { branchName: string, };
+export type CreateGitBranchInput = { workspacePath: string, branchName: string, };
 
-export type CommitGitChangesInput = { message: string, };
+export type CommitGitChangesInput = { workspacePath: string, message: string, };
+
+export type CreateSavedWorkspaceInput = { chats: Array<ChatBinding>, layoutJson: string, };
+
+export type UpdateSavedWorkspaceLayoutInput = { workspaceId: string, layoutJson: string, };
+
+export type SaveConversationLayoutInput = { conversationId: string, layoutJson: string, };

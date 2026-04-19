@@ -11,10 +11,11 @@ use super::RuntimeManager;
 impl RuntimeManager {
     pub async fn checkout_git_branch(
         &self,
+        workspace_path: String,
         branch_name: String,
     ) -> anyhow::Result<RuntimeStatusDto> {
         self.with_recorded_ui_error(async {
-            let workspace_path = self.current_workspace_path().await?;
+            let workspace_path = self.workspace_path_for_action(&workspace_path).await?;
             let branch_name = validate_non_empty_value(&branch_name, "Branch name")?;
 
             if git_ref_exists(&workspace_path, &format!("refs/heads/{branch_name}"))? {
@@ -43,17 +44,19 @@ impl RuntimeManager {
                 run_git_command(&workspace_path, &["checkout", &branch_name], "git checkout")?;
             }
 
-            self.finish_runtime_status_action().await
+            self.finish_runtime_status_action(Some(workspace_path.as_path()))
+                .await
         })
         .await
     }
 
     pub async fn create_git_branch(
         &self,
+        workspace_path: String,
         branch_name: String,
     ) -> anyhow::Result<RuntimeStatusDto> {
         self.with_recorded_ui_error(async {
-            let workspace_path = self.current_workspace_path().await?;
+            let workspace_path = self.workspace_path_for_action(&workspace_path).await?;
             let branch_name = validate_non_empty_value(&branch_name, "Branch name")?;
 
             run_git_command(
@@ -67,27 +70,36 @@ impl RuntimeManager {
                 "git checkout -b",
             )?;
 
-            self.finish_runtime_status_action().await
+            self.finish_runtime_status_action(Some(workspace_path.as_path()))
+                .await
         })
         .await
     }
 
-    pub async fn commit_git_changes(&self, message: String) -> anyhow::Result<RuntimeStatusDto> {
+    pub async fn commit_git_changes(
+        &self,
+        workspace_path: String,
+        message: String,
+    ) -> anyhow::Result<RuntimeStatusDto> {
         self.with_recorded_ui_error(async {
-            let workspace_path = self.current_workspace_path().await?;
+            let workspace_path = self.workspace_path_for_action(&workspace_path).await?;
             let message = validate_non_empty_value(&message, "Commit message")?;
 
             run_git_command(&workspace_path, &["add", "-A"], "git add")?;
             run_git_command(&workspace_path, &["commit", "-m", &message], "git commit")?;
 
-            self.finish_runtime_status_action().await
+            self.finish_runtime_status_action(Some(workspace_path.as_path()))
+                .await
         })
         .await
     }
 
-    pub async fn push_git_branch(&self) -> anyhow::Result<RuntimeStatusDto> {
+    pub async fn push_git_branch(
+        &self,
+        workspace_path: String,
+    ) -> anyhow::Result<RuntimeStatusDto> {
         self.with_recorded_ui_error(async {
-            let workspace_path = self.current_workspace_path().await?;
+            let workspace_path = self.workspace_path_for_action(&workspace_path).await?;
             let current_branch = run_git_stdout(
                 &workspace_path,
                 &["rev-parse", "--abbrev-ref", "HEAD"],
@@ -116,14 +128,19 @@ impl RuntimeManager {
                 )?;
             }
 
-            self.finish_runtime_status_action().await
+            self.finish_runtime_status_action(Some(workspace_path.as_path()))
+                .await
         })
         .await
     }
 
-    pub async fn open_in_target(&self, target_id: String) -> anyhow::Result<()> {
+    pub async fn open_in_target(
+        &self,
+        workspace_path: String,
+        target_id: String,
+    ) -> anyhow::Result<()> {
         self.with_recorded_ui_error(async {
-            let workspace_path = self.current_workspace_path().await?;
+            let workspace_path = self.workspace_path_for_action(&workspace_path).await?;
             let target_id = validate_non_empty_value(&target_id, "Open target")?;
             desktop_open::open_path_in_target(&target_id, workspace_path.as_path())?;
             self.clear_ui_error().await?;
@@ -132,20 +149,22 @@ impl RuntimeManager {
         .await
     }
 
-    async fn finish_runtime_status_action(&self) -> anyhow::Result<RuntimeStatusDto> {
+    async fn finish_runtime_status_action(
+        &self,
+        workspace_path: Option<&Path>,
+    ) -> anyhow::Result<RuntimeStatusDto> {
         self.clear_ui_error().await?;
-        self.get_runtime_status().await
+        self.get_runtime_status(
+            workspace_path.map(|path| path.to_string_lossy().into_owned()),
+        )
+        .await
     }
 
-    async fn current_workspace_path(&self) -> anyhow::Result<PathBuf> {
+    async fn workspace_path_for_action(&self, workspace_path: &str) -> anyhow::Result<PathBuf> {
+        let workspace_path = super::canonicalize_workspace_path(PathBuf::from(workspace_path))?;
         self.ensure_known_workspaces_loaded().await?;
+        self.prepare_workspace(&workspace_path).await?;
         let state = self.state.lock().await;
-        let workspace_path = state
-            .active_workspace_path
-            .as_ref()
-            .cloned()
-            .context("Open a workspace before running git actions.")?;
-
         let has_running_request = state.conversations.values().any(|conversation| {
             conversation.workspace_path == workspace_path
                 && !conversation.active_request_ids.is_empty()

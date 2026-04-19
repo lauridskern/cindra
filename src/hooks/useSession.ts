@@ -5,6 +5,7 @@ import {
   PromptDraftContext,
   SessionActionsContext,
   SidebarStateContext,
+  WorkspaceBoardContext,
 } from '../app/SessionContext'
 
 function useRequiredContext<T>(context: Context<T | null>, name: string): T {
@@ -31,4 +32,8 @@ export function usePromptDraft() {
 
 export function useSessionActions() {
   return useRequiredContext(SessionActionsContext, 'useSessionActions')
+}
+
+export function useWorkspaceBoard() {
+  return useRequiredContext(WorkspaceBoardContext, 'useWorkspaceBoard')
 }

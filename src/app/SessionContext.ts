@@ -1,9 +1,15 @@
 import { createContext } from "react";
 
 import type {
+  ChatBinding,
+  ConversationSessionSummary,
+  ConversationViewSnapshot,
   FollowupRequest,
   PromptSettings,
   RuntimeStatus,
+  SavedWorkspaceDetail,
+  SavedWorkspaceSummary,
+  SessionSnapshot,
   TranscriptMessage,
   WorkspaceSession,
 } from "../services/desktop/contracts";
@@ -29,7 +35,9 @@ export interface ConversationStateContextValue {
 
 export interface SidebarStateContextValue {
   activeWorkspacePath: string | null;
+  activeSavedWorkspaceId: string | null;
   hasCurrentWorkspace: boolean;
+  savedWorkspaces: SavedWorkspaceSummary[];
   workspaces: WorkspaceSession[];
 }
 
@@ -45,6 +53,7 @@ export interface PromptDraftContextValue {
 export interface SessionActionsContextValue {
   openWorkspacePicker: () => Promise<string | null>;
   openProject: (workspacePath: string) => Promise<void>;
+  openSavedWorkspace: (workspaceId: string) => Promise<void>;
   selectConversation: (
     workspacePath: string,
     conversationId: string,
@@ -68,6 +77,28 @@ export interface SessionActionsContextValue {
   }) => Promise<void>;
 }
 
+export type WorkspaceBoardSelection =
+  | { kind: "empty" }
+  | { kind: "single-chat"; chat: ChatBinding }
+  | { kind: "saved-workspace"; workspace: SavedWorkspaceDetail };
+
+export interface WorkspaceBoardContextValue {
+  applySessionSnapshot: (snapshot: SessionSnapshot) => void;
+  getConversationSummary: (
+    binding: ChatBinding,
+  ) => ConversationSessionSummary | null;
+  getConversationView: (binding: ChatBinding) => ConversationViewSnapshot | null;
+  getWorkspace: (workspacePath: string) => WorkspaceSession | null;
+  isOpeningProject: boolean;
+  requestTimingsByConversationId: Record<
+    string,
+    Record<string, RequestTimingInfo>
+  >;
+  selection: WorkspaceBoardSelection;
+  sessionSnapshot: SessionSnapshot | null;
+  setSelection: (selection: WorkspaceBoardSelection) => void;
+}
+
 export const ConversationStateContext =
   createContext<ConversationStateContextValue | null>(null);
 
@@ -80,3 +111,6 @@ export const PromptDraftContext = createContext<PromptDraftContextValue | null>(
 
 export const SessionActionsContext =
   createContext<SessionActionsContextValue | null>(null);
+
+export const WorkspaceBoardContext =
+  createContext<WorkspaceBoardContextValue | null>(null);

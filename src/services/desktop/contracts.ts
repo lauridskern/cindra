@@ -1,9 +1,12 @@
 export type {
+  ChatBinding,
   CommitGitChangesInput,
   CheckoutGitBranchInput,
   CloneRepositoryInput,
   ConversationSessionSummary,
+  ConversationViewSnapshot,
   CreateGitBranchInput,
+  CreateSavedWorkspaceInput,
   FileOperation,
   FollowupKind,
   FollowupOption,
@@ -15,6 +18,9 @@ export type {
   QuickStartProjectInput,
   QuickStartVisibility,
   RuntimeStatus,
+  SavedWorkspaceDetail,
+  SavedWorkspaceSummary,
+  SaveConversationLayoutInput,
   SendPromptInput,
   SessionMessage,
   SessionSnapshot,
@@ -22,6 +28,7 @@ export type {
   ToolCallDetail,
   ToolResultDetail,
   UpdatePromptSettingsInput,
+  UpdateSavedWorkspaceLayoutInput,
   WorkspaceSession,
 } from "./contracts.generated";
 

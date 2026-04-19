@@ -214,32 +214,65 @@ export function useSessionCommands({
 
   const checkoutBranch = useCallback(
     async (branchName: string) => {
-      await runStatusCommand(() => desktopClient.checkoutGitBranch({ branchName }))
+      const workspacePath = sessionSnapshotRef.current?.activeWorkspacePath ?? null
+      if (workspacePath == null) {
+        return
+      }
+
+      await runStatusCommand(() =>
+        desktopClient.checkoutGitBranch({ workspacePath, branchName }),
+      )
     },
-    [runStatusCommand],
+    [runStatusCommand, sessionSnapshotRef],
   )
 
   const createBranch = useCallback(
     async (branchName: string) => {
-      await runStatusCommand(() => desktopClient.createGitBranch({ branchName }))
+      const workspacePath = sessionSnapshotRef.current?.activeWorkspacePath ?? null
+      if (workspacePath == null) {
+        return
+      }
+
+      await runStatusCommand(() =>
+        desktopClient.createGitBranch({ workspacePath, branchName }),
+      )
     },
-    [runStatusCommand],
+    [runStatusCommand, sessionSnapshotRef],
   )
 
   const commitChanges = useCallback(
     async (message: string) => {
-      await runStatusCommand(() => desktopClient.commitGitChanges({ message }))
+      const workspacePath = sessionSnapshotRef.current?.activeWorkspacePath ?? null
+      if (workspacePath == null) {
+        return
+      }
+
+      await runStatusCommand(() =>
+        desktopClient.commitGitChanges({ workspacePath, message }),
+      )
     },
-    [runStatusCommand],
+    [runStatusCommand, sessionSnapshotRef],
   )
 
   const pushBranch = useCallback(async () => {
-    await runStatusCommand(() => desktopClient.pushGitBranch())
-  }, [runStatusCommand])
+    const workspacePath = sessionSnapshotRef.current?.activeWorkspacePath ?? null
+    if (workspacePath == null) {
+      return
+    }
+
+    await runStatusCommand(() => desktopClient.pushGitBranch(workspacePath))
+  }, [runStatusCommand, sessionSnapshotRef])
 
   const openInTarget = useCallback(
-    (targetId: string) => desktopClient.openInTarget(targetId),
-    [],
+    (targetId: string) => {
+      const workspacePath = sessionSnapshotRef.current?.activeWorkspacePath ?? null
+      if (workspacePath == null) {
+        return Promise.resolve()
+      }
+
+      return desktopClient.openInTarget(workspacePath, targetId)
+    },
+    [sessionSnapshotRef],
   )
 
   const updatePromptSettings = useCallback(
@@ -250,6 +283,7 @@ export function useSessionCommands({
     }) => {
       try {
         const settings = await desktopClient.updatePromptSettings({
+          workspacePath: sessionSnapshotRef.current?.activeWorkspacePath ?? null,
           providerId: input.providerId,
           modelId: input.modelId,
           reasoningEffort: input.reasoningEffort ?? null,
@@ -259,7 +293,7 @@ export function useSessionCommands({
         return
       }
     },
-    [setPromptSettings],
+    [sessionSnapshotRef, setPromptSettings],
   )
 
   return useMemo(
@@ -270,6 +304,7 @@ export function useSessionCommands({
       openInTarget,
       openWorkspacePicker,
       openProject,
+      openSavedWorkspace: async () => {},
       pushBranch,
       selectConversation,
       startNewChat,

@@ -18,9 +18,11 @@ use std::sync::Arc;
 use bridge::emitter::TauriEventEmitter;
 use commands::{
     checkout_git_branch, clone_repository, commit_git_changes, create_git_branch,
-    get_prompt_settings, get_runtime_status, get_session_snapshot, open_in_target, open_workspace,
-    pick_directory, pick_workspace, push_git_branch, quick_start_project, respond_followup,
-    select_conversation, send_prompt, start_new_chat, update_prompt_settings,
+    create_saved_workspace, ensure_conversation_view, get_conversation_layout,
+    get_prompt_settings, get_runtime_status, get_saved_workspace, get_session_snapshot,
+    open_in_target, open_workspace, pick_directory, pick_workspace, push_git_branch,
+    quick_start_project, respond_followup, save_conversation_layout, select_conversation,
+    send_prompt, start_new_chat, update_prompt_settings, update_saved_workspace_layout,
 };
 use persistence::project_store::ProjectStore;
 use runtime::DesktopState;
@@ -65,6 +67,7 @@ pub fn run() {
             get_session_snapshot,
             get_prompt_settings,
             select_conversation,
+            ensure_conversation_view,
             start_new_chat,
             send_prompt,
             update_prompt_settings,
@@ -75,7 +78,12 @@ pub fn run() {
             create_git_branch,
             commit_git_changes,
             push_git_branch,
-            open_in_target
+            open_in_target,
+            save_conversation_layout,
+            get_conversation_layout,
+            create_saved_workspace,
+            update_saved_workspace_layout,
+            get_saved_workspace
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

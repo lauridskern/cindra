@@ -12,9 +12,10 @@ use uuid::Uuid;
 use crate::bridge::emitter::UiEventEmitter;
 use crate::bridge::followup::FollowupBridge;
 use crate::dto::{
-    FollowupRequestDto, FollowupResponseDto, PromptModelOptionDto, PromptSettingsDto,
-    RuntimeStatusDto, SendPromptInput, SessionMessageDto, SessionSnapshotDto,
-    UpdatePromptSettingsInput,
+    CreateSavedWorkspaceInput, FollowupRequestDto, FollowupResponseDto, PromptModelOptionDto,
+    PromptSettingsDto, RuntimeStatusDto, SaveConversationLayoutInput, SendPromptInput,
+    SessionMessageDto, SessionSnapshotDto, UpdatePromptSettingsInput,
+    UpdateSavedWorkspaceLayoutInput,
 };
 use crate::persistence::project_store::ProjectStore;
 
@@ -67,8 +68,27 @@ impl RuntimeManager {
         }
     }
 
-    pub async fn get_runtime_status(&self) -> anyhow::Result<RuntimeStatusDto> {
+    pub async fn get_runtime_status(
+        &self,
+        workspace_path: Option<String>,
+    ) -> anyhow::Result<RuntimeStatusDto> {
         self.ensure_known_workspaces_loaded().await?;
+
+        if let Some(workspace_path) = workspace_path {
+            let workspace_path = canonicalize_workspace_path(PathBuf::from(workspace_path))?;
+            self.prepare_workspace(&workspace_path).await?;
+
+            let state = self.state.lock().await;
+            let workspace = state
+                .workspaces
+                .get(&workspace_path)
+                .context("Workspace is not loaded.")?;
+            return Ok(RuntimeStatusDto::new(
+                Some(Path::new(&workspace_path)),
+                workspace.configured,
+                workspace.configuration_error.clone(),
+            ));
+        }
 
         let state = self.state.lock().await;
         if let Some(workspace_path) = state.active_workspace_path.as_ref() {
@@ -96,11 +116,18 @@ impl RuntimeManager {
             .await
     }
 
-    pub async fn get_prompt_settings(&self) -> anyhow::Result<PromptSettingsDto> {
+    pub async fn get_prompt_settings(
+        &self,
+        workspace_path: Option<String>,
+    ) -> anyhow::Result<PromptSettingsDto> {
         self.with_recorded_ui_error(async {
             self.ensure_known_workspaces_loaded().await?;
-            let active_workspace_path = self.state.lock().await.active_workspace_path.clone();
-            let Some(workspace_path) = active_workspace_path else {
+            let requested_workspace_path = if let Some(workspace_path) = workspace_path {
+                Some(canonicalize_workspace_path(PathBuf::from(workspace_path))?)
+            } else {
+                self.state.lock().await.active_workspace_path.clone()
+            };
+            let Some(workspace_path) = requested_workspace_path else {
                 return Ok(PromptSettingsDto {
                     available_models: Vec::new(),
                     selected_provider_id: None,
@@ -121,8 +148,16 @@ impl RuntimeManager {
     ) -> anyhow::Result<PromptSettingsDto> {
         self.with_recorded_ui_error(async {
             self.ensure_known_workspaces_loaded().await?;
-            let active_workspace_path = self.state.lock().await.active_workspace_path.clone();
-            let workspace_path = active_workspace_path.context("No active workspace.")?;
+            let workspace_path = if let Some(workspace_path) = input.workspace_path.clone() {
+                canonicalize_workspace_path(PathBuf::from(workspace_path))?
+            } else {
+                self.state
+                    .lock()
+                    .await
+                    .active_workspace_path
+                    .clone()
+                    .context("No active workspace.")?
+            };
             let runtime = self.prepare_workspace(&workspace_path).await?;
 
             let provider_id = ProviderId::from(input.provider_id.clone());
@@ -203,6 +238,21 @@ impl RuntimeManager {
                 .await?;
             self.select_workspace_conversation(&workspace_path, &conversation_id)
                 .await;
+            self.emit_current_snapshot().await
+        })
+        .await
+    }
+
+    pub async fn ensure_conversation_view(
+        &self,
+        workspace_path: String,
+        conversation_id: String,
+    ) -> anyhow::Result<SessionSnapshotDto> {
+        self.with_recorded_ui_error(async {
+            let workspace_path = canonicalize_workspace_path(PathBuf::from(workspace_path))?;
+            self.prepare_workspace(&workspace_path).await?;
+            self.ensure_conversation_loaded_or_insert_empty(&workspace_path, &conversation_id)
+                .await?;
             self.emit_current_snapshot().await
         })
         .await
@@ -399,6 +449,76 @@ impl RuntimeManager {
         .await
     }
 
+    pub async fn save_conversation_layout(
+        &self,
+        input: SaveConversationLayoutInput,
+    ) -> anyhow::Result<()> {
+        self.projects
+            .save_conversation_layout(&input.conversation_id, &input.layout_json)
+    }
+
+    pub async fn get_conversation_layout(
+        &self,
+        conversation_id: String,
+    ) -> anyhow::Result<Option<String>> {
+        self.projects.get_conversation_layout(&conversation_id)
+    }
+
+    pub async fn create_saved_workspace(
+        &self,
+        input: CreateSavedWorkspaceInput,
+    ) -> anyhow::Result<crate::dto::SavedWorkspaceDetailDto> {
+        let workspace_name = self.generate_saved_workspace_name(&input.chats).await?;
+        let workspace_id = Uuid::new_v4().to_string();
+        let record = self.projects.create_saved_workspace(
+            &workspace_id,
+            &workspace_name,
+            &input.layout_json,
+        )?;
+        let snapshot = self.snapshot().await?;
+        self.emit_snapshot(snapshot)?;
+
+        Ok(crate::dto::SavedWorkspaceDetailDto {
+            id: record.id,
+            name: record.name,
+            layout_json: record.layout_json,
+            updated_at: record.updated_at,
+        })
+    }
+
+    pub async fn update_saved_workspace_layout(
+        &self,
+        input: UpdateSavedWorkspaceLayoutInput,
+    ) -> anyhow::Result<crate::dto::SavedWorkspaceDetailDto> {
+        let record = self
+            .projects
+            .update_saved_workspace_layout(&input.workspace_id, &input.layout_json)?;
+        let snapshot = self.snapshot().await?;
+        self.emit_snapshot(snapshot)?;
+
+        Ok(crate::dto::SavedWorkspaceDetailDto {
+            id: record.id,
+            name: record.name,
+            layout_json: record.layout_json,
+            updated_at: record.updated_at,
+        })
+    }
+
+    pub async fn get_saved_workspace(
+        &self,
+        workspace_id: String,
+    ) -> anyhow::Result<Option<crate::dto::SavedWorkspaceDetailDto>> {
+        Ok(self
+            .projects
+            .get_saved_workspace(&workspace_id)?
+            .map(|record| crate::dto::SavedWorkspaceDetailDto {
+                id: record.id,
+                name: record.name,
+                layout_json: record.layout_json,
+                updated_at: record.updated_at,
+            }))
+    }
+
     pub async fn cancel_pending_followups(&self) {
         self.followups.cancel_all().await;
         let mut state = self.state.lock().await;
@@ -408,7 +528,8 @@ impl RuntimeManager {
     pub(super) async fn snapshot(&self) -> anyhow::Result<SessionSnapshotDto> {
         self.ensure_known_workspaces_loaded().await?;
         let state = self.state.lock().await;
-        Ok(build_snapshot(&state))
+        let saved_workspaces = self.projects.list_saved_workspaces()?;
+        Ok(build_snapshot(&state, &saved_workspaces))
     }
 
     pub(super) async fn emit_session_snapshot(&self) -> anyhow::Result<()> {
@@ -434,29 +555,30 @@ impl RuntimeManager {
     }
 
     pub(super) async fn record_ui_error(&self, message: &str) -> anyhow::Result<()> {
-        let snapshot = {
+        {
             let mut state = self.state.lock().await;
             state.ui_error = Some(message.to_string());
-            build_snapshot(&state)
-        };
-
+        }
+        let snapshot = self.snapshot().await?;
         self.emit_snapshot(snapshot)
     }
 
     pub(super) async fn clear_ui_error(&self) -> anyhow::Result<()> {
-        let snapshot = {
+        {
             let mut state = self.state.lock().await;
             if state.ui_error.is_none() {
                 return Ok(());
             }
             state.ui_error = None;
-            build_snapshot(&state)
-        };
-
+        }
+        let snapshot = self.snapshot().await?;
         self.emit_snapshot(snapshot)
     }
 
-    async fn prepare_workspace(&self, workspace_path: &str) -> anyhow::Result<ForgeRuntime> {
+    pub(super) async fn prepare_workspace(
+        &self,
+        workspace_path: &str,
+    ) -> anyhow::Result<ForgeRuntime> {
         self.projects.add_project(Path::new(workspace_path))?;
         let runtime = self.ensure_workspace_runtime(workspace_path).await?;
         self.refresh_workspace_conversations(workspace_path).await?;
@@ -508,6 +630,31 @@ impl RuntimeManager {
                 runtime.configuration_error = configuration_error;
             }
         }
+    }
+
+    async fn generate_saved_workspace_name(
+        &self,
+        chats: &[crate::dto::ChatBindingDto],
+    ) -> anyhow::Result<String> {
+        if chats.is_empty() {
+            anyhow::bail!("Saved workspaces need at least one chat.");
+        }
+
+        let mut ordered_names = Vec::new();
+        for chat in chats {
+            let workspace_path =
+                canonicalize_workspace_path(PathBuf::from(chat.workspace_path.clone()))?;
+            let derived_name = workspace_name(Path::new(&workspace_path));
+            if !ordered_names.iter().any(|name| name == &derived_name) {
+                ordered_names.push(derived_name);
+            }
+        }
+
+        if ordered_names.len() == 1 {
+            return Ok(format!("{} ({} chats)", ordered_names[0], chats.len()));
+        }
+
+        Ok(ordered_names.join(" + "))
     }
 }
 

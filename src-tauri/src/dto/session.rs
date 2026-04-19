@@ -83,6 +83,25 @@ pub struct ConversationSessionSummaryDto {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, TS)]
 #[serde(rename_all = "camelCase")]
+#[ts(rename = "ChatBinding")]
+pub struct ChatBindingDto {
+    pub workspace_path: String,
+    pub conversation_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(rename = "ConversationViewSnapshot")]
+pub struct ConversationViewSnapshotDto {
+    pub workspace_path: String,
+    pub conversation_id: String,
+    pub messages: Vec<SessionMessageDto>,
+    pub active_request_ids: Vec<String>,
+    pub followup: Option<super::followup::FollowupRequestDto>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, TS)]
+#[serde(rename_all = "camelCase")]
 #[ts(rename = "WorkspaceSession")]
 pub struct WorkspaceSessionDto {
     pub workspace_path: String,
@@ -95,6 +114,25 @@ pub struct WorkspaceSessionDto {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, TS)]
 #[serde(rename_all = "camelCase")]
+#[ts(rename = "SavedWorkspaceSummary")]
+pub struct SavedWorkspaceSummaryDto {
+    pub id: String,
+    pub name: String,
+    pub updated_at: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(rename = "SavedWorkspaceDetail")]
+pub struct SavedWorkspaceDetailDto {
+    pub id: String,
+    pub name: String,
+    pub layout_json: String,
+    pub updated_at: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, TS)]
+#[serde(rename_all = "camelCase")]
 #[ts(rename = "SessionSnapshot")]
 pub struct SessionSnapshotDto {
     pub active_workspace_path: Option<String>,
@@ -102,6 +140,8 @@ pub struct SessionSnapshotDto {
     pub visible_messages: Vec<SessionMessageDto>,
     pub visible_active_request_ids: Vec<String>,
     pub visible_followup: Option<super::followup::FollowupRequestDto>,
+    pub conversation_views: Vec<ConversationViewSnapshotDto>,
     pub ui_error: Option<String>,
     pub workspaces: Vec<WorkspaceSessionDto>,
+    pub saved_workspaces: Vec<SavedWorkspaceSummaryDto>,
 }

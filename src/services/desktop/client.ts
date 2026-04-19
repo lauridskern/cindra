@@ -5,13 +5,17 @@ import type {
   CheckoutGitBranchInput,
   CloneRepositoryInput,
   CommitGitChangesInput,
+  CreateSavedWorkspaceInput,
   CreateGitBranchInput,
   FollowupResponse,
   PromptSettings,
   QuickStartProjectInput,
   RuntimeStatus,
+  SavedWorkspaceDetail,
+  SaveConversationLayoutInput,
   SendPromptInput,
   SessionSnapshot,
+  UpdateSavedWorkspaceLayoutInput,
   UpdatePromptSettingsInput,
 } from "./contracts";
 
@@ -45,16 +49,24 @@ export function openWorkspace(path: string): Promise<SessionSnapshot> {
   return invokeCommand("open_workspace", { path });
 }
 
-export function getRuntimeStatus(): Promise<RuntimeStatus> {
-  return invokeCommand("get_runtime_status");
+export function getRuntimeStatus(
+  workspacePath?: string | null,
+): Promise<RuntimeStatus> {
+  return invokeCommand("get_runtime_status", {
+    workspacePath: workspacePath ?? null,
+  });
 }
 
 export function getSessionSnapshot(): Promise<SessionSnapshot> {
   return invokeCommand("get_session_snapshot");
 }
 
-export function getPromptSettings(): Promise<PromptSettings> {
-  return invokeCommand("get_prompt_settings");
+export function getPromptSettings(
+  workspacePath?: string | null,
+): Promise<PromptSettings> {
+  return invokeCommand("get_prompt_settings", {
+    workspacePath: workspacePath ?? null,
+  });
 }
 
 export function selectConversation(
@@ -62,6 +74,16 @@ export function selectConversation(
   conversationId: string,
 ): Promise<SessionSnapshot> {
   return invokeCommand("select_conversation", { workspacePath, conversationId });
+}
+
+export function ensureConversationView(
+  workspacePath: string,
+  conversationId: string,
+): Promise<SessionSnapshot> {
+  return invokeCommand("ensure_conversation_view", {
+    workspacePath,
+    conversationId,
+  });
 }
 
 export function startNewChat(workspacePath: string): Promise<SessionSnapshot> {
@@ -112,12 +134,47 @@ export function commitGitChanges(
   return invokeCommand("commit_git_changes", { input });
 }
 
-export function pushGitBranch(): Promise<RuntimeStatus> {
-  return invokeCommand("push_git_branch");
+export function pushGitBranch(
+  workspacePath: string,
+): Promise<RuntimeStatus> {
+  return invokeCommand("push_git_branch", { workspacePath });
 }
 
-export function openInTarget(targetId: string): Promise<void> {
-  return invokeCommand("open_in_target", { targetId });
+export function openInTarget(
+  workspacePath: string,
+  targetId: string,
+): Promise<void> {
+  return invokeCommand("open_in_target", { workspacePath, targetId });
+}
+
+export function saveConversationLayout(
+  input: SaveConversationLayoutInput,
+): Promise<void> {
+  return invokeCommand("save_conversation_layout", { input });
+}
+
+export function getConversationLayout(
+  conversationId: string,
+): Promise<string | null> {
+  return invokeCommand("get_conversation_layout", { conversationId });
+}
+
+export function createSavedWorkspace(
+  input: CreateSavedWorkspaceInput,
+): Promise<SavedWorkspaceDetail> {
+  return invokeCommand("create_saved_workspace", { input });
+}
+
+export function updateSavedWorkspaceLayout(
+  input: UpdateSavedWorkspaceLayoutInput,
+): Promise<SavedWorkspaceDetail> {
+  return invokeCommand("update_saved_workspace_layout", { input });
+}
+
+export function getSavedWorkspace(
+  workspaceId: string,
+): Promise<SavedWorkspaceDetail | null> {
+  return invokeCommand("get_saved_workspace", { workspaceId });
 }
 
 export async function listenSessionUpdates(

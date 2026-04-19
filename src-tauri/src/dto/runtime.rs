@@ -5,6 +5,8 @@ use std::process::Command;
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
+use super::session::ChatBindingDto;
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, TS)]
 #[serde(rename_all = "camelCase")]
 #[ts(rename = "RuntimeStatus")]
@@ -190,6 +192,7 @@ pub struct PromptSettingsDto {
 #[serde(rename_all = "camelCase")]
 #[ts(rename = "UpdatePromptSettingsInput")]
 pub struct UpdatePromptSettingsInput {
+    pub workspace_path: Option<String>,
     pub provider_id: String,
     pub model_id: String,
     pub reasoning_effort: Option<String>,
@@ -233,6 +236,7 @@ pub struct QuickStartProjectInput {
 #[serde(rename_all = "camelCase")]
 #[ts(rename = "CheckoutGitBranchInput")]
 pub struct CheckoutGitBranchInput {
+    pub workspace_path: String,
     pub branch_name: String,
 }
 
@@ -240,6 +244,7 @@ pub struct CheckoutGitBranchInput {
 #[serde(rename_all = "camelCase")]
 #[ts(rename = "CreateGitBranchInput")]
 pub struct CreateGitBranchInput {
+    pub workspace_path: String,
     pub branch_name: String,
 }
 
@@ -247,5 +252,30 @@ pub struct CreateGitBranchInput {
 #[serde(rename_all = "camelCase")]
 #[ts(rename = "CommitGitChangesInput")]
 pub struct CommitGitChangesInput {
+    pub workspace_path: String,
     pub message: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(rename = "CreateSavedWorkspaceInput")]
+pub struct CreateSavedWorkspaceInput {
+    pub chats: Vec<ChatBindingDto>,
+    pub layout_json: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(rename = "UpdateSavedWorkspaceLayoutInput")]
+pub struct UpdateSavedWorkspaceLayoutInput {
+    pub workspace_id: String,
+    pub layout_json: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(rename = "SaveConversationLayoutInput")]
+pub struct SaveConversationLayoutInput {
+    pub conversation_id: String,
+    pub layout_json: String,
 }

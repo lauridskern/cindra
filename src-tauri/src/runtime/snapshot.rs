@@ -3,7 +3,11 @@ use std::path::Path;
 
 use forge_domain::Conversation;
 
-use crate::dto::{ConversationSessionSummaryDto, SessionSnapshotDto, WorkspaceSessionDto};
+use crate::dto::{
+    ConversationSessionSummaryDto, ConversationViewSnapshotDto, SavedWorkspaceSummaryDto,
+    SessionSnapshotDto, WorkspaceSessionDto,
+};
+use crate::persistence::project_store::SavedWorkspaceSummaryRecord;
 
 use super::{
     ConversationSessionState, PersistedConversationSummary, RuntimeState, WorkspaceSessionState,
@@ -11,7 +15,10 @@ use super::{
     session_messages_from_conversation, workspace_name,
 };
 
-pub(crate) fn build_snapshot(state: &RuntimeState) -> SessionSnapshotDto {
+pub(crate) fn build_snapshot(
+    state: &RuntimeState,
+    saved_workspaces: &[SavedWorkspaceSummaryRecord],
+) -> SessionSnapshotDto {
     let active_workspace_path = state.active_workspace_path.clone();
     let active_conversation_id = active_workspace_path.as_ref().and_then(|workspace_path| {
         state
@@ -44,6 +51,20 @@ pub(crate) fn build_snapshot(state: &RuntimeState) -> SessionSnapshotDto {
         visible_messages,
         visible_active_request_ids,
         visible_followup,
+        conversation_views: state
+            .conversations
+            .iter()
+            .map(|(conversation_id, conversation)| ConversationViewSnapshotDto {
+                workspace_path: conversation.workspace_path.clone(),
+                conversation_id: conversation_id.clone(),
+                messages: conversation.messages.clone(),
+                active_request_ids: conversation.active_request_ids.clone(),
+                followup: state
+                    .pending_followups_by_conversation
+                    .get(conversation_id)
+                    .cloned(),
+            })
+            .collect(),
         ui_error: state.ui_error.clone(),
         workspaces: ordered_workspace_paths(state)
             .into_iter()
@@ -52,6 +73,14 @@ pub(crate) fn build_snapshot(state: &RuntimeState) -> SessionSnapshotDto {
                     .workspaces
                     .get(&workspace_path)
                     .map(|workspace| build_workspace_snapshot(state, &workspace_path, workspace))
+            })
+            .collect(),
+        saved_workspaces: saved_workspaces
+            .iter()
+            .map(|workspace| SavedWorkspaceSummaryDto {
+                id: workspace.id.clone(),
+                name: workspace.name.clone(),
+                updated_at: workspace.updated_at,
             })
             .collect(),
     }

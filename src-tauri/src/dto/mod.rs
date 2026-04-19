@@ -10,9 +10,12 @@ pub use chat::{ChatEventDto, ChatEventKind, StatusCategoryDto, map_chat_response
 pub use followup::{FollowupKind, FollowupOptionDto, FollowupRequestDto, FollowupResponseDto};
 pub use runtime::{
     CheckoutGitBranchInput, CloneRepositoryInput, CommitGitChangesInput, CreateGitBranchInput,
-    PromptModelOptionDto, PromptSettingsDto, QuickStartProjectInput, QuickStartVisibility,
-    RuntimeStatusDto, SendPromptInput, UpdatePromptSettingsInput,
+    CreateSavedWorkspaceInput, PromptModelOptionDto, PromptSettingsDto, QuickStartProjectInput,
+    QuickStartVisibility, RuntimeStatusDto, SaveConversationLayoutInput, SendPromptInput,
+    UpdatePromptSettingsInput, UpdateSavedWorkspaceLayoutInput,
 };
 pub use session::{
-    ConversationSessionSummaryDto, SessionMessageDto, SessionSnapshotDto, WorkspaceSessionDto,
+    ChatBindingDto, ConversationSessionSummaryDto, ConversationViewSnapshotDto,
+    SavedWorkspaceDetailDto, SavedWorkspaceSummaryDto, SessionMessageDto, SessionSnapshotDto,
+    WorkspaceSessionDto,
 };
