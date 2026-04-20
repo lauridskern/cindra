@@ -24,6 +24,7 @@ const THREAD_ITEM_GAP = 16;
 function getMessageText(message: TranscriptMessage): string {
   switch (message.kind) {
     case "user":
+    case "context_compacted":
     case "assistant":
     case "reasoning":
     case "status_output":
@@ -47,6 +48,8 @@ function estimateMessageItemSize(message: TranscriptMessage): number {
   switch (message.kind) {
     case "user":
       return 42 + lineCount * 34;
+    case "context_compacted":
+      return 48;
     case "assistant":
       return 32 + lineCount * 26;
     case "reasoning":

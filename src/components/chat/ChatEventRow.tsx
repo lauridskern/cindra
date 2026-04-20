@@ -7,7 +7,8 @@ import { ChatInlineText } from "./chatInlineText";
 
 type ChatEventMessage = Extract<
   TranscriptMessage,
-  { kind: "status" | "status_output" | "tool_start" | "tool_end" | "error" }
+  | { kind: "context_compacted" }
+  | { kind: "status" | "status_output" | "tool_start" | "tool_end" | "error" }
 >;
 
 interface ChatEventRowProps {
@@ -80,6 +81,34 @@ function StatusOutputRow({ text }: { text: string }) {
   );
 }
 
+function ContextCompactedIcon() {
+  return (
+    <span
+      aria-hidden="true"
+      className="relative size-4 shrink-0 text-neutral-400 dark:text-neutral-500"
+    >
+      <span className="absolute inset-x-[3px] top-[2px] h-[10px] rounded-[3px] border border-current bg-white/80 dark:bg-neutral-900/80" />
+      <span className="absolute left-[1px] top-[4px] h-[10px] w-[8px] rounded-[3px] border border-current bg-white/55 dark:bg-neutral-900/55" />
+      <span className="absolute right-[0px] top-[4px] h-[2px] w-[2px] rounded-full bg-current" />
+      <span className="absolute right-[-1px] top-[7px] h-[2px] w-[4px] rounded-full bg-current" />
+      <span className="absolute right-[0px] top-[10px] h-[2px] w-[3px] rounded-full bg-current" />
+    </span>
+  );
+}
+
+function ContextCompactedRow({ text }: { text: string }) {
+  return (
+    <article className="flex max-w-3xl items-center gap-4 py-1 text-[13px] text-neutral-500 dark:text-neutral-400">
+      <div className="h-px flex-1 bg-neutral-200/90 dark:bg-white/10" />
+      <div className="inline-flex items-center gap-2 whitespace-nowrap">
+        <ContextCompactedIcon />
+        <ChatInlineText as="p" text={text} />
+      </div>
+      <div className="h-px flex-1 bg-neutral-200/90 dark:bg-white/10" />
+    </article>
+  );
+}
+
 function ToolStartRow({ name }: { name: string }) {
   return (
     <article className="grid max-w-3xl gap-1.5 select-text text-[13px] leading-[1.4rem] text-neutral-950 dark:text-neutral-400">
@@ -131,6 +160,8 @@ function ErrorRow({ message }: { message: string }) {
 
 export function ChatEventRow({ message }: ChatEventRowProps) {
   switch (message.kind) {
+    case "context_compacted":
+      return <ContextCompactedRow text={message.text} />;
     case "status":
       return (
         <StatusRow
