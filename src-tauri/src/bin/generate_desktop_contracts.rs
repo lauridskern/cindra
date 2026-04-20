@@ -8,8 +8,8 @@ use agent_ui_lib::dto::{
     FollowupRequestDto, FollowupResponseDto, OutputPreviewDto, PromptModelOptionDto,
     PromptSettingsDto, QuickStartProjectInput, QuickStartVisibility, RuntimeStatusDto,
     SaveConversationLayoutInput, SavedWorkspaceDetailDto, SavedWorkspaceSummaryDto,
-    SendPromptInput, SessionMessageDto, SessionSnapshotDto, StatusCategoryDto,
-    ToolCallDetailDto, ToolResultDetailDto, UpdatePromptSettingsInput,
+    SendPromptInput, SessionMessageDto, SessionSnapshotDto, SessionTodoDto, SessionTodoStatusDto,
+    StatusCategoryDto, ToolCallDetailDto, ToolResultDetailDto, UpdatePromptSettingsInput,
     UpdateSavedWorkspaceLayoutInput, WorkspaceSessionDto,
 };
 use anyhow::Context;
@@ -31,6 +31,8 @@ fn main() -> anyhow::Result<()> {
         export_decl::<FollowupRequestDto>(&config),
         export_decl::<FollowupResponseDto>(&config),
         export_decl::<SessionMessageDto>(&config),
+        export_decl::<SessionTodoStatusDto>(&config),
+        export_decl::<SessionTodoDto>(&config),
         export_decl::<ConversationSessionSummaryDto>(&config),
         export_decl::<ChatBindingDto>(&config),
         export_decl::<ConversationViewSnapshotDto>(&config),

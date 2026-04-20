@@ -351,6 +351,7 @@ impl RuntimeManager {
                     .or_insert_with(|| ConversationSessionState {
                         workspace_path: workspace_path.clone(),
                         messages: Vec::new(),
+                        todos: Vec::new(),
                         title: Some("New chat".to_string()),
                         updated_at: None,
                         active_request_ids: Vec::new(),

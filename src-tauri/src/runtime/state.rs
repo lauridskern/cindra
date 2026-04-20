@@ -6,7 +6,7 @@ use tokio::sync::mpsc;
 
 use crate::bridge::emitter::UiEventEmitter;
 use crate::bridge::followup::FollowupBridge;
-use crate::dto::{FollowupRequestDto, SessionMessageDto};
+use crate::dto::{FollowupRequestDto, SessionMessageDto, SessionTodoDto};
 use crate::persistence::project_store::ProjectStore;
 
 use super::{ForgeRuntime, PersistedConversationSummary, RuntimeManager};
@@ -25,6 +25,7 @@ pub(crate) struct WorkspaceSessionState {
 pub(crate) struct ConversationSessionState {
     pub(crate) workspace_path: String,
     pub(crate) messages: Vec<SessionMessageDto>,
+    pub(crate) todos: Vec<SessionTodoDto>,
     pub(crate) title: Option<String>,
     pub(crate) updated_at: Option<String>,
     pub(crate) active_request_ids: Vec<String>,

@@ -70,6 +70,25 @@ pub enum SessionMessageDto {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, TS)]
+#[serde(rename_all = "snake_case")]
+#[ts(rename = "SessionTodoStatus")]
+pub enum SessionTodoStatusDto {
+    Pending,
+    InProgress,
+    Completed,
+    Cancelled,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(rename = "SessionTodo")]
+pub struct SessionTodoDto {
+    pub id: String,
+    pub content: String,
+    pub status: SessionTodoStatusDto,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, TS)]
 #[serde(rename_all = "camelCase")]
 #[ts(rename = "ConversationSessionSummary")]
 pub struct ConversationSessionSummaryDto {
@@ -97,6 +116,7 @@ pub struct ConversationViewSnapshotDto {
     pub conversation_id: String,
     pub messages: Vec<SessionMessageDto>,
     pub active_request_ids: Vec<String>,
+    pub todos: Vec<SessionTodoDto>,
     pub followup: Option<super::followup::FollowupRequestDto>,
 }
 
@@ -139,6 +159,7 @@ pub struct SessionSnapshotDto {
     pub active_conversation_id: Option<String>,
     pub visible_messages: Vec<SessionMessageDto>,
     pub visible_active_request_ids: Vec<String>,
+    pub visible_todos: Vec<SessionTodoDto>,
     pub visible_followup: Option<super::followup::FollowupRequestDto>,
     pub conversation_views: Vec<ConversationViewSnapshotDto>,
     pub ui_error: Option<String>,

@@ -24,6 +24,8 @@ export type {
   SendPromptInput,
   SessionMessage,
   SessionSnapshot,
+  SessionTodo,
+  SessionTodoStatus,
   StatusCategory,
   ToolCallDetail,
   ToolResultDetail,

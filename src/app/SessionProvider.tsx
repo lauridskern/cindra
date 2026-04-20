@@ -68,6 +68,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
                 conversationId: snapshot.activeConversationId,
                 messages: snapshot.visibleMessages,
                 activeRequestIds: snapshot.visibleActiveRequestIds,
+                todos: snapshot.visibleTodos,
                 followup: snapshot.visibleFollowup,
               },
             ]
@@ -353,6 +354,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       messages: sessionSnapshot?.visibleMessages ?? [],
       requestTimingsById,
       runtimeStatus,
+      todos: sessionSnapshot?.visibleTodos ?? [],
       uiError: sessionSnapshot?.uiError ?? null,
       workspacePath: sessionSnapshot?.activeWorkspacePath ?? null,
     }),

@@ -1,9 +1,15 @@
-import { usePromptDraft, useSessionActions } from "../hooks/useSession";
+import {
+  useConversationSession,
+  usePromptDraft,
+  useSessionActions,
+} from "../hooks/useSession";
 import { FollowupComposer } from "./FollowupComposer";
 import { PromptInputCard } from "./PromptInputCard";
+import { SessionTodoDock } from "./conversation-panel/SessionTodoDock";
 
 export function PromptComposer() {
   const { submitPrompt, updatePromptSettings } = useSessionActions();
+  const { activeRequestIds, todos } = useConversationSession();
   const {
     canCompose,
     followupRequest,
@@ -15,6 +21,10 @@ export function PromptComposer() {
 
   return (
     <div className="px-6 pb-6">
+      <SessionTodoDock
+        isRequestActive={activeRequestIds.length > 0}
+        todos={todos}
+      />
       {followupRequest != null ? (
         <FollowupComposer
           key={followupRequest.followupId}

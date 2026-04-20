@@ -200,6 +200,7 @@ export function ScopedConversationProviders({
       requestTimingsById:
         requestTimingsByConversationId[binding.conversationId] ?? {},
       runtimeStatus,
+      todos: currentView?.todos ?? [],
       uiError: sessionSnapshot?.uiError ?? null,
       workspacePath: binding.workspacePath,
     }),
@@ -210,6 +211,7 @@ export function ScopedConversationProviders({
       binding.workspacePath,
       currentView?.activeRequestIds,
       currentView?.messages,
+      currentView?.todos,
       requestTimingsByConversationId,
       runtimeStatus,
       sessionSnapshot?.uiError,

@@ -11,8 +11,8 @@ use crate::persistence::project_store::SavedWorkspaceSummaryRecord;
 
 use super::{
     ConversationSessionState, PersistedConversationSummary, RuntimeState, WorkspaceSessionState,
-    configuration_error_message, derive_conversation_title_from_messages, read_config,
-    session_messages_from_conversation, workspace_name,
+    configuration_error_message, derive_conversation_title_from_messages, map_session_todos,
+    read_config, session_messages_from_conversation, workspace_name,
 };
 
 pub(crate) fn build_snapshot(
@@ -26,16 +26,18 @@ pub(crate) fn build_snapshot(
             .get(workspace_path)
             .and_then(|workspace| workspace.selected_conversation_id.clone())
     });
-
-    let visible_messages = active_conversation_id
+    let active_conversation = active_conversation_id
         .as_ref()
-        .and_then(|conversation_id| state.conversations.get(conversation_id))
+        .and_then(|conversation_id| state.conversations.get(conversation_id));
+
+    let visible_messages = active_conversation
         .map(|conversation| conversation.messages.clone())
         .unwrap_or_default();
-    let visible_active_request_ids = active_conversation_id
-        .as_ref()
-        .and_then(|conversation_id| state.conversations.get(conversation_id))
+    let visible_active_request_ids = active_conversation
         .map(|conversation| conversation.active_request_ids.clone())
+        .unwrap_or_default();
+    let visible_todos = active_conversation
+        .map(|conversation| conversation.todos.clone())
         .unwrap_or_default();
 
     let visible_followup = active_conversation_id.as_ref().and_then(|conversation_id| {
@@ -50,20 +52,24 @@ pub(crate) fn build_snapshot(
         active_conversation_id,
         visible_messages,
         visible_active_request_ids,
+        visible_todos,
         visible_followup,
         conversation_views: state
             .conversations
             .iter()
-            .map(|(conversation_id, conversation)| ConversationViewSnapshotDto {
-                workspace_path: conversation.workspace_path.clone(),
-                conversation_id: conversation_id.clone(),
-                messages: conversation.messages.clone(),
-                active_request_ids: conversation.active_request_ids.clone(),
-                followup: state
-                    .pending_followups_by_conversation
-                    .get(conversation_id)
-                    .cloned(),
-            })
+            .map(
+                |(conversation_id, conversation)| ConversationViewSnapshotDto {
+                    workspace_path: conversation.workspace_path.clone(),
+                    conversation_id: conversation_id.clone(),
+                    messages: conversation.messages.clone(),
+                    active_request_ids: conversation.active_request_ids.clone(),
+                    todos: conversation.todos.clone(),
+                    followup: state
+                        .pending_followups_by_conversation
+                        .get(conversation_id)
+                        .cloned(),
+                },
+            )
             .collect(),
         ui_error: state.ui_error.clone(),
         workspaces: ordered_workspace_paths(state)
@@ -95,6 +101,7 @@ pub(crate) fn hydrate_conversation_state(
     ConversationSessionState {
         workspace_path: workspace_path.to_string(),
         messages: session_messages_from_conversation(&conversation),
+        todos: map_session_todos(conversation.metrics.get_todos()),
         title: Some(persisted.title),
         updated_at: persisted.updated_at,
         active_request_ids: Vec::new(),

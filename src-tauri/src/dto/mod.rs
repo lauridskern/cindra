@@ -17,5 +17,5 @@ pub use runtime::{
 pub use session::{
     ChatBindingDto, ConversationSessionSummaryDto, ConversationViewSnapshotDto,
     SavedWorkspaceDetailDto, SavedWorkspaceSummaryDto, SessionMessageDto, SessionSnapshotDto,
-    WorkspaceSessionDto,
+    SessionTodoDto, SessionTodoStatusDto, WorkspaceSessionDto,
 };

@@ -5,6 +5,7 @@ mod manager;
 mod snapshot;
 mod state;
 mod stream;
+mod todos;
 mod transforms;
 mod workspace;
 
@@ -20,6 +21,7 @@ pub(crate) use state::{
     ConversationSessionState, RuntimeState, WorkspaceSessionState, shared_runtime_state,
 };
 pub(crate) use stream::create_message_id;
+pub(crate) use todos::{apply_todo_result, map_session_todos};
 pub(crate) use transforms::{
     PersistedConversationSummary, derive_conversation_title_from_messages,
     session_messages_from_conversation, user_prompt_text_for_display, workspace_name,

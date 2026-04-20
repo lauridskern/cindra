@@ -67,6 +67,12 @@ const TOOL_DEBUG_TITLES = new Set([
   "Codebase Search",
 ]);
 
+function shouldDisplayOperationInActivity(operation: ActivityOperation): boolean {
+  return (
+    operation.detail.kind !== "todo_read" && operation.detail.kind !== "todo_write"
+  );
+}
+
 export function buildChatThreadItems(
   messages: TranscriptMessage[],
   activeRequestIds: string[],
@@ -93,6 +99,7 @@ export function buildChatThreadItems(
     isRunning: boolean,
   ): ActivityItem[] => {
     const activityItems: ActivityItem[] = [];
+    const visibleOperations = group.operations.filter(shouldDisplayOperationInActivity);
 
     if (group.reasoningText.trim().length > 0) {
       activityItems.push({
@@ -108,7 +115,7 @@ export function buildChatThreadItems(
       });
     }
 
-    const operationGroups = splitActivityOperationGroups(group.operations);
+    const operationGroups = splitActivityOperationGroups(visibleOperations);
     operationGroups.forEach((operations, index) => {
       activityItems.push({
         kind: "activity",

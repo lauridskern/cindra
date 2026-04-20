@@ -7,7 +7,9 @@ use crate::dto::{
     ChatEventKind, SessionMessageDto, StatusCategoryDto, ToolCallDetailDto, ToolResultDetailDto,
 };
 
-use super::{ForgeRuntime, RuntimeManager, derive_conversation_title_from_messages};
+use super::{
+    ForgeRuntime, RuntimeManager, apply_todo_result, derive_conversation_title_from_messages,
+};
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum StreamedMessageKind {
@@ -66,6 +68,10 @@ impl RuntimeManager {
         while let Some(item) = stream.next().await {
             match item {
                 Ok(response) => {
+                    if let Some(output) = todo_result_output(&response) {
+                        self.apply_todo_update(&conversation_id, output).await;
+                    }
+
                     if let Some(event) = crate::dto::map_chat_response(&response) {
                         if matches!(event, ChatEventKind::Complete) {
                             saw_complete = true;
@@ -327,6 +333,15 @@ impl RuntimeManager {
 
         build_unexpected_stream_end_message(&conversation.messages, request_id)
     }
+
+    async fn apply_todo_update(&self, conversation_id: &str, output: &str) {
+        let mut state = self.state.lock().await;
+        let Some(conversation) = state.conversations.get_mut(conversation_id) else {
+            return;
+        };
+
+        let _ = apply_todo_result(&mut conversation.todos, output);
+    }
 }
 
 pub(crate) fn create_message_id(prefix: &str, request_id: &str, index: usize) -> String {
@@ -370,6 +385,19 @@ fn append_streamed_message(
             }
         }
     }
+}
+
+fn todo_result_output(response: &ChatResponse) -> Option<&str> {
+    let ChatResponse::ToolCallEnd(result) = response else {
+        return None;
+    };
+
+    let name = result.name.as_str();
+    if name != "todo_read" && name != "todo_write" {
+        return None;
+    }
+
+    result.output.as_str()
 }
 
 fn build_unexpected_stream_end_message(messages: &[SessionMessageDto], request_id: &str) -> String {

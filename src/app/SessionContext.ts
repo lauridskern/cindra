@@ -10,6 +10,7 @@ import type {
   SavedWorkspaceDetail,
   SavedWorkspaceSummary,
   SessionSnapshot,
+  SessionTodo,
   TranscriptMessage,
   WorkspaceSession,
 } from "../services/desktop/contracts";
@@ -29,6 +30,7 @@ export interface ConversationStateContextValue {
   messages: TranscriptMessage[];
   requestTimingsById: Record<string, RequestTimingInfo>;
   runtimeStatus: RuntimeStatus | null;
+  todos: SessionTodo[];
   uiError: string | null;
   workspacePath: string | null;
 }
