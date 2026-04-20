@@ -88,6 +88,10 @@ pub struct OutputPreviewDto {
 #[serde(tag = "kind", rename_all = "snake_case")]
 #[ts(rename = "ToolResultDetail")]
 pub enum ToolResultDetailDto {
+    FileDiff {
+        path: String,
+        patch: String,
+    },
     ShellOutput {
         command: String,
         shell: String,

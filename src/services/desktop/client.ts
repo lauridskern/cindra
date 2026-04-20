@@ -15,11 +15,22 @@ import type {
   SaveConversationLayoutInput,
   SendPromptInput,
   SessionSnapshot,
+  TerminalCloseInput,
+  TerminalErrorEvent,
+  TerminalExitEvent,
+  TerminalOpenInput,
+  TerminalOutputEvent,
+  TerminalResizeInput,
+  TerminalSession,
+  TerminalWriteInput,
   UpdateSavedWorkspaceLayoutInput,
   UpdatePromptSettingsInput,
 } from "./contracts";
 
 const SESSION_UPDATED_EVENT_NAME = "agent-ui://session-updated";
+const TERMINAL_OUTPUT_EVENT_NAME = "agent-ui://terminal-output";
+const TERMINAL_EXIT_EVENT_NAME = "agent-ui://terminal-exit";
+const TERMINAL_ERROR_EVENT_NAME = "agent-ui://terminal-error";
 
 function invokeCommand<T>(
   command: string,
@@ -177,8 +188,57 @@ export function getSavedWorkspace(
   return invokeCommand("get_saved_workspace", { workspaceId });
 }
 
+export function openTerminal(input: TerminalOpenInput): Promise<TerminalSession> {
+  return invokeCommand("terminal_open", { input });
+}
+
+export function writeTerminal(input: TerminalWriteInput): Promise<void> {
+  return invokeCommand("terminal_write", { input });
+}
+
+export function resizeTerminal(input: TerminalResizeInput): Promise<void> {
+  return invokeCommand("terminal_resize", { input });
+}
+
+export function closeTerminal(input: TerminalCloseInput): Promise<void> {
+  return invokeCommand("terminal_close", { input });
+}
+
 export async function listenSessionUpdates(
   handler: (payload: SessionSnapshot) => void,
 ): Promise<UnlistenFn> {
   return listenEvent(SESSION_UPDATED_EVENT_NAME, handler);
+}
+
+export async function listenTerminalOutput(
+  terminalId: string,
+  handler: (payload: TerminalOutputEvent) => void,
+): Promise<UnlistenFn> {
+  return listenEvent(TERMINAL_OUTPUT_EVENT_NAME, (payload: TerminalOutputEvent) => {
+    if (payload.terminalId === terminalId) {
+      handler(payload);
+    }
+  });
+}
+
+export async function listenTerminalExit(
+  terminalId: string,
+  handler: (payload: TerminalExitEvent) => void,
+): Promise<UnlistenFn> {
+  return listenEvent(TERMINAL_EXIT_EVENT_NAME, (payload: TerminalExitEvent) => {
+    if (payload.terminalId === terminalId) {
+      handler(payload);
+    }
+  });
+}
+
+export async function listenTerminalErrors(
+  terminalId: string,
+  handler: (payload: TerminalErrorEvent) => void,
+): Promise<UnlistenFn> {
+  return listenEvent(TERMINAL_ERROR_EVENT_NAME, (payload: TerminalErrorEvent) => {
+    if (payload.terminalId === terminalId) {
+      handler(payload);
+    }
+  });
 }

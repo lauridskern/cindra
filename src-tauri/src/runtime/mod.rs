@@ -2,6 +2,7 @@ mod actions;
 mod conversation;
 mod errors;
 mod factory;
+mod file_diffs;
 mod manager;
 mod snapshot;
 mod state;
@@ -20,7 +21,8 @@ pub use manager::RuntimeManager;
 pub(crate) use snapshot::{build_snapshot, fallback_workspace_state, hydrate_conversation_state};
 pub use state::DesktopState;
 pub(crate) use state::{
-    ConversationSessionState, RuntimeState, WorkspaceSessionState, shared_runtime_state,
+    ConversationSessionState, PendingFileUpdateState, RuntimeState, WorkspaceSessionState,
+    shared_runtime_state,
 };
 pub(crate) use stream::create_message_id;
 pub(crate) use todos::{apply_todo_result, map_session_todos};

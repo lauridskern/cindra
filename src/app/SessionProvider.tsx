@@ -2,7 +2,6 @@ import {
   useCallback,
   useEffect,
   useMemo,
-  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -26,6 +25,8 @@ import {
   SessionActionsContext,
   SidebarStateContext,
   WorkspaceBoardContext,
+  WorkspaceBoardSelectionContext,
+  type WorkspaceBoardSelectionStore,
   type WorkspaceBoardSelection,
 } from "./SessionContext";
 import {
@@ -46,16 +47,12 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [requestTimingsByConversationId, setRequestTimingsByConversationId] =
     useState<Record<string, Record<string, RequestTimingInfo>>>({});
   const [isOpeningProject, setIsOpeningProject] = useState(false);
-  const [boardSelectionState, setBoardSelectionState] =
-    useState<WorkspaceBoardSelection>({ kind: "empty" });
   const sessionSnapshotRef = useLatestRef(sessionSnapshot);
-  const boardSelectionRef = useRef<WorkspaceBoardSelection>({ kind: "empty" });
-
-  const setBoardSelection = useCallback((selection: WorkspaceBoardSelection) => {
-    boardSelectionRef.current = selection;
-    setBoardSelectionState(selection);
-  }, []);
-  const boardSelection = boardSelectionState;
+  const [boardSelectionStore] = useState<WorkspaceBoardSelectionStore>(() =>
+    createWorkspaceBoardSelectionStore({
+      kind: "empty",
+    }),
+  );
 
   const applySessionSnapshot = useCallback((snapshot: SessionSnapshot) => {
     const nextViews =
@@ -120,7 +117,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
     setSessionSnapshot(snapshot);
 
-    if (boardSelectionRef.current.kind === "saved-workspace") {
+    if (boardSelectionStore.getSelection().kind === "saved-workspace") {
       return;
     }
 
@@ -128,7 +125,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       snapshot.activeWorkspacePath != null &&
       snapshot.activeConversationId != null
     ) {
-      setBoardSelection({
+      boardSelectionStore.setSelection({
         kind: "single-chat",
         chat: {
           workspacePath: snapshot.activeWorkspacePath,
@@ -139,15 +136,15 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     }
 
     if (snapshot.activeWorkspacePath != null) {
-      setBoardSelection({
+      boardSelectionStore.setSelection({
         kind: "workspace-draft",
         workspacePath: snapshot.activeWorkspacePath,
       });
       return;
     }
 
-    setBoardSelection({ kind: "empty" });
-  }, [setBoardSelection]);
+    boardSelectionStore.setSelection({ kind: "empty" });
+  }, [boardSelectionStore]);
 
   const currentPromptDraftKey = getPromptDraftKey(
     sessionSnapshot?.activeWorkspacePath,
@@ -256,8 +253,12 @@ export function SessionProvider({ children }: { children: ReactNode }) {
           return;
         }
 
-        setBoardSelection({ kind: "saved-workspace", workspace });
         const bindings = extractBindingsFromLayoutJson(workspace.layoutJson);
+        boardSelectionStore.setSelection({
+          kind: "saved-workspace",
+          workspace,
+          activeChat: bindings[0] ?? null,
+        });
         let latestSnapshot: SessionSnapshot | null = null;
 
         for (const binding of bindings) {
@@ -281,23 +282,23 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         return;
       }
     },
-    [applySessionSnapshot, setBoardSelection],
+    [applySessionSnapshot, boardSelectionStore],
   );
 
   const actionState = useMemo(
     () => ({
       ...baseActionState,
       openProject: async (workspacePath: string) => {
-        setBoardSelection({ kind: "empty" });
+        boardSelectionStore.setSelection({ kind: "empty" });
         await baseActionState.openProject(workspacePath);
       },
       openSavedWorkspace,
       openWorkspacePicker: async () => {
-        setBoardSelection({ kind: "empty" });
+        boardSelectionStore.setSelection({ kind: "empty" });
         return await baseActionState.openWorkspacePicker();
       },
       selectConversation: async (workspacePath: string, conversationId: string) => {
-        setBoardSelection({
+        boardSelectionStore.setSelection({
           kind: "single-chat",
           chat: { workspacePath, conversationId },
         });
@@ -319,14 +320,14 @@ export function SessionProvider({ children }: { children: ReactNode }) {
           return snapshot;
         }
 
-        setBoardSelection({
+        boardSelectionStore.setSelection({
           kind: "workspace-draft",
           workspacePath: targetWorkspacePath,
         });
         return snapshot;
       },
     }),
-    [baseActionState, openSavedWorkspace, sessionSnapshotRef, setBoardSelection],
+    [baseActionState, boardSelectionStore, openSavedWorkspace, sessionSnapshotRef],
   );
 
   const canCompose =
@@ -372,16 +373,12 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const sidebarState = useMemo(
     () => ({
       activeWorkspacePath: sessionSnapshot?.activeWorkspacePath ?? null,
-      activeSavedWorkspaceId:
-        boardSelection.kind === "saved-workspace"
-          ? boardSelection.workspace.id
-          : null,
+      activeSavedWorkspaceId: null,
       hasCurrentWorkspace,
       savedWorkspaces: sessionSnapshot?.savedWorkspaces ?? [],
       workspaces: sessionSnapshot?.workspaces ?? [],
     }),
     [
-      boardSelection,
       hasCurrentWorkspace,
       sessionSnapshot?.activeWorkspacePath,
       sessionSnapshot?.savedWorkspaces,
@@ -397,21 +394,22 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       getWorkspace,
       isOpeningProject,
       requestTimingsByConversationId,
-      selection: boardSelection,
       sessionSnapshot,
-      setSelection: setBoardSelection,
     }),
     [
       applySessionSnapshot,
-      boardSelection,
       getConversationSummary,
       getConversationView,
       getWorkspace,
       isOpeningProject,
       requestTimingsByConversationId,
       sessionSnapshot,
-      setBoardSelection,
     ],
+  );
+
+  const workspaceBoardSelectionState = useMemo(
+    () => boardSelectionStore,
+    [boardSelectionStore],
   );
 
   const promptState = useMemo(
@@ -436,14 +434,45 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   return (
     <SessionActionsContext.Provider value={actionState}>
       <WorkspaceBoardContext.Provider value={workspaceBoardState}>
-        <ConversationStateContext.Provider value={conversationState}>
-          <SidebarStateContext.Provider value={sidebarState}>
-            <PromptDraftContext.Provider value={promptState}>
-              {children}
-            </PromptDraftContext.Provider>
-          </SidebarStateContext.Provider>
-        </ConversationStateContext.Provider>
+        <WorkspaceBoardSelectionContext.Provider
+          value={workspaceBoardSelectionState}
+        >
+          <ConversationStateContext.Provider value={conversationState}>
+            <SidebarStateContext.Provider value={sidebarState}>
+              <PromptDraftContext.Provider value={promptState}>
+                {children}
+              </PromptDraftContext.Provider>
+            </SidebarStateContext.Provider>
+          </ConversationStateContext.Provider>
+        </WorkspaceBoardSelectionContext.Provider>
       </WorkspaceBoardContext.Provider>
     </SessionActionsContext.Provider>
   );
+}
+
+function createWorkspaceBoardSelectionStore(
+  initialSelection: WorkspaceBoardSelection,
+): WorkspaceBoardSelectionStore {
+  let selection = initialSelection;
+  const listeners = new Set<() => void>();
+
+  return {
+    getSelection: () => selection,
+    setSelection: (nextSelection) => {
+      if (selection === nextSelection) {
+        return;
+      }
+
+      selection = nextSelection;
+      listeners.forEach((listener) => {
+        listener();
+      });
+    },
+    subscribe: (listener) => {
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+      };
+    },
+  };
 }

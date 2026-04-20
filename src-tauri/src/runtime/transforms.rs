@@ -4,8 +4,8 @@ use forge_domain::{ContextMessage, Conversation, Role};
 use roxmltree::{Document, Node};
 
 use crate::dto::{
-    map_tool_call_detail, map_tool_result_detail, summarize_tool_result, FileOperationDto,
-    SessionMessageDto, ToolCallDetailDto,
+    FileOperationDto, SessionMessageDto, ToolCallDetailDto, map_tool_call_detail,
+    map_tool_result_detail, summarize_tool_result,
 };
 
 const DISPLAY_PROMPT_TAGS: &[&str] = &["feedback", "task"];

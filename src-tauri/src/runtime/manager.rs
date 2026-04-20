@@ -353,6 +353,7 @@ impl RuntimeManager {
                         workspace_path: workspace_path.clone(),
                         messages: Vec::new(),
                         todos: Vec::new(),
+                        pending_file_updates: Default::default(),
                         title: Some("New chat".to_string()),
                         updated_at: None,
                         active_request_ids: Vec::new(),

@@ -1,7 +1,11 @@
 import { useEffect, useState } from "react";
 import { FolderPlus, PanelsTopLeft } from "lucide-react";
 
-import { useSessionActions, useSidebarSession } from "../hooks/useSession";
+import {
+  useSessionActions,
+  useSidebarSession,
+  useWorkspaceBoardSelection,
+} from "../hooks/useSession";
 import { handleWindowDragStart } from "../utils/window";
 import { ProjectSidebarActions } from "./ProjectSidebarActions";
 import { ProjectSidebarProject } from "./ProjectSidebarProject";
@@ -54,12 +58,29 @@ export function ProjectSidebar() {
     startNewChat,
   } = useSessionActions();
   const {
-    activeSavedWorkspaceId,
     activeWorkspacePath,
     hasCurrentWorkspace,
     savedWorkspaces,
     workspaces,
   } = useSidebarSession();
+  const { selection } = useWorkspaceBoardSelection();
+
+  const activeSavedWorkspaceId =
+    selection.kind === "saved-workspace" ? selection.workspace.id : null;
+  const localActiveWorkspacePath =
+    selection.kind === "saved-workspace"
+      ? selection.activeChat?.workspacePath ?? activeWorkspacePath
+      : selection.kind === "single-chat"
+        ? selection.chat.workspacePath
+        : selection.kind === "workspace-draft"
+          ? selection.workspacePath
+          : activeWorkspacePath;
+  const localActiveConversationId =
+    selection.kind === "saved-workspace"
+      ? selection.activeChat?.conversationId ?? null
+      : selection.kind === "single-chat"
+        ? selection.chat.conversationId
+        : null;
 
   useEffect(() => {
     window.localStorage.setItem(
@@ -184,8 +205,12 @@ export function ProjectSidebar() {
             ) : (
               <SidebarMenu>
                 {workspaces.map((project) => {
-                  const isActive = project.workspacePath === activeWorkspacePath;
+                  const isActive = project.workspacePath === localActiveWorkspacePath;
                   const isExpanded = isWorkspaceExpanded(project.workspacePath);
+                  const selectedConversationId =
+                    project.workspacePath === localActiveWorkspacePath
+                      ? localActiveConversationId ?? project.selectedConversationId
+                      : null;
 
                   return (
                     <ProjectSidebarProject
@@ -193,6 +218,7 @@ export function ProjectSidebar() {
                       isExpanded={isExpanded}
                       isActive={isActive}
                       project={project}
+                      selectedConversationId={selectedConversationId}
                       onOpenProject={handleOpenProject}
                       onSelectConversation={handleSelectConversation}
                       onStartNewChat={handleStartNewChat}

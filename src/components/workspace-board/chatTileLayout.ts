@@ -21,10 +21,16 @@ export function groupContainsChatPanel(
   return group?.panels.some((panel) => panel.id === CHAT_PANE_ID) ?? false;
 }
 
+export function groupContainsTerminalPanel(
+  group: DockviewGroupPanel | null | undefined,
+): boolean {
+  return group?.panels.some((panel) => panel.id === TERMINAL_PANE_ID) ?? false;
+}
+
 export function applyChatTileLayoutConstraints(api: DockviewApi): void {
   api.groups.forEach((group) => {
     group.locked = false;
-    group.header.hidden = groupContainsChatPanel(group) && group.size === 1;
+    group.header.hidden = false;
   });
 }
 
@@ -73,6 +79,7 @@ export function openChatTilePane(
   api.addPanel<PlaceholderPaneParams>({
     id: panelId,
     component: INNER_PLACEHOLDER_COMPONENT,
+    tabComponent: INNER_PLACEHOLDER_COMPONENT,
     title: panelTitle,
     params: {
       ...binding,

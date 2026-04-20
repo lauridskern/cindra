@@ -154,10 +154,8 @@ impl RuntimeManager {
         workspace_path: Option<&Path>,
     ) -> anyhow::Result<RuntimeStatusDto> {
         self.clear_ui_error().await?;
-        self.get_runtime_status(
-            workspace_path.map(|path| path.to_string_lossy().into_owned()),
-        )
-        .await
+        self.get_runtime_status(workspace_path.map(|path| path.to_string_lossy().into_owned()))
+            .await
     }
 
     async fn workspace_path_for_action(&self, workspace_path: &str) -> anyhow::Result<PathBuf> {

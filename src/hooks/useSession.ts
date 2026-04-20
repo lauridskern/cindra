@@ -1,4 +1,4 @@
-import { useContext, type Context } from 'react'
+import { useContext, useMemo, useSyncExternalStore, type Context } from 'react'
 
 import {
   ConversationStateContext,
@@ -6,6 +6,7 @@ import {
   SessionActionsContext,
   SidebarStateContext,
   WorkspaceBoardContext,
+  WorkspaceBoardSelectionContext,
 } from '../app/SessionContext'
 
 function useRequiredContext<T>(context: Context<T | null>, name: string): T {
@@ -36,4 +37,25 @@ export function useSessionActions() {
 
 export function useWorkspaceBoard() {
   return useRequiredContext(WorkspaceBoardContext, 'useWorkspaceBoard')
+}
+
+export function useWorkspaceBoardSelection() {
+  const store = useRequiredContext(
+    WorkspaceBoardSelectionContext,
+    'useWorkspaceBoardSelection',
+  )
+
+  const selection = useSyncExternalStore(
+    store.subscribe,
+    store.getSelection,
+    store.getSelection,
+  )
+
+  return useMemo(
+    () => ({
+      selection,
+      setSelection: store.setSelection,
+    }),
+    [selection, store],
+  )
 }

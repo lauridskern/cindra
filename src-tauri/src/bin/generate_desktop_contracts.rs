@@ -9,7 +9,9 @@ use agent_ui_lib::dto::{
     PromptSettingsDto, QuickStartProjectInput, QuickStartVisibility, RuntimeStatusDto,
     SaveConversationLayoutInput, SavedWorkspaceDetailDto, SavedWorkspaceSummaryDto,
     SendPromptInput, SessionMessageDto, SessionSnapshotDto, SessionTodoDto, SessionTodoStatusDto,
-    StatusCategoryDto, ToolCallDetailDto, ToolResultDetailDto, UpdatePromptSettingsInput,
+    StatusCategoryDto, TerminalCloseInput, TerminalErrorEventDto, TerminalExitEventDto,
+    TerminalOpenInput, TerminalOutputEventDto, TerminalResizeInput, TerminalSessionDto,
+    TerminalWriteInput, ToolCallDetailDto, ToolResultDetailDto, UpdatePromptSettingsInput,
     UpdateSavedWorkspaceLayoutInput, WorkspaceSessionDto,
 };
 use anyhow::Context;
@@ -54,6 +56,14 @@ fn main() -> anyhow::Result<()> {
         export_decl::<CreateSavedWorkspaceInput>(&config),
         export_decl::<UpdateSavedWorkspaceLayoutInput>(&config),
         export_decl::<SaveConversationLayoutInput>(&config),
+        export_decl::<TerminalOpenInput>(&config),
+        export_decl::<TerminalWriteInput>(&config),
+        export_decl::<TerminalResizeInput>(&config),
+        export_decl::<TerminalCloseInput>(&config),
+        export_decl::<TerminalSessionDto>(&config),
+        export_decl::<TerminalOutputEventDto>(&config),
+        export_decl::<TerminalExitEventDto>(&config),
+        export_decl::<TerminalErrorEventDto>(&config),
     ];
 
     let body = declarations

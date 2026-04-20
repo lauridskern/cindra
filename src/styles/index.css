@@ -24,266 +24,322 @@
 }
 
 @layer base {
-  :root {
-    color-scheme: light dark;
-  }
+    :root {
+        color-scheme: light dark;
+    }
 
-  * {
-    box-sizing: border-box;
-    @apply border-border outline-ring/50;
-  }
+    * {
+        box-sizing: border-box;
+        @apply border-border outline-ring/50;
+    }
 
-  html,
-  body,
-  #root {
-    @apply min-h-screen overflow-hidden bg-transparent text-neutral-700 antialiased dark:text-neutral-300;
-  }
+    html,
+    body,
+    #root {
+        @apply min-h-screen overflow-hidden bg-transparent text-neutral-700 antialiased dark:text-neutral-300;
+    }
 
-  body {
-    @apply m-0 font-sans bg-background text-foreground;
-    text-rendering: optimizeLegibility;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-  }
+    body {
+        @apply m-0 font-sans bg-background text-foreground;
+        text-rendering: optimizeLegibility;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+    }
 
-  button,
-  textarea,
-  input {
-    font: inherit;
-  }
+    button,
+    textarea,
+    input {
+        font: inherit;
+    }
 
-  textarea,
-  input {
-    user-select: text;
-  }
+    textarea,
+    input {
+        user-select: text;
+    }
 
-  code,
-  pre {
-    font-family: "Geist Mono", ui-monospace, SFMono-Regular, SF Mono, Menlo, Monaco, Consolas, monospace;
-  }
+    code,
+    pre {
+        font-family:
+            "Geist Mono",
+            ui-monospace,
+            SFMono-Regular,
+            SF Mono,
+            Menlo,
+            Monaco,
+            Consolas,
+            monospace;
+    }
 
-  a {
-    @apply text-inherit;
-  }
-  html {
-    @apply font-sans;
-  }
+    a {
+        @apply text-inherit;
+    }
+    html {
+        @apply font-sans;
+    }
 }
 
 @theme inline {
-  --font-heading: var(--font-sans);
-  --font-sans: 'Geist Variable', sans-serif;
-  --color-sidebar-ring: var(--sidebar-ring);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar: var(--sidebar);
-  --color-chart-5: var(--chart-5);
-  --color-chart-4: var(--chart-4);
-  --color-chart-3: var(--chart-3);
-  --color-chart-2: var(--chart-2);
-  --color-chart-1: var(--chart-1);
-  --color-ring: var(--ring);
-  --color-input: var(--input);
-  --color-border: var(--border);
-  --color-destructive: var(--destructive);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-accent: var(--accent);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-muted: var(--muted);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-secondary: var(--secondary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-primary: var(--primary);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-popover: var(--popover);
-  --color-card-foreground: var(--card-foreground);
-  --color-card: var(--card);
-  --color-foreground: var(--foreground);
-  --color-background: var(--background);
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
-  --radius-3xl: calc(var(--radius) * 2.2);
-  --radius-4xl: calc(var(--radius) * 2.6);
+    --font-heading: var(--font-sans);
+    --font-sans: "Geist Variable", sans-serif;
+    --color-sidebar-ring: var(--sidebar-ring);
+    --color-sidebar-border: var(--sidebar-border);
+    --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+    --color-sidebar-accent: var(--sidebar-accent);
+    --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+    --color-sidebar-primary: var(--sidebar-primary);
+    --color-sidebar-foreground: var(--sidebar-foreground);
+    --color-sidebar: var(--sidebar);
+    --color-chart-5: var(--chart-5);
+    --color-chart-4: var(--chart-4);
+    --color-chart-3: var(--chart-3);
+    --color-chart-2: var(--chart-2);
+    --color-chart-1: var(--chart-1);
+    --color-ring: var(--ring);
+    --color-input: var(--input);
+    --color-border: var(--border);
+    --color-destructive: var(--destructive);
+    --color-accent-foreground: var(--accent-foreground);
+    --color-accent: var(--accent);
+    --color-muted-foreground: var(--muted-foreground);
+    --color-muted: var(--muted);
+    --color-secondary-foreground: var(--secondary-foreground);
+    --color-secondary: var(--secondary);
+    --color-primary-foreground: var(--primary-foreground);
+    --color-primary: var(--primary);
+    --color-popover-foreground: var(--popover-foreground);
+    --color-popover: var(--popover);
+    --color-card-foreground: var(--card-foreground);
+    --color-card: var(--card);
+    --color-foreground: var(--foreground);
+    --color-background: var(--background);
+    --radius-sm: calc(var(--radius) * 0.6);
+    --radius-md: calc(var(--radius) * 0.8);
+    --radius-lg: var(--radius);
+    --radius-xl: calc(var(--radius) * 1.4);
+    --radius-2xl: calc(var(--radius) * 1.8);
+    --radius-3xl: calc(var(--radius) * 2.2);
+    --radius-4xl: calc(var(--radius) * 2.6);
 }
 
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+    --background: oklch(1 0 0);
+    --foreground: oklch(0.145 0 0);
+    --card: oklch(1 0 0);
+    --card-foreground: oklch(0.145 0 0);
+    --popover: oklch(1 0 0);
+    --popover-foreground: oklch(0.145 0 0);
+    --primary: oklch(0.205 0 0);
+    --primary-foreground: oklch(0.985 0 0);
+    --secondary: oklch(0.97 0 0);
+    --secondary-foreground: oklch(0.205 0 0);
+    --muted: oklch(0.97 0 0);
+    --muted-foreground: oklch(0.556 0 0);
+    --accent: oklch(0.97 0 0);
+    --accent-foreground: oklch(0.205 0 0);
+    --destructive: oklch(0.577 0.245 27.325);
+    --border: oklch(0.922 0 0);
+    --input: oklch(0.922 0 0);
+    --ring: oklch(0.708 0 0);
+    --chart-1: oklch(0.87 0 0);
+    --chart-2: oklch(0.556 0 0);
+    --chart-3: oklch(0.439 0 0);
+    --chart-4: oklch(0.371 0 0);
+    --chart-5: oklch(0.269 0 0);
+    --radius: 0.625rem;
+    --sidebar: oklch(0.985 0 0);
+    --sidebar-foreground: oklch(0.145 0 0);
+    --sidebar-primary: oklch(0.205 0 0);
+    --sidebar-primary-foreground: oklch(0.985 0 0);
+    --sidebar-accent: oklch(0.97 0 0);
+    --sidebar-accent-foreground: oklch(0.205 0 0);
+    --sidebar-border: oklch(0.922 0 0);
+    --sidebar-ring: oklch(0.708 0 0);
+    --pane-surface: rgb(255 255 255 / 80%);
+    --pane-border: rgb(255 255 255 / 60%);
+    --pane-shadow: rgb(10 10 10 / 5%);
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+    --background: oklch(0.145 0 0);
+    --foreground: oklch(0.985 0 0);
+    --card: oklch(0.205 0 0);
+    --card-foreground: oklch(0.985 0 0);
+    --popover: oklch(0.205 0 0);
+    --popover-foreground: oklch(0.985 0 0);
+    --primary: oklch(0.922 0 0);
+    --primary-foreground: oklch(0.205 0 0);
+    --secondary: oklch(0.269 0 0);
+    --secondary-foreground: oklch(0.985 0 0);
+    --muted: oklch(0.269 0 0);
+    --muted-foreground: oklch(0.708 0 0);
+    --accent: oklch(0.269 0 0);
+    --accent-foreground: oklch(0.985 0 0);
+    --destructive: oklch(0.704 0.191 22.216);
+    --border: oklch(1 0 0 / 10%);
+    --input: oklch(1 0 0 / 15%);
+    --ring: oklch(0.556 0 0);
+    --chart-1: oklch(0.87 0 0);
+    --chart-2: oklch(0.556 0 0);
+    --chart-3: oklch(0.439 0 0);
+    --chart-4: oklch(0.371 0 0);
+    --chart-5: oklch(0.269 0 0);
+    --sidebar: oklch(0.205 0 0);
+    --sidebar-foreground: oklch(0.985 0 0);
+    --sidebar-primary: oklch(0.488 0.243 264.376);
+    --sidebar-primary-foreground: oklch(0.985 0 0);
+    --sidebar-accent: oklch(0.269 0 0);
+    --sidebar-accent-foreground: oklch(0.985 0 0);
+    --sidebar-border: oklch(1 0 0 / 10%);
+    --sidebar-ring: oklch(0.556 0 0);
+    --pane-surface: rgb(23 23 23 / 80%);
+    --pane-border: rgb(255 255 255 / 10%);
+    --pane-shadow: rgb(0 0 0 / 20%);
 }
 
-.workspace-board-dock :is(.dockview-theme-light, .dockview-theme-dark),
-.chat-tile-inner-dock :is(.dockview-theme-light, .dockview-theme-dark) {
-  --dv-tabs-and-actions-container-height: 2rem;
-  --dv-tabs-and-actions-container-font-size: 0.6875rem;
-  --dv-tabs-and-actions-container-background-color: transparent;
-  --dv-activegroup-visiblepanel-tab-background-color: color-mix(in oklab, var(--background) 72%, transparent);
-  --dv-activegroup-hiddenpanel-tab-background-color: transparent;
-  --dv-inactivegroup-visiblepanel-tab-background-color: transparent;
-  --dv-inactivegroup-hiddenpanel-tab-background-color: transparent;
-  --dv-tab-divider-color: transparent;
-  --dv-drag-over-background-color: color-mix(in oklab, var(--foreground) 6%, transparent);
-  --dv-drag-over-border-color: color-mix(in oklab, var(--foreground) 18%, transparent);
-  --dv-resize-handle-background-color: transparent;
+.workspace-board-dock :is(.dockview-theme-light, .dockview-theme-dark) {
+    --dv-tabs-and-actions-container-height: 2rem;
+    --dv-tabs-and-actions-container-font-size: 0.6875rem;
+    --dv-tabs-and-actions-container-background-color: transparent;
+    --dv-activegroup-visiblepanel-tab-background-color: color-mix(
+        in oklab,
+        var(--background) 72%,
+        transparent
+    );
+    --dv-activegroup-hiddenpanel-tab-background-color: transparent;
+    --dv-inactivegroup-visiblepanel-tab-background-color: transparent;
+    --dv-inactivegroup-hiddenpanel-tab-background-color: transparent;
+    --dv-tab-divider-color: transparent;
+    --dv-drag-over-background-color: color-mix(
+        in oklab,
+        var(--foreground) 6%,
+        transparent
+    );
+    --dv-drag-over-border-color: color-mix(
+        in oklab,
+        var(--foreground) 18%,
+        transparent
+    );
+    --dv-resize-handle-background-color: transparent;
 }
 
 .workspace-board-dock.dockview-theme-light,
 .workspace-board-dock .dockview-theme-light {
-  --dv-separator-border: rgb(0 0 0 / 5%);
+    --dv-separator-border: rgb(0 0 0 / 5%);
 }
 
 .workspace-board-dock.dockview-theme-dark,
 .workspace-board-dock .dockview-theme-dark {
-  --dv-separator-border: rgb(255 255 255 / 5%);
+    --dv-separator-border: rgb(255 255 255 / 5%);
 }
 
-.chat-tile-inner-dock.dockview-theme-light,
-.chat-tile-inner-dock .dockview-theme-light {
-  --dv-separator-border: rgb(0 0 0 / 5%);
+.workspace-board-dock .dv-groupview {
+    border-radius: 0;
+    background: transparent;
+    overflow: hidden;
 }
 
-.chat-tile-inner-dock.dockview-theme-dark,
-.chat-tile-inner-dock .dockview-theme-dark {
-  --dv-separator-border: rgb(255 255 255 / 5%);
+.workspace-board-dock
+    .workspace-board-outer-group
+    > .dv-tabs-and-actions-container {
+    display: none !important;
 }
 
-.workspace-board-dock .dv-groupview,
-.chat-tile-inner-dock .dv-groupview {
-  border-radius: 0;
-  background: transparent;
-  overflow: hidden;
+.workspace-board-dock .dv-groupview .dv-tabs-and-actions-container {
+    padding-inline: 0.25rem;
+    backdrop-filter: none;
+    background: transparent;
 }
 
-.workspace-board-dock .workspace-board-outer-group > .dv-tabs-and-actions-container {
-  display: none !important;
+.workspace-board-dock .dv-groupview .dv-tab {
+    border-radius: 0;
+    cursor: grab;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
 }
 
-.workspace-board-dock .dv-groupview .dv-tabs-and-actions-container,
-.chat-tile-inner-dock .dv-groupview .dv-tabs-and-actions-container {
-  padding-inline: 0.25rem;
-  backdrop-filter: none;
-  background: transparent;
+.workspace-board-dock .dv-groupview .dv-tab:active {
+    cursor: grabbing;
 }
 
-.workspace-board-dock .dv-groupview .dv-tab,
-.chat-tile-inner-dock .dv-groupview .dv-tab {
-  border-radius: 0;
-  cursor: grab;
-  font-size: 0.6875rem;
-  font-weight: 600;
-  letter-spacing: 0.02em;
+.workspace-board-dock .dv-groupview .dv-content-container {
+    background: transparent;
 }
 
-.workspace-board-dock .dv-groupview .dv-tab:active,
-.chat-tile-inner-dock .dv-groupview .dv-tab:active {
-  cursor: grabbing;
+.workspace-board-dock .workspace-board-outer-group {
+    background: var(--pane-surface);
 }
 
-.workspace-board-dock .dv-groupview .dv-content-container,
-.chat-tile-inner-dock .dv-groupview .dv-content-container {
-  background: transparent;
+.workspace-board-dock .workspace-board-outer-group > .dv-content-container {
+    background: var(--pane-surface);
 }
 
 .workspace-board .dv-drop-target-anchor,
 .workspace-board .dv-drop-target-selection {
-  border: 1px solid color-mix(in oklab, var(--foreground) 24%, transparent);
-  background: color-mix(in oklab, var(--foreground) 8%, transparent);
-  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--background) 72%, transparent);
+    border: 1px solid color-mix(in oklab, var(--foreground) 24%, transparent);
+    background: color-mix(in oklab, var(--foreground) 8%, transparent);
+    box-shadow: inset 0 0 0 1px
+        color-mix(in oklab, var(--background) 72%, transparent);
 }
 
 .chat-tile-inner-dock .dv-drop-target-anchor,
 .chat-tile-inner-dock .dv-drop-target-selection {
-  border: 1px solid color-mix(in oklab, var(--foreground) 24%, transparent);
-  background: color-mix(in oklab, var(--foreground) 8%, transparent);
-  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--background) 72%, transparent);
+    border: 1px solid color-mix(in oklab, var(--foreground) 24%, transparent);
+    background: color-mix(in oklab, var(--foreground) 8%, transparent);
+    box-shadow: inset 0 0 0 1px
+        color-mix(in oklab, var(--background) 72%, transparent);
 }
 
-.workspace-board-dock > .dv-resize-container > .dv-sash-container > .dv-sash::after,
-.chat-tile-inner-dock > .dv-resize-container > .dv-sash-container > .dv-sash::after {
-  background: color-mix(in oklab, var(--foreground) 10%, transparent);
-  border-radius: 999px;
+.workspace-board-dock
+    > .dv-resize-container
+    > .dv-sash-container
+    > .dv-sash::after,
+.chat-tile-inner-dock
+    > .dv-resize-container
+    > .dv-sash-container
+    > .dv-sash::after {
+    background: color-mix(in oklab, var(--foreground) 10%, transparent);
+    border-radius: 999px;
 }
 
-.workspace-board-dock.dockview-theme-light > .dv-resize-container > .dv-sash-container > .dv-sash::after,
-.workspace-board-dock .dockview-theme-light > .dv-resize-container > .dv-sash-container > .dv-sash::after,
-.chat-tile-inner-dock.dockview-theme-light > .dv-resize-container > .dv-sash-container > .dv-sash::after,
-.chat-tile-inner-dock .dockview-theme-light > .dv-resize-container > .dv-sash-container > .dv-sash::after {
-  background: rgb(0 0 0 / 5%);
+.workspace-board-dock.dockview-theme-light
+    > .dv-resize-container
+    > .dv-sash-container
+    > .dv-sash::after,
+.workspace-board-dock
+    .dockview-theme-light
+    > .dv-resize-container
+    > .dv-sash-container
+    > .dv-sash::after,
+.chat-tile-inner-dock.dockview-theme-light
+    > .dv-resize-container
+    > .dv-sash-container
+    > .dv-sash::after,
+.chat-tile-inner-dock
+    .dockview-theme-light
+    > .dv-resize-container
+    > .dv-sash-container
+    > .dv-sash::after {
+    background: rgb(0 0 0 / 5%);
 }
 
-.workspace-board-dock.dockview-theme-dark > .dv-resize-container > .dv-sash-container > .dv-sash::after,
-.workspace-board-dock .dockview-theme-dark > .dv-resize-container > .dv-sash-container > .dv-sash::after,
-.chat-tile-inner-dock.dockview-theme-dark > .dv-resize-container > .dv-sash-container > .dv-sash::after,
-.chat-tile-inner-dock .dockview-theme-dark > .dv-resize-container > .dv-sash-container > .dv-sash::after {
-  background: rgb(255 255 255 / 5%);
+.workspace-board-dock.dockview-theme-dark
+    > .dv-resize-container
+    > .dv-sash-container
+    > .dv-sash::after,
+.workspace-board-dock
+    .dockview-theme-dark
+    > .dv-resize-container
+    > .dv-sash-container
+    > .dv-sash::after,
+.chat-tile-inner-dock.dockview-theme-dark
+    > .dv-resize-container
+    > .dv-sash-container
+    > .dv-sash::after,
+.chat-tile-inner-dock
+    .dockview-theme-dark
+    > .dv-resize-container
+    > .dv-sash-container
+    > .dv-sash::after {
+    background: rgb(255 255 255 / 5%);
 }

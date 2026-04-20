@@ -14,6 +14,7 @@ interface ProjectSidebarProjectProps {
   isExpanded: boolean;
   isActive: boolean;
   project: WorkspaceSession;
+  selectedConversationId: string | null;
   onOpenProject: (workspacePath: string) => void;
   onSelectConversation: (workspacePath: string, conversationId: string) => void;
   onStartNewChat: (workspacePath: string) => void;
@@ -24,6 +25,7 @@ export function ProjectSidebarProject({
   isExpanded,
   isActive,
   project,
+  selectedConversationId,
   onOpenProject,
   onSelectConversation,
   onStartNewChat,
@@ -88,7 +90,7 @@ export function ProjectSidebarProject({
                 key={`${project.workspacePath}:${conversation.conversationId}`}
                 conversation={conversation}
                 isSelected={
-                  project.selectedConversationId === conversation.conversationId
+                  selectedConversationId === conversation.conversationId
                 }
                 workspacePath={project.workspacePath}
                 onSelectConversation={onSelectConversation}

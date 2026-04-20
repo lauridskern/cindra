@@ -1,11 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import {
-  Check,
-  ChevronDown,
-  ChevronRight,
-  Copy,
-  Terminal,
-} from "lucide-react";
+import { ChevronDown, ChevronRight, Terminal } from "lucide-react";
 
 import {
   Collapsible,
@@ -14,13 +8,11 @@ import {
 } from "../ui/collapsible";
 import type { ActivityItem, ActivityOperation } from "./chatThreadModel";
 import { ChatMarkdown } from "./ChatMarkdown";
-import {
-  buildGenericOutputText,
-  formatOperationLabel,
-  getShellDetail,
-} from "./chatActivityUtils";
+import { formatOperationLabel } from "./chatActivityUtils";
 import { ChatInlineText } from "./chatInlineText";
 import { ChatStatusLabel } from "./ChatStatusLabel";
+import { ActivityResultRenderer } from "./activity-results/ActivityResultRenderer";
+import { getActivityResultModel } from "./activity-results/activityResultModel";
 import { cn } from "../../lib/utils";
 
 interface ChatActivityRowProps {
@@ -51,73 +43,6 @@ function ActivityChevron({
   );
 }
 
-function OperationOutputCard({ operation }: { operation: ActivityOperation }) {
-  const [copied, setCopied] = useState(false);
-  const resetCopyTimeoutRef = useRef<number | null>(null);
-  const shellDetail = getShellDetail(operation.resultDetail);
-  const previewText = buildGenericOutputText(operation);
-
-  useEffect(() => {
-    return () => {
-      if (resetCopyTimeoutRef.current != null) {
-        window.clearTimeout(resetCopyTimeoutRef.current);
-      }
-    };
-  }, []);
-
-  if (previewText == null) {
-    return null;
-  }
-
-  return (
-    <div className="min-w-0 max-w-full overflow-hidden rounded-2xl border border-neutral-200 bg-neutral-50 dark:border-neutral-800 dark:bg-neutral-950/70">
-      <div className="flex items-center justify-between border-b border-neutral-200 px-3 py-2 text-[13px] leading-[1.4rem] text-neutral-950 dark:border-neutral-800 dark:text-neutral-400">
-        <span>{shellDetail ? "Shell" : "Output"}</span>
-        <button
-          type="button"
-          onClick={() => {
-            void navigator.clipboard.writeText(previewText);
-            setCopied(true);
-            if (resetCopyTimeoutRef.current != null) {
-              window.clearTimeout(resetCopyTimeoutRef.current);
-            }
-            resetCopyTimeoutRef.current = window.setTimeout(() => {
-              setCopied(false);
-              resetCopyTimeoutRef.current = null;
-            }, 1200);
-          }}
-          className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-[13px] leading-[1.4rem] text-neutral-950 transition hover:bg-neutral-200/70 hover:text-neutral-950 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-100"
-        >
-          {copied ? <Check className="size-3" /> : <Copy className="size-3" />}
-          {copied ? "Copied" : "Copy"}
-        </button>
-      </div>
-      <pre className="block max-h-72 w-full max-w-full overflow-x-auto overflow-y-auto whitespace-pre px-3 py-2.5 text-[13px] leading-[1.4rem] text-neutral-950 dark:text-neutral-200">
-        <code className="inline-block min-w-full w-max align-top whitespace-pre">
-          {previewText}
-        </code>
-      </pre>
-      <div className="flex items-center justify-between border-t border-neutral-200 px-3 py-2 text-[13px] leading-[1.4rem] text-neutral-950 dark:border-neutral-800 dark:text-neutral-400">
-        <span>
-          {shellDetail?.stdout?.tailDisplayLines != null ||
-          shellDetail?.stderr?.tailDisplayLines != null
-            ? "Showing Forge’s truncated output preview"
-            : operation.isError
-              ? "Exited with an error"
-              : "Completed"}
-        </span>
-        {shellDetail?.exitCode != null ? (
-          <span>exit {shellDetail.exitCode}</span>
-        ) : operation.isError ? (
-          <span>Error</span>
-        ) : (
-          <span>Success</span>
-        )}
-      </div>
-    </div>
-  );
-}
-
 function ActivityOperationRow({
   operation,
   workspacePath,
@@ -126,8 +51,8 @@ function ActivityOperationRow({
   workspacePath: string | null;
 }) {
   const [open, setOpen] = useState(operation.isError);
-  const outputText = buildGenericOutputText(operation);
-  const isExpandable = outputText != null;
+  const result = getActivityResultModel(operation);
+  const isExpandable = result != null;
   const label = formatOperationLabel(operation, workspacePath);
   const isCommand = operation.detail.kind === "shell";
 
@@ -163,9 +88,9 @@ function ActivityOperationRow({
             {content}
           </div>
         )}
-        {isExpandable ? (
+        {result ? (
           <CollapsibleContent className="min-w-0 max-w-full">
-            <OperationOutputCard operation={operation} />
+            <ActivityResultRenderer result={result} />
           </CollapsibleContent>
         ) : null}
       </div>

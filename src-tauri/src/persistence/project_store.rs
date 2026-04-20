@@ -103,10 +103,7 @@ impl ProjectStore {
         })
     }
 
-    pub fn get_conversation_layout(
-        &self,
-        conversation_id: &str,
-    ) -> anyhow::Result<Option<String>> {
+    pub fn get_conversation_layout(&self, conversation_id: &str) -> anyhow::Result<Option<String>> {
         self.with_connection(|connection| {
             let rows: Vec<ConversationLayoutRow> = sql_query(
                 "
@@ -259,15 +256,13 @@ impl ProjectStore {
     }
 
     fn open(&self) -> anyhow::Result<SqliteConnection> {
-        let mut connection =
-            SqliteConnection::establish(self.db_path.to_string_lossy().as_ref()).with_context(
-                || {
-                    format!(
-                        "Failed to open project registry database at {}",
-                        self.db_path.display()
-                    )
-                },
-            )?;
+        let mut connection = SqliteConnection::establish(self.db_path.to_string_lossy().as_ref())
+            .with_context(|| {
+            format!(
+                "Failed to open project registry database at {}",
+                self.db_path.display()
+            )
+        })?;
         connection.batch_execute(
             "
             PRAGMA journal_mode = WAL;

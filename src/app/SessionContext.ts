@@ -83,7 +83,11 @@ export type WorkspaceBoardSelection =
   | { kind: "empty" }
   | { kind: "single-chat"; chat: ChatBinding }
   | { kind: "workspace-draft"; workspacePath: string }
-  | { kind: "saved-workspace"; workspace: SavedWorkspaceDetail };
+  | {
+      kind: "saved-workspace";
+      workspace: SavedWorkspaceDetail;
+      activeChat: ChatBinding | null;
+    };
 
 export interface WorkspaceBoardContextValue {
   applySessionSnapshot: (snapshot: SessionSnapshot) => void;
@@ -97,9 +101,13 @@ export interface WorkspaceBoardContextValue {
     string,
     Record<string, RequestTimingInfo>
   >;
-  selection: WorkspaceBoardSelection;
   sessionSnapshot: SessionSnapshot | null;
+}
+
+export interface WorkspaceBoardSelectionStore {
+  getSelection: () => WorkspaceBoardSelection;
   setSelection: (selection: WorkspaceBoardSelection) => void;
+  subscribe: (listener: () => void) => () => void;
 }
 
 export const ConversationStateContext =
@@ -117,3 +125,6 @@ export const SessionActionsContext =
 
 export const WorkspaceBoardContext =
   createContext<WorkspaceBoardContextValue | null>(null);
+
+export const WorkspaceBoardSelectionContext =
+  createContext<WorkspaceBoardSelectionStore | null>(null);
