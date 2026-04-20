@@ -35,7 +35,9 @@ function loadExpandedProjectPaths() {
 
     const parsedValue: unknown = JSON.parse(storedValue);
     return Array.isArray(parsedValue)
-      ? parsedValue.filter((value): value is string => typeof value === "string")
+      ? parsedValue.filter(
+          (value): value is string => typeof value === "string",
+        )
       : [];
   } catch {
     return [];
@@ -114,6 +116,7 @@ export function ProjectSidebar() {
       <SidebarHeader className="relative pb-1 pt-10">
         <div
           className="absolute inset-x-0 top-0 h-9 cursor-grab bg-transparent active:cursor-grabbing"
+          role="presentation"
           onMouseDown={handleWindowDragStart}
         />
         <ProjectSidebarActions
@@ -184,7 +187,8 @@ export function ProjectSidebar() {
             ) : (
               <SidebarMenu>
                 {workspaces.map((project) => {
-                  const isActive = project.workspacePath === activeWorkspacePath;
+                  const isActive =
+                    project.workspacePath === activeWorkspacePath;
                   const isExpanded = isWorkspaceExpanded(project.workspacePath);
 
                   return (

@@ -138,6 +138,7 @@ export function ConversationPanelHeader({
 
         <div
           ref={panelDragHandleRef}
+          role="presentation"
           className={cn(
             "h-full min-w-8 flex-1 bg-transparent",
             (panelDragEnabled || windowDragEnabled) &&

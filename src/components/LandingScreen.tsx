@@ -63,6 +63,60 @@ export function LandingScreen({
   runtimeStatus,
   uiError,
 }: LandingScreenProps) {
+  const controller = useLandingScreenController({
+    isOpeningProject,
+    uiError,
+  });
+
+  return (
+    <>
+      <LandingScreenActions
+        isBusy={controller.isBusy}
+        isOpeningProject={isOpeningProject}
+        runtimeStatus={runtimeStatus}
+        visibleError={controller.visibleError}
+        onOpenClone={controller.openCloneDialog}
+        onOpenFolder={() => void controller.handleOpenWorkspacePicker()}
+        onOpenQuickStart={controller.openQuickStartDialog}
+      />
+
+      <CloneRepositoryDialog
+        cloneForm={controller.cloneForm}
+        cloneFormValid={controller.cloneFormValid}
+        isBusy={controller.isBusy}
+        isOpen={controller.cloneDialogOpen}
+        isSubmitting={controller.pendingAction === "clone"}
+        onClose={() => controller.handleCloneDialogChange(false)}
+        onDestinationPick={controller.handleCloneDestinationPick}
+        onDirectoryNameChange={controller.handleCloneDirectoryNameChange}
+        onOpenChange={controller.handleCloneDialogChange}
+        onParentDirectoryChange={controller.handleCloneParentDirectoryChange}
+        onRepositoryUrlChange={controller.handleCloneRepositoryUrlChange}
+        onSubmit={controller.handleCloneSubmit}
+      />
+
+      <QuickStartProjectDialog
+        isBusy={controller.isBusy}
+        isOpen={controller.quickStartDialogOpen}
+        isSubmitting={controller.pendingAction === "quick-start"}
+        onClose={() => controller.handleQuickStartDialogChange(false)}
+        onDestinationPick={controller.handleQuickStartDestinationPick}
+        onOpenChange={controller.handleQuickStartDialogChange}
+        onParentDirectoryChange={controller.handleQuickStartParentDirectoryChange}
+        onProjectNameChange={controller.handleQuickStartProjectNameChange}
+        onSubmit={controller.handleQuickStartSubmit}
+        onVisibilityChange={controller.handleQuickStartVisibilityChange}
+        quickStartForm={controller.quickStartForm}
+        quickStartFormValid={controller.quickStartFormValid}
+      />
+    </>
+  );
+}
+
+function useLandingScreenController({
+  isOpeningProject,
+  uiError,
+}: Pick<LandingScreenProps, "isOpeningProject" | "uiError">) {
   const { openProject, openWorkspacePicker } = useSessionActions();
   const [cloneDialogOpen, setCloneDialogOpen] = useState(false);
   const [quickStartDialogOpen, setQuickStartDialogOpen] = useState(false);
@@ -94,6 +148,20 @@ export function LandingScreen({
 
   function resetQuickStartForm() {
     setQuickStartForm(initialQuickStartFormState);
+  }
+
+  function clearActionError() {
+    setActionError(null);
+  }
+
+  function openCloneDialog() {
+    clearActionError();
+    setCloneDialogOpen(true);
+  }
+
+  function openQuickStartDialog() {
+    clearActionError();
+    setQuickStartDialogOpen(true);
   }
 
   function handleCloneDialogChange(open: boolean) {
@@ -139,32 +207,90 @@ export function LandingScreen({
     });
   }
 
-  async function handleCloneDestinationPick() {
-    setActionError(null);
-    try {
-      const parentDirectory = await desktopClient.pickDirectory(
-        "Choose a folder for the cloned repository",
-      );
-      if (parentDirectory != null) {
-        setCloneForm((current) => ({ ...current, parentDirectory }));
-      }
-    } catch (error) {
-      setActionError(formatError(error));
+  function handleCloneParentDirectoryChange(value: string) {
+    setCloneForm((current) => ({
+      ...current,
+      parentDirectory: value,
+    }));
+  }
+
+  function handleCloneDirectoryNameChange(value: string) {
+    setCloneDirectoryManuallyEdited(true);
+    setCloneForm((current) => ({
+      ...current,
+      directoryName: value,
+    }));
+  }
+
+  function handleQuickStartProjectNameChange(value: string) {
+    setQuickStartForm((current) => ({
+      ...current,
+      projectName: value,
+    }));
+  }
+
+  function handleQuickStartParentDirectoryChange(value: string) {
+    setQuickStartForm((current) => ({
+      ...current,
+      parentDirectory: value,
+    }));
+  }
+
+  function handleQuickStartVisibilityChange(
+    visibility: QuickStartFormState["visibility"],
+  ) {
+    setQuickStartForm((current) => ({
+      ...current,
+      visibility,
+    }));
+  }
+
+  async function pickDirectory(
+    title: string,
+    onSelect: (parentDirectory: string) => void,
+  ) {
+    clearActionError();
+    const parentDirectory = await desktopClient.pickDirectory(title).catch(
+      (error) => {
+        setActionError(formatError(error));
+        return null;
+      },
+    );
+
+    if (parentDirectory != null) {
+      onSelect(parentDirectory);
     }
   }
 
+  async function handleCloneDestinationPick() {
+    await pickDirectory(
+      "Choose a folder for the cloned repository",
+      handleCloneParentDirectoryChange,
+    );
+  }
+
   async function handleQuickStartDestinationPick() {
-    setActionError(null);
-    try {
-      const parentDirectory = await desktopClient.pickDirectory(
-        "Choose a folder for the new GitHub project",
-      );
-      if (parentDirectory != null) {
-        setQuickStartForm((current) => ({ ...current, parentDirectory }));
-      }
-    } catch (error) {
-      setActionError(formatError(error));
+    await pickDirectory(
+      "Choose a folder for the new GitHub project",
+      handleQuickStartParentDirectoryChange,
+    );
+  }
+
+  async function runWorkspaceSetupAction(
+    action: Exclude<PendingAction, null>,
+    operation: () => Promise<string | null>,
+    onSuccess: () => void,
+  ) {
+    clearActionError();
+    setPendingAction(action);
+
+    const workspacePath = await operation();
+    if (workspacePath != null) {
+      await openProject(workspacePath);
+      onSuccess();
     }
+
+    setPendingAction(null);
   }
 
   async function handleCloneSubmit(event: FormEvent<HTMLFormElement>) {
@@ -173,23 +299,24 @@ export function LandingScreen({
       return;
     }
 
-    setActionError(null);
-    setPendingAction("clone");
-
-    try {
-      const workspacePath = await desktopClient.cloneRepository({
-        repositoryUrl: cloneForm.repositoryUrl.trim(),
-        parentDirectory: cloneForm.parentDirectory.trim(),
-        directoryName: cloneForm.directoryName.trim(),
-      });
-      await openProject(workspacePath);
-      setCloneDialogOpen(false);
-      resetCloneForm();
-    } catch (error) {
-      setActionError(formatError(error));
-    } finally {
-      setPendingAction(null);
-    }
+    await runWorkspaceSetupAction(
+      "clone",
+      async () =>
+        await desktopClient
+          .cloneRepository({
+            repositoryUrl: cloneForm.repositoryUrl.trim(),
+            parentDirectory: cloneForm.parentDirectory.trim(),
+            directoryName: cloneForm.directoryName.trim(),
+          })
+          .catch((error) => {
+            setActionError(formatError(error));
+            return null;
+          }),
+      () => {
+        setCloneDialogOpen(false);
+        resetCloneForm();
+      },
+    );
   }
 
   async function handleQuickStartSubmit(event: FormEvent<HTMLFormElement>) {
@@ -198,313 +325,359 @@ export function LandingScreen({
       return;
     }
 
-    setActionError(null);
-    setPendingAction("quick-start");
-
-    try {
-      const workspacePath = await desktopClient.quickStartProject({
-        projectName: quickStartForm.projectName.trim(),
-        parentDirectory: quickStartForm.parentDirectory.trim(),
-        visibility: quickStartForm.visibility,
-      });
-      await openProject(workspacePath);
-      setQuickStartDialogOpen(false);
-      resetQuickStartForm();
-    } catch (error) {
-      setActionError(formatError(error));
-    } finally {
-      setPendingAction(null);
-    }
+    await runWorkspaceSetupAction(
+      "quick-start",
+      async () =>
+        await desktopClient
+          .quickStartProject({
+            projectName: quickStartForm.projectName.trim(),
+            parentDirectory: quickStartForm.parentDirectory.trim(),
+            visibility: quickStartForm.visibility,
+          })
+          .catch((error) => {
+            setActionError(formatError(error));
+            return null;
+          }),
+      () => {
+        setQuickStartDialogOpen(false);
+        resetQuickStartForm();
+      },
+    );
   }
 
+  async function handleOpenWorkspacePicker() {
+    clearActionError();
+    await openWorkspacePicker();
+  }
+
+  return {
+    cloneDialogOpen,
+    cloneForm,
+    cloneFormValid,
+    handleCloneDestinationPick,
+    handleCloneDirectoryNameChange,
+    handleCloneDialogChange,
+    handleCloneParentDirectoryChange,
+    handleCloneRepositoryUrlChange,
+    handleCloneSubmit,
+    handleOpenWorkspacePicker,
+    handleQuickStartDestinationPick,
+    handleQuickStartDialogChange,
+    handleQuickStartParentDirectoryChange,
+    handleQuickStartProjectNameChange,
+    handleQuickStartSubmit,
+    handleQuickStartVisibilityChange,
+    isBusy,
+    openCloneDialog,
+    openQuickStartDialog,
+    pendingAction,
+    quickStartDialogOpen,
+    quickStartForm,
+    quickStartFormValid,
+    visibleError,
+  };
+}
+
+function LandingScreenActions({
+  isBusy,
+  isOpeningProject,
+  onOpenClone,
+  onOpenFolder,
+  onOpenQuickStart,
+  runtimeStatus,
+  visibleError,
+}: {
+  isBusy: boolean;
+  isOpeningProject: boolean;
+  onOpenClone: () => void;
+  onOpenFolder: () => void;
+  onOpenQuickStart: () => void;
+  runtimeStatus: RuntimeStatus | null;
+  visibleError: string | null;
+}) {
   return (
-    <>
-      <section className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-3xl border border-white/60 bg-white/80 text-neutral-950 shadow-xl shadow-neutral-950/5 backdrop-blur-xl dark:border-white/10 dark:bg-neutral-900/80 dark:text-neutral-100 dark:shadow-black/20">
-        <div className="flex min-h-0 flex-1 overflow-auto px-6 py-8">
-          <div className="mx-auto flex w-full max-w-4xl flex-1 flex-col items-center justify-center gap-6">
-            {visibleError ? (
-              <p
-                className="rounded-full border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700 dark:border-red-500/20 dark:bg-red-500/10 dark:text-red-300"
-                role="alert"
-              >
-                {visibleError}
-              </p>
-            ) : null}
+    <section className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-3xl border border-white/60 bg-white/80 text-neutral-950 shadow-xl shadow-neutral-950/5 backdrop-blur-xl dark:border-white/10 dark:bg-neutral-900/80 dark:text-neutral-100 dark:shadow-black/20">
+      <div className="flex min-h-0 flex-1 overflow-auto px-6 py-8">
+        <div className="mx-auto flex w-full max-w-4xl flex-1 flex-col items-center justify-center gap-6">
+          {visibleError ? (
+            <p
+              className="rounded-full border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700 dark:border-red-500/20 dark:bg-red-500/10 dark:text-red-300"
+              role="alert"
+            >
+              {visibleError}
+            </p>
+          ) : null}
 
-            {runtimeStatus?.configured === false ? (
-              <p
-                className="rounded-full border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-700 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-300"
-                role="alert"
-              >
-                {runtimeStatus.configurationError ??
-                  "No session is configured. Configure the terminal session first."}
-              </p>
-            ) : null}
+          {runtimeStatus?.configured === false ? (
+            <p
+              className="rounded-full border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-700 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-300"
+              role="alert"
+            >
+              {runtimeStatus.configurationError ??
+                "No session is configured. Configure the terminal session first."}
+            </p>
+          ) : null}
 
-            <div className="grid w-full grid-cols-3 gap-4">
-              <LaunchCard
+          <div className="grid w-full grid-cols-3 gap-4">
+            <LaunchCard
+              disabled={isBusy}
+              icon={FolderOpen}
+              label={isOpeningProject ? "Opening..." : "Open folder"}
+              onClick={onOpenFolder}
+            />
+            <LaunchCard
+              disabled={isBusy}
+              icon={GitBranchPlus}
+              label="Clone from Git"
+              onClick={onOpenClone}
+            />
+            <LaunchCard
+              disabled={isBusy}
+              icon={Rocket}
+              label="Quick start"
+              onClick={onOpenQuickStart}
+            />
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function CloneRepositoryDialog({
+  cloneForm,
+  cloneFormValid,
+  isBusy,
+  isOpen,
+  isSubmitting,
+  onClose,
+  onDestinationPick,
+  onDirectoryNameChange,
+  onOpenChange,
+  onParentDirectoryChange,
+  onRepositoryUrlChange,
+  onSubmit,
+}: {
+  cloneForm: CloneFormState;
+  cloneFormValid: boolean;
+  isBusy: boolean;
+  isOpen: boolean;
+  isSubmitting: boolean;
+  onClose: () => void;
+  onDestinationPick: () => Promise<void>;
+  onDirectoryNameChange: (value: string) => void;
+  onOpenChange: (open: boolean) => void;
+  onParentDirectoryChange: (value: string) => void;
+  onRepositoryUrlChange: (value: string) => void;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => Promise<void>;
+}) {
+  return (
+    <Dialog open={isOpen} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md" showCloseButton={!isSubmitting}>
+        <DialogHeader>
+          <DialogTitle>Clone from Git</DialogTitle>
+          <DialogDescription>
+            Pull a remote repository into a local folder and open it as the
+            active workspace.
+          </DialogDescription>
+        </DialogHeader>
+
+        <form className="grid gap-4" onSubmit={onSubmit}>
+          <div className="grid gap-2">
+            <Label htmlFor="clone-repository-url">Repository URL</Label>
+            <Input
+              id="clone-repository-url"
+              placeholder="git@github.com:owner/repo.git"
+              value={cloneForm.repositoryUrl}
+              onChange={(event) => onRepositoryUrlChange(event.target.value)}
+              disabled={isBusy}
+            />
+          </div>
+
+          <div className="grid gap-2">
+            <Label htmlFor="clone-parent-directory">Destination folder</Label>
+            <div className="flex gap-2">
+              <Input
+                id="clone-parent-directory"
+                placeholder="Choose where the repository should live"
+                value={cloneForm.parentDirectory}
+                onChange={(event) => onParentDirectoryChange(event.target.value)}
                 disabled={isBusy}
-                icon={FolderOpen}
-                label={isOpeningProject ? "Opening..." : "Open folder"}
-                onClick={() => {
-                  setActionError(null);
-                  void openWorkspacePicker();
-                }}
               />
-              <LaunchCard
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => void onDestinationPick()}
                 disabled={isBusy}
-                icon={GitBranchPlus}
-                label="Clone from Git"
-                onClick={() => {
-                  setActionError(null);
-                  setCloneDialogOpen(true);
-                }}
+              >
+                Choose
+              </Button>
+            </div>
+          </div>
+
+          <div className="grid gap-2">
+            <Label htmlFor="clone-directory-name">Project folder name</Label>
+            <Input
+              id="clone-directory-name"
+              placeholder="repo-name"
+              value={cloneForm.directoryName}
+              onChange={(event) => onDirectoryNameChange(event.target.value)}
+              disabled={isBusy}
+            />
+            <p className="text-xs text-muted-foreground">
+              Letters, numbers, dots, underscores, and dashes only.
+            </p>
+          </div>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onClose}
+              disabled={isBusy}
+            >
+              Cancel
+            </Button>
+            <Button type="submit" disabled={!cloneFormValid || isBusy}>
+              {isSubmitting ? (
+                <>
+                  <LoaderCircle
+                    strokeWidth={2}
+                    className="size-3.5 animate-spin"
+                  />
+                  Cloning...
+                </>
+              ) : (
+                "Clone and open"
+              )}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function QuickStartProjectDialog({
+  isBusy,
+  isOpen,
+  isSubmitting,
+  onClose,
+  onDestinationPick,
+  onOpenChange,
+  onParentDirectoryChange,
+  onProjectNameChange,
+  onSubmit,
+  onVisibilityChange,
+  quickStartForm,
+  quickStartFormValid,
+}: {
+  isBusy: boolean;
+  isOpen: boolean;
+  isSubmitting: boolean;
+  onClose: () => void;
+  onDestinationPick: () => Promise<void>;
+  onOpenChange: (open: boolean) => void;
+  onParentDirectoryChange: (value: string) => void;
+  onProjectNameChange: (value: string) => void;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => Promise<void>;
+  onVisibilityChange: (value: QuickStartFormState["visibility"]) => void;
+  quickStartForm: QuickStartFormState;
+  quickStartFormValid: boolean;
+}) {
+  return (
+    <Dialog open={isOpen} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md" showCloseButton={!isSubmitting}>
+        <DialogHeader>
+          <DialogTitle>Quick start</DialogTitle>
+          <DialogDescription>
+            Create a GitHub repository with the GitHub CLI, clone it locally,
+            and open it as the current workspace.
+          </DialogDescription>
+        </DialogHeader>
+
+        <form className="grid gap-4" onSubmit={onSubmit}>
+          <div className="grid gap-2">
+            <Label htmlFor="quick-start-project-name">Project name</Label>
+            <Input
+              id="quick-start-project-name"
+              placeholder="my-agent-project"
+              value={quickStartForm.projectName}
+              onChange={(event) => onProjectNameChange(event.target.value)}
+              disabled={isBusy}
+            />
+            <p className="text-xs text-muted-foreground">
+              This becomes both the GitHub repo name and the local folder.
+            </p>
+          </div>
+
+          <div className="grid gap-2">
+            <Label htmlFor="quick-start-parent-directory">
+              Destination folder
+            </Label>
+            <div className="flex gap-2">
+              <Input
+                id="quick-start-parent-directory"
+                placeholder="Choose where the new project should live"
+                value={quickStartForm.parentDirectory}
+                onChange={(event) => onParentDirectoryChange(event.target.value)}
+                disabled={isBusy}
               />
-              <LaunchCard
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => void onDestinationPick()}
                 disabled={isBusy}
-                icon={Rocket}
-                label="Quick start"
-                onClick={() => {
-                  setActionError(null);
-                  setQuickStartDialogOpen(true);
-                }}
+              >
+                Choose
+              </Button>
+            </div>
+          </div>
+
+          <div className="grid gap-2">
+            <Label>Visibility</Label>
+            <div className="grid grid-cols-2 gap-2">
+              <VisibilityButton
+                active={quickStartForm.visibility === "private"}
+                disabled={isBusy}
+                onClick={() => onVisibilityChange("private")}
+                value="Private"
+              />
+              <VisibilityButton
+                active={quickStartForm.visibility === "public"}
+                disabled={isBusy}
+                onClick={() => onVisibilityChange("public")}
+                value="Public"
               />
             </div>
           </div>
-        </div>
-      </section>
 
-      <Dialog open={cloneDialogOpen} onOpenChange={handleCloneDialogChange}>
-        <DialogContent
-          className="max-w-md"
-          showCloseButton={pendingAction == null}
-        >
-          <DialogHeader>
-            <DialogTitle>Clone from Git</DialogTitle>
-            <DialogDescription>
-              Pull a remote repository into a local folder and open it as the
-              active workspace.
-            </DialogDescription>
-          </DialogHeader>
-
-          <form
-            className="grid gap-4"
-            onSubmit={handleCloneSubmit}
-          >
-            <div className="grid gap-2">
-              <Label htmlFor="clone-repository-url">Repository URL</Label>
-              <Input
-                id="clone-repository-url"
-                placeholder="git@github.com:owner/repo.git"
-                value={cloneForm.repositoryUrl}
-                onChange={(event) =>
-                  handleCloneRepositoryUrlChange(event.target.value)
-                }
-                disabled={isBusy}
-              />
-            </div>
-
-            <div className="grid gap-2">
-              <Label htmlFor="clone-parent-directory">Destination folder</Label>
-              <div className="flex gap-2">
-                <Input
-                  id="clone-parent-directory"
-                  placeholder="Choose where the repository should live"
-                  value={cloneForm.parentDirectory}
-                  onChange={(event) =>
-                    setCloneForm((current) => ({
-                      ...current,
-                      parentDirectory: event.target.value,
-                    }))
-                  }
-                  disabled={isBusy}
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => void handleCloneDestinationPick()}
-                  disabled={isBusy}
-                >
-                  Choose
-                </Button>
-              </div>
-            </div>
-
-            <div className="grid gap-2">
-              <Label htmlFor="clone-directory-name">Project folder name</Label>
-              <Input
-                id="clone-directory-name"
-                placeholder="repo-name"
-                value={cloneForm.directoryName}
-                onChange={(event) => {
-                  setCloneDirectoryManuallyEdited(true);
-                  setCloneForm((current) => ({
-                    ...current,
-                    directoryName: event.target.value,
-                  }));
-                }}
-                disabled={isBusy}
-              />
-              <p className="text-xs text-muted-foreground">
-                Letters, numbers, dots, underscores, and dashes only.
-              </p>
-            </div>
-
-            <DialogFooter>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => handleCloneDialogChange(false)}
-                disabled={isBusy}
-              >
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                disabled={cloneFormValid === false || isBusy}
-              >
-                {pendingAction === "clone" ? (
-                  <>
-                    <LoaderCircle
-                      strokeWidth={2}
-                      className="size-3.5 animate-spin"
-                    />
-                    Cloning...
-                  </>
-                ) : (
-                  "Clone and open"
-                )}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog
-        open={quickStartDialogOpen}
-        onOpenChange={handleQuickStartDialogChange}
-      >
-        <DialogContent
-          className="max-w-md"
-          showCloseButton={pendingAction == null}
-        >
-          <DialogHeader>
-            <DialogTitle>Quick start</DialogTitle>
-            <DialogDescription>
-              Create a GitHub repository with the GitHub CLI, clone it locally,
-              and open it as the current workspace.
-            </DialogDescription>
-          </DialogHeader>
-
-          <form
-            className="grid gap-4"
-            onSubmit={handleQuickStartSubmit}
-          >
-            <div className="grid gap-2">
-              <Label htmlFor="quick-start-project-name">Project name</Label>
-              <Input
-                id="quick-start-project-name"
-                placeholder="my-agent-project"
-                value={quickStartForm.projectName}
-                onChange={(event) =>
-                  setQuickStartForm((current) => ({
-                    ...current,
-                    projectName: event.target.value,
-                  }))
-                }
-                disabled={isBusy}
-              />
-              <p className="text-xs text-muted-foreground">
-                This becomes both the GitHub repo name and the local folder.
-              </p>
-            </div>
-
-            <div className="grid gap-2">
-              <Label htmlFor="quick-start-parent-directory">
-                Destination folder
-              </Label>
-              <div className="flex gap-2">
-                <Input
-                  id="quick-start-parent-directory"
-                  placeholder="Choose where the new project should live"
-                  value={quickStartForm.parentDirectory}
-                  onChange={(event) =>
-                    setQuickStartForm((current) => ({
-                      ...current,
-                      parentDirectory: event.target.value,
-                    }))
-                  }
-                  disabled={isBusy}
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => void handleQuickStartDestinationPick()}
-                  disabled={isBusy}
-                >
-                  Choose
-                </Button>
-              </div>
-            </div>
-
-            <div className="grid gap-2">
-              <Label>Visibility</Label>
-              <div className="grid grid-cols-2 gap-2">
-                <VisibilityButton
-                  active={quickStartForm.visibility === "private"}
-                  disabled={isBusy}
-                  onClick={() =>
-                    setQuickStartForm((current) => ({
-                      ...current,
-                      visibility: "private",
-                    }))
-                  }
-                  value="Private"
-                />
-                <VisibilityButton
-                  active={quickStartForm.visibility === "public"}
-                  disabled={isBusy}
-                  onClick={() =>
-                    setQuickStartForm((current) => ({
-                      ...current,
-                      visibility: "public",
-                    }))
-                  }
-                  value="Public"
-                />
-              </div>
-            </div>
-
-            <DialogFooter>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => handleQuickStartDialogChange(false)}
-                disabled={isBusy}
-              >
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                disabled={quickStartFormValid === false || isBusy}
-              >
-                {pendingAction === "quick-start" ? (
-                  <>
-                    <LoaderCircle
-                      strokeWidth={2}
-                      className="size-3.5 animate-spin"
-                    />
-                    Creating...
-                  </>
-                ) : (
-                  "Create and open"
-                )}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-    </>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onClose}
+              disabled={isBusy}
+            >
+              Cancel
+            </Button>
+            <Button type="submit" disabled={!quickStartFormValid || isBusy}>
+              {isSubmitting ? (
+                <>
+                  <LoaderCircle
+                    strokeWidth={2}
+                    className="size-3.5 animate-spin"
+                  />
+                  Creating...
+                </>
+              ) : (
+                "Create and open"
+              )}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
 

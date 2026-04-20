@@ -19,7 +19,7 @@ function FilenameButton({ label }: { label: string }) {
   );
 }
 
-function renderTextSegments(text: string, keyPrefix: string): ReactNode[] {
+function buildTextSegments(text: string, keyPrefix: string): ReactNode[] {
   const segments: ReactNode[] = [];
   let match: RegExpExecArray | null;
   let lastIndex = 0;
@@ -54,6 +54,16 @@ function renderTextSegments(text: string, keyPrefix: string): ReactNode[] {
   return segments;
 }
 
+function InlineTextSegments({
+  keyPrefix,
+  text,
+}: {
+  keyPrefix: string;
+  text: string;
+}) {
+  return <>{buildTextSegments(text, keyPrefix)}</>;
+}
+
 export function ChatInlineText({
   as: Component = "span",
   className,
@@ -65,25 +75,38 @@ export function ChatInlineText({
 }) {
   return (
     <Component className={cn("m-0", className)}>
-      {renderTextSegments(text, "chat-inline-text")}
+      <InlineTextSegments text={text} keyPrefix="chat-inline-text" />
     </Component>
   );
 }
 
 export function ChatInlineChildren({ children }: { children: ReactNode }) {
-  return (
-    <>
-      {Children.toArray(children).map((child, index) => {
-        if (typeof child !== "string") {
-          return child;
-        }
+  const renderedChildren = Children.toArray(children).reduce<{
+    offset: number;
+    nodes: ReactNode[];
+  }>(
+    (state, child) => {
+      if (typeof child !== "string") {
+        return {
+          offset: state.offset,
+          nodes: [...state.nodes, child],
+        };
+      }
 
-        return (
-          <Fragment key={`inline-text-${index}`}>
-            {renderTextSegments(child, `inline-text-${index}`)}
-          </Fragment>
-        );
-      })}
-    </>
-  );
+      const keyPrefix = `inline-text-${state.offset}-${child.length}`;
+
+      return {
+        offset: state.offset + child.length,
+        nodes: [
+          ...state.nodes,
+          <Fragment key={keyPrefix}>
+            <InlineTextSegments text={child} keyPrefix={keyPrefix} />
+          </Fragment>,
+        ],
+      };
+    },
+    { offset: 0, nodes: [] },
+  ).nodes;
+
+  return <>{renderedChildren}</>;
 }

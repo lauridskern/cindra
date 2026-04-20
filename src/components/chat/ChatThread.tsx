@@ -2,7 +2,6 @@ import {
   LegendList,
   type LegendListRenderItemProps,
 } from "@legendapp/list/react";
-import { useMemo } from "react";
 
 import type { RequestTimingInfo } from "../../app/SessionContext";
 import type { TranscriptMessage } from "../../services/desktop/contracts";
@@ -95,6 +94,7 @@ function renderChatThreadItem(
       renderChatMessage(item.message)
     ) : (
       <ChatWorkRow
+        key={`${item.key}:${item.isRunning ? "running" : item.hasError ? "error" : "idle"}`}
         item={item}
         requestTiming={requestTimingsById[item.requestId]}
         workspacePath={workspacePath}
@@ -118,10 +118,7 @@ export function ChatThread({
   workspaceLabel,
   workspacePath,
 }: ChatThreadProps) {
-  const items = useMemo(
-    () => buildChatThreadItems(messages, activeRequestIds),
-    [activeRequestIds, messages],
-  );
+  const items = buildChatThreadItems(messages, activeRequestIds);
 
   return (
     <LegendList
@@ -158,7 +155,8 @@ export function ChatThread({
               Ask anything about {workspaceLabel}
             </h2>
             <p className="mt-3 text-sm leading-6 text-neutral-600 dark:text-neutral-400">
-              Start with a question, a task, or a change you want to make in this workspace.
+              Start with a question, a task, or a change you want to make in
+              this workspace.
             </p>
           </div>
         </div>

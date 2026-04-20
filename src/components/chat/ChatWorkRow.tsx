@@ -1,5 +1,5 @@
 import { ChevronDown, ChevronRight } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 
 import type { RequestTimingInfo } from "../../app/SessionContext";
 import { ChatActivityRow } from "./ChatActivityRow";
@@ -49,25 +49,24 @@ function WorkHeaderLabel({
     };
   }, [isRunning]);
 
-  const label = useMemo(() => {
-    if (requestTiming == null) {
-      if (isRunning) {
-        return "Working";
-      }
-
-      return hasError ? "Failed" : "Worked";
-    }
-
-    const endTime = requestTiming.completedAtMs ?? now;
-    const durationLabel = formatDurationLabel(endTime - requestTiming.startedAtMs);
+  let label = "Worked";
+  if (requestTiming == null) {
     if (isRunning) {
-      return `Working for ${durationLabel}`;
+      label = "Working";
+    } else {
+      label = hasError ? "Failed" : "Worked";
     }
-
-    return hasError
-      ? `Failed after ${durationLabel}`
-      : `Worked for ${durationLabel}`;
-  }, [hasError, isRunning, now, requestTiming]);
+  } else {
+    const endTime = requestTiming.completedAtMs ?? now;
+    const durationLabel = formatDurationLabel(
+      endTime - requestTiming.startedAtMs,
+    );
+    label = isRunning
+      ? `Working for ${durationLabel}`
+      : hasError
+        ? `Failed after ${durationLabel}`
+        : `Worked for ${durationLabel}`;
+  }
 
   return <ChatStatusLabel active={isRunning} text={label} />;
 }
@@ -78,18 +77,7 @@ export function ChatWorkRow({
   workspacePath,
 }: ChatWorkRowProps) {
   const [open, setOpen] = useState(item.isRunning || item.hasError);
-  const previousRunningRef = useRef(item.isRunning);
   const canExpand = item.activities.length > 0;
-
-  useEffect(() => {
-    if (previousRunningRef.current && item.isRunning === false) {
-      setOpen(item.hasError);
-    } else if (previousRunningRef.current === false && item.isRunning) {
-      setOpen(true);
-    }
-
-    previousRunningRef.current = item.isRunning;
-  }, [item.hasError, item.isRunning]);
 
   const header = (
     <>
@@ -127,7 +115,7 @@ export function ChatWorkRow({
         <div className="grid min-w-0 gap-1">
           {item.activities.map((activityItem) => (
             <ChatActivityRow
-              key={activityItem.key}
+              key={`${activityItem.key}:${activityItem.isRunning ? "running" : activityItem.hasError ? "error" : "idle"}`}
               item={activityItem}
               workspacePath={workspacePath}
             />

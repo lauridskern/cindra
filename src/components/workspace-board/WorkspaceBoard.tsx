@@ -1,10 +1,4 @@
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   DockviewReact,
   type DockviewApi,
@@ -40,12 +34,36 @@ import {
 import { useDockviewLayoutPersistence } from "./useDockviewLayoutPersistence";
 import { useDockviewTheme } from "./useDockviewTheme";
 
-export function WorkspaceBoard() {
-  const {
-    isOpeningProject,
-    runtimeStatus,
-    uiError,
-  } = useConversationSession();
+type ApplySavedWorkspaceLayoutResult =
+  | { kind: "restored" }
+  | { kind: "default"; bindings: ChatBinding[] }
+  | { kind: "fallback"; bindings: ChatBinding[] };
+
+type OuterDidDropEvent = Parameters<
+  NonNullable<React.ComponentProps<typeof DockviewReact>["onDidDrop"]>
+>[0];
+
+function applySavedWorkspaceLayout(
+  api: DockviewApi,
+  layoutJson: string,
+): ApplySavedWorkspaceLayoutResult {
+  const savedLayout = parseDockviewLayoutJson(layoutJson);
+  const savedBindings = extractBindingsFromLayoutJson(layoutJson);
+
+  if (savedLayout == null) {
+    return { kind: "default", bindings: savedBindings };
+  }
+
+  try {
+    api.fromJSON(savedLayout, { reuseExistingPanels: false });
+    return { kind: "restored" };
+  } catch {
+    return { kind: "fallback", bindings: savedBindings };
+  }
+}
+
+function useWorkspaceBoardController() {
+  const { isOpeningProject, runtimeStatus, uiError } = useConversationSession();
   const {
     applySessionSnapshot,
     getConversationSummary,
@@ -58,27 +76,23 @@ export function WorkspaceBoard() {
   const disposablesRef = useRef<Array<{ dispose(): void }>>([]);
   const fallbackBindingsRef = useRef<ChatBinding[] | null>(null);
   const theme = useDockviewTheme();
-  const persistWorkspaceLayout = useCallback(
-    async (layoutJson: string) => {
-      if (selection.kind !== "saved-workspace") {
-        return;
-      }
 
-      const detail = await desktopClient.updateSavedWorkspaceLayout({
-        workspaceId: selection.workspace.id,
-        layoutJson,
-      });
-      setSelection({ kind: "saved-workspace", workspace: detail });
-    },
-    [selection, setSelection],
-  );
-  const {
-    isApplyingLayoutRef,
-    markPersistedLayout,
-    schedulePersist,
-  } = useDockviewLayoutPersistence({
-    onPersist: persistWorkspaceLayout,
-  });
+  async function persistWorkspaceLayout(layoutJson: string) {
+    if (selection.kind !== "saved-workspace") {
+      return;
+    }
+
+    const detail = await desktopClient.updateSavedWorkspaceLayout({
+      workspaceId: selection.workspace.id,
+      layoutJson,
+    });
+    setSelection({ kind: "saved-workspace", workspace: detail });
+  }
+
+  const { isApplyingLayoutRef, markPersistedLayout, schedulePersist } =
+    useDockviewLayoutPersistence({
+      onPersist: persistWorkspaceLayout,
+    });
 
   useEffect(() => {
     return () => {
@@ -87,350 +101,340 @@ export function WorkspaceBoard() {
     };
   }, []);
 
-  const applyOuterLayoutConstraints = useCallback(
-    (api: DockviewApi) => {
-      api.groups.forEach((group) => {
-        group.locked = false;
-        group.header.hidden = true;
-        group.element.classList.add("workspace-board-outer-group");
-      });
-    },
-    [],
-  );
+  function applyOuterLayoutConstraints(api: DockviewApi) {
+    api.groups.forEach((group) => {
+      group.locked = false;
+      group.header.hidden = true;
+      group.element.classList.add("workspace-board-outer-group");
+    });
+  }
 
-  const addOuterChatPanel = useCallback(
-    (
-      api: DockviewApi,
-      binding: ChatBinding,
-      options?: { referencePanel?: string; position?: "left" | "right" },
-    ) => {
-      const panelId = createChatPanelId(binding);
-      const existingPanel = api.getPanel(panelId);
-      if (existingPanel != null) {
-        existingPanel.focus();
-        return existingPanel;
-      }
+  function addOuterChatPanel(
+    api: DockviewApi,
+    binding: ChatBinding,
+    options?: { referencePanel?: string; position?: "left" | "right" },
+  ) {
+    const panelId = createChatPanelId(binding);
+    const existingPanel = api.getPanel(panelId);
+    if (existingPanel != null) {
+      existingPanel.focus();
+      return existingPanel;
+    }
 
-      const title = getChatTitle(binding, getWorkspace, getConversationSummary);
-      const panel = api.addPanel<OuterChatPanelParams>({
-        id: panelId,
-        component: OUTER_CHAT_COMPONENT,
+    const title = getChatTitle(binding, getWorkspace, getConversationSummary);
+    const panel = api.addPanel<OuterChatPanelParams>({
+      id: panelId,
+      component: OUTER_CHAT_COMPONENT,
+      title,
+      params: {
+        ...binding,
         title,
-        params: {
-          ...binding,
-          title,
-        },
-        position:
-          options?.referencePanel != null
-            ? {
-                direction: options.position ?? "right",
-                referencePanel: options.referencePanel,
-              }
-            : undefined,
-      });
-      applyOuterLayoutConstraints(api);
-      return panel;
-    },
-    [applyOuterLayoutConstraints, getConversationSummary, getWorkspace],
-  );
+      },
+      position:
+        options?.referencePanel != null
+          ? {
+              direction: options.position ?? "right",
+              referencePanel: options.referencePanel,
+            }
+          : undefined,
+    });
+    applyOuterLayoutConstraints(api);
+    return panel;
+  }
 
-  const buildDefaultOuterLayout = useCallback(
-    (api: DockviewApi, bindings: ChatBinding[]) => {
-      api.clear();
-      bindings.forEach((binding, index) => {
-        addOuterChatPanel(api, binding, index === 0
+  function buildDefaultOuterLayout(api: DockviewApi, bindings: ChatBinding[]) {
+    api.clear();
+    bindings.forEach((binding, index) => {
+      addOuterChatPanel(
+        api,
+        binding,
+        index === 0
           ? undefined
           : {
               referencePanel: createChatPanelId(bindings[index - 1]),
               position: "right",
-            });
-      });
-      applyOuterLayoutConstraints(api);
-    },
-    [addOuterChatPanel, applyOuterLayoutConstraints],
-  );
+            },
+      );
+    });
+    applyOuterLayoutConstraints(api);
+  }
 
-  const persistSavedWorkspaceLayout = useCallback(() => {
+  function persistSavedWorkspaceLayout() {
     if (selection.kind !== "saved-workspace") {
       return;
     }
 
     schedulePersist(() => outerApiRef.current);
-  }, [schedulePersist, selection.kind]);
+  }
 
-  const focusChat = useCallback(
-    async (binding: ChatBinding) => {
-      try {
-        const snapshot = await desktopClient.selectConversation(
-          binding.workspacePath,
-          binding.conversationId,
-        );
-        applySessionSnapshot(snapshot);
-      } catch {
-        return;
-      }
-    },
-    [applySessionSnapshot],
-  );
+  function finishSelectionRestore(layoutJson: string | null) {
+    markPersistedLayout(layoutJson);
+    isApplyingLayoutRef.current = false;
+  }
 
-  const canCloseChatPanel = useCallback(
-    (binding: ChatBinding) => {
-      const api = outerApiRef.current;
-      if (selection.kind !== "saved-workspace" || api == null) {
-        return false;
-      }
+  function getReferenceBinding(
+    api: DockviewApi,
+    binding: ChatBinding,
+    referenceBinding?: ChatBinding,
+  ) {
+    if (referenceBinding != null) {
+      return referenceBinding;
+    }
 
-      if (api.totalPanels <= 1) {
-        return false;
-      }
+    if (selection.kind === "single-chat") {
+      return selection.chat;
+    }
 
-      return api.getPanel(createChatPanelId(binding)) != null;
-    },
-    [selection.kind],
-  );
+    return (
+      getActiveOuterBinding(api) ??
+      extractBindingsFromSerializedLayout(api.toJSON())[0] ??
+      binding
+    );
+  }
 
-  const closeChatPanel = useCallback(
-    (binding: ChatBinding) => {
-      const api = outerApiRef.current;
-      if (selection.kind !== "saved-workspace" || api == null) {
-        return;
-      }
+  async function focusChat(binding: ChatBinding) {
+    try {
+      const snapshot = await desktopClient.selectConversation(
+        binding.workspacePath,
+        binding.conversationId,
+      );
+      applySessionSnapshot(snapshot);
+    } catch {
+      return;
+    }
+  }
 
-      if (api.totalPanels <= 1) {
-        return;
-      }
+  function canCloseChatPanel(binding: ChatBinding) {
+    const api = outerApiRef.current;
+    if (selection.kind !== "saved-workspace" || api == null) {
+      return false;
+    }
 
-      const panel = api.getPanel(createChatPanelId(binding));
-      if (panel == null) {
-        return;
-      }
+    if (api.totalPanels <= 1) {
+      return false;
+    }
 
-      api.removePanel(panel);
-    },
-    [selection.kind],
-  );
+    return api.getPanel(createChatPanelId(binding)) != null;
+  }
 
-  const restoreSelection = useCallback(
-    async (api: DockviewApi) => {
-      isApplyingLayoutRef.current = true;
-      try {
-        if (fallbackBindingsRef.current != null) {
-          const bindings = fallbackBindingsRef.current;
-          fallbackBindingsRef.current = null;
-          markPersistedLayout(null);
-          buildDefaultOuterLayout(api, bindings);
-          return;
-        }
+  function closeChatPanel(binding: ChatBinding) {
+    const api = outerApiRef.current;
+    if (selection.kind !== "saved-workspace" || api == null) {
+      return;
+    }
 
-        if (selection.kind === "single-chat") {
-          markPersistedLayout(null);
-          buildDefaultOuterLayout(api, [selection.chat]);
-          return;
-        }
+    if (api.totalPanels <= 1) {
+      return;
+    }
 
-        if (selection.kind !== "saved-workspace") {
-          markPersistedLayout(null);
-          api.clear();
-          return;
-        }
+    const panel = api.getPanel(createChatPanelId(binding));
+    if (panel == null) {
+      return;
+    }
 
-        const savedLayout = parseDockviewLayoutJson(selection.workspace.layoutJson);
-        const savedBindings = extractBindingsFromLayoutJson(
-          selection.workspace.layoutJson,
-        );
+    api.removePanel(panel);
+  }
 
-        if (savedLayout != null) {
-          try {
-            api.fromJSON(savedLayout, { reuseExistingPanels: false });
-            markPersistedLayout(selection.workspace.layoutJson);
-            applyOuterLayoutConstraints(api);
-            return;
-          } catch {
-            fallbackBindingsRef.current = savedBindings;
-            setLayoutResetNonce((current) => current + 1);
-            return;
-          }
-        }
+  async function restoreSelection(api: DockviewApi) {
+    isApplyingLayoutRef.current = true;
+    if (fallbackBindingsRef.current != null) {
+      const bindings = fallbackBindingsRef.current;
+      fallbackBindingsRef.current = null;
+      finishSelectionRestore(null);
+      buildDefaultOuterLayout(api, bindings);
+      return;
+    }
 
-        markPersistedLayout(null);
-        buildDefaultOuterLayout(api, savedBindings);
-      } finally {
-        isApplyingLayoutRef.current = false;
-      }
-    },
-    [
-      applyOuterLayoutConstraints,
-      buildDefaultOuterLayout,
-      isApplyingLayoutRef,
-      markPersistedLayout,
-      selection,
-    ],
-  );
+    if (selection.kind === "single-chat") {
+      finishSelectionRestore(null);
+      buildDefaultOuterLayout(api, [selection.chat]);
+      return;
+    }
 
-  const addChatToBoard = useCallback(
-    async (
-      binding: ChatBinding,
-      options?: { position?: "left" | "right"; referenceBinding?: ChatBinding },
-    ) => {
-      try {
-        const ensuredSnapshot = await desktopClient.ensureConversationView(
-          binding.workspacePath,
-          binding.conversationId,
-        );
-        applySessionSnapshot(ensuredSnapshot);
-      } catch {
-        return;
-      }
+    if (selection.kind !== "saved-workspace") {
+      finishSelectionRestore(null);
+      api.clear();
+      return;
+    }
 
-      if (selection.kind === "empty") {
-        setSelection({ kind: "single-chat", chat: binding });
-        void focusChat(binding);
-        return;
-      }
+    const restoreResult = applySavedWorkspaceLayout(
+      api,
+      selection.workspace.layoutJson,
+    );
+    if (restoreResult.kind === "fallback") {
+      fallbackBindingsRef.current = restoreResult.bindings;
+      isApplyingLayoutRef.current = false;
+      setLayoutResetNonce((current) => current + 1);
+      return;
+    }
 
-      const api = outerApiRef.current;
-      if (api == null) {
-        return;
-      }
+    if (restoreResult.kind === "restored") {
+      finishSelectionRestore(selection.workspace.layoutJson);
+      applyOuterLayoutConstraints(api);
+      return;
+    }
 
-      const existingPanel = api.getPanel(createChatPanelId(binding));
-      if (existingPanel != null) {
-        existingPanel.focus();
-        void focusChat(binding);
-        return;
-      }
+    finishSelectionRestore(null);
+    buildDefaultOuterLayout(api, restoreResult.bindings);
+  }
 
-      const referencePanelId =
-        options?.referenceBinding != null
-          ? createChatPanelId(options.referenceBinding)
-          : createChatPanelId(
-              selection.kind === "single-chat"
-                ? selection.chat
-                : getActiveOuterBinding(api) ??
-                    extractBindingsFromSerializedLayout(api.toJSON())[0] ??
-                    binding,
-            );
+  async function addChatToBoard(
+    binding: ChatBinding,
+    options?: { position?: "left" | "right"; referenceBinding?: ChatBinding },
+  ) {
+    try {
+      const ensuredSnapshot = await desktopClient.ensureConversationView(
+        binding.workspacePath,
+        binding.conversationId,
+      );
+      applySessionSnapshot(ensuredSnapshot);
+    } catch {
+      return;
+    }
 
-      addOuterChatPanel(api, binding, {
-        position: options?.position ?? "right",
-        referencePanel: referencePanelId,
-      });
-
-      if (selection.kind === "single-chat") {
-        const layout = api.toJSON();
-        const layoutJson = serializeDockviewLayout(layout);
-        const detail = await desktopClient.createSavedWorkspace({
-          chats: extractBindingsFromSerializedLayout(layout),
-          layoutJson,
-        });
-        markPersistedLayout(layoutJson);
-        setSelection({ kind: "saved-workspace", workspace: detail });
-      } else {
-        persistSavedWorkspaceLayout();
-      }
-
+    if (selection.kind === "empty") {
+      setSelection({ kind: "single-chat", chat: binding });
       void focusChat(binding);
-    },
-    [
-      addOuterChatPanel,
-      applySessionSnapshot,
-      focusChat,
-      markPersistedLayout,
-      persistSavedWorkspaceLayout,
-      selection,
-      setSelection,
-    ],
-  );
+      return;
+    }
 
-  const handleOuterReady = useCallback(
-    (event: DockviewReadyEvent) => {
-      disposablesRef.current.forEach((disposable) => disposable.dispose());
-      disposablesRef.current = [];
-      outerApiRef.current = event.api;
-      disposablesRef.current = [
-        event.api.onDidActivePanelChange((panel) => {
-          const binding = getOuterPanelBinding(panel);
-          if (binding == null) {
-            return;
-          }
+    const api = outerApiRef.current;
+    if (api == null) {
+      return;
+    }
 
-          void focusChat(binding);
-        }),
-        event.api.onDidLayoutChange(() => {
-          applyOuterLayoutConstraints(event.api);
-          persistSavedWorkspaceLayout();
-        }),
-        event.api.onUnhandledDragOverEvent((dragEvent) => {
-          if (hasChatBindingDataTransfer(dragEvent.nativeEvent.dataTransfer)) {
-            dragEvent.accept();
-          }
-        }),
-      ];
+    const existingPanel = api.getPanel(createChatPanelId(binding));
+    if (existingPanel != null) {
+      existingPanel.focus();
+      void focusChat(binding);
+      return;
+    }
 
-      void restoreSelection(event.api);
-    },
-    [
-      applyOuterLayoutConstraints,
-      focusChat,
-      persistSavedWorkspaceLayout,
-      restoreSelection,
-    ],
-  );
+    const referencePanelId = createChatPanelId(
+      getReferenceBinding(api, binding, options?.referenceBinding),
+    );
 
-  const components = useMemo(
-    () => ({
-      [OUTER_CHAT_COMPONENT]: function ChatTilePanel({
-        params,
-      }: IDockviewPanelProps<OuterChatPanelParams>) {
-        const binding = {
-          workspacePath: params.workspacePath,
-          conversationId: params.conversationId,
-        };
+    addOuterChatPanel(api, binding, {
+      position: options?.position ?? "right",
+      referencePanel: referencePanelId,
+    });
 
-        return (
-          <ChatTile
-            binding={binding}
-            canCloseChat={() => canCloseChatPanel(binding)}
-            onCloseChat={() => {
-              closeChatPanel(binding);
-            }}
-          />
-        );
-      },
-    }),
-    [canCloseChatPanel, closeChatPanel],
-  );
+    if (selection.kind === "single-chat") {
+      const layout = api.toJSON();
+      const layoutJson = serializeDockviewLayout(layout);
+      const detail = await desktopClient.createSavedWorkspace({
+        chats: extractBindingsFromSerializedLayout(layout),
+        layoutJson,
+      });
+      markPersistedLayout(layoutJson);
+      setSelection({ kind: "saved-workspace", workspace: detail });
+    } else {
+      persistSavedWorkspaceLayout();
+    }
 
-  const handleOuterDidDrop = useCallback(
-    (event: Parameters<NonNullable<React.ComponentProps<typeof DockviewReact>["onDidDrop"]>>[0]) => {
-      const binding = readChatBindingFromDataTransfer(
-        event.nativeEvent.dataTransfer,
+    void focusChat(binding);
+  }
+
+  function handleOuterReady(event: DockviewReadyEvent) {
+    disposablesRef.current.forEach((disposable) => disposable.dispose());
+    disposablesRef.current = [];
+    outerApiRef.current = event.api;
+    disposablesRef.current = [
+      event.api.onDidActivePanelChange((panel) => {
+        const binding = getOuterPanelBinding(panel);
+        if (binding == null) {
+          return;
+        }
+
+        void focusChat(binding);
+      }),
+      event.api.onDidLayoutChange(() => {
+        applyOuterLayoutConstraints(event.api);
+        persistSavedWorkspaceLayout();
+      }),
+      event.api.onUnhandledDragOverEvent((dragEvent) => {
+        if (hasChatBindingDataTransfer(dragEvent.nativeEvent.dataTransfer)) {
+          dragEvent.accept();
+        }
+      }),
+    ];
+
+    void restoreSelection(event.api);
+  }
+
+  const components = {
+    [OUTER_CHAT_COMPONENT]: function ChatTilePanel({
+      params,
+    }: IDockviewPanelProps<OuterChatPanelParams>) {
+      const binding = {
+        workspacePath: params.workspacePath,
+        conversationId: params.conversationId,
+      };
+
+      return (
+        <ChatTile
+          binding={binding}
+          canCloseChat={() => canCloseChatPanel(binding)}
+          onCloseChat={() => {
+            closeChatPanel(binding);
+          }}
+        />
       );
-      if (binding == null) {
-        clearActiveDraggedChatBinding();
-        return;
-      }
+    },
+  };
 
-      const referenceBinding =
-        event.group?.activePanel != null
-          ? getOuterPanelBinding(event.group.activePanel)
-          : getActiveOuterBinding(outerApiRef.current);
-      const position =
-        event.position === "left" ? "left" : "right";
-
-      void addChatToBoard(
-        binding,
-        referenceBinding == null
-          ? undefined
-          : {
-              referenceBinding,
-              position,
-            },
-      );
+  function handleOuterDidDrop(event: OuterDidDropEvent) {
+    const binding = readChatBindingFromDataTransfer(
+      event.nativeEvent.dataTransfer,
+    );
+    if (binding == null) {
       clearActiveDraggedChatBinding();
-    },
-    [addChatToBoard],
-  );
+      return;
+    }
+
+    const referenceBinding =
+      event.group?.activePanel != null
+        ? getOuterPanelBinding(event.group.activePanel)
+        : getActiveOuterBinding(outerApiRef.current);
+    const position = event.position === "left" ? "left" : "right";
+
+    void addChatToBoard(
+      binding,
+      referenceBinding == null
+        ? undefined
+        : {
+            referenceBinding,
+            position,
+          },
+    );
+    clearActiveDraggedChatBinding();
+  }
+
+  return {
+    components,
+    handleOuterDidDrop,
+    handleOuterReady,
+    isOpeningProject,
+    layoutResetNonce,
+    runtimeStatus,
+    selection,
+    theme,
+    uiError,
+  };
+}
+
+export function WorkspaceBoard() {
+  const {
+    components,
+    handleOuterDidDrop,
+    handleOuterReady,
+    isOpeningProject,
+    layoutResetNonce,
+    runtimeStatus,
+    selection,
+    theme,
+    uiError,
+  } = useWorkspaceBoardController();
 
   if (selection.kind === "empty") {
     return (
@@ -473,10 +477,8 @@ export function WorkspaceBoard() {
 
           if (
             internalDropData != null &&
-            (
-              internalDropData.groupId === dropEvent.group?.id ||
-              internalDropData.panelId === dropEvent.panel?.id
-            )
+            (internalDropData.groupId === dropEvent.group?.id ||
+              internalDropData.panelId === dropEvent.panel?.id)
           ) {
             dropEvent.preventDefault();
           }

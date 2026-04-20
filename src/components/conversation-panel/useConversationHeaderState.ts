@@ -39,16 +39,14 @@ export function useConversationHeaderState() {
   const branchNames = runtimeStatus?.gitBranches ?? EMPTY_STRING_ARRAY;
   const availableOpenTargets =
     runtimeStatus?.availableOpenTargets ?? EMPTY_STRING_ARRAY;
-  const openTargets = React.useMemo<ReadonlyArray<AppTarget>>(
-    () =>
-      appTargets.filter((target) => availableOpenTargets.includes(target.id)),
-    [availableOpenTargets],
+  const openTargets = appTargets.filter((target) =>
+    availableOpenTargets.includes(target.id),
   );
   const { resolvedPreferredAppId, setPreferredAppId } =
     usePreferredOpenTarget(openTargets);
 
   const normalizedBranchQuery = normalizeSearchText(branchQuery);
-  const filteredBranches = React.useMemo(() => {
+  const filteredBranches = (() => {
     if (normalizedBranchQuery.length === 0) {
       return branchNames;
     }
@@ -64,7 +62,7 @@ export function useConversationHeaderState() {
         (left, right) => right.rank - left.rank || left.index - right.index,
       )
       .map((entry) => entry.candidate);
-  }, [branchNames, normalizedBranchQuery]);
+  })();
 
   const canCreateBranch =
     branchQuery.trim().length > 0 &&
@@ -82,27 +80,24 @@ export function useConversationHeaderState() {
 
   useAutoFocusWhenOpen(isBranchMenuOpen, branchSearchInputRef);
 
-  const handleBranchMenuOpenChange = React.useCallback((open: boolean) => {
+  function handleBranchMenuOpenChange(open: boolean) {
     setIsBranchMenuOpen(open);
     if (!open) {
       setBranchQuery("");
     }
-  }, []);
+  }
 
-  const handleBranchSelect = React.useCallback(
-    async (candidate: string) => {
-      setPendingHeaderAction("checkout");
-      try {
-        await checkoutBranch(candidate);
-        setIsBranchMenuOpen(false);
-      } finally {
-        setPendingHeaderAction(null);
-      }
-    },
-    [checkoutBranch],
-  );
+  async function handleBranchSelect(candidate: string) {
+    setPendingHeaderAction("checkout");
+    try {
+      await checkoutBranch(candidate);
+      setIsBranchMenuOpen(false);
+    } finally {
+      setPendingHeaderAction(null);
+    }
+  }
 
-  const handleBranchCreate = React.useCallback(async () => {
+  async function handleBranchCreate() {
     if (!canCreateBranch) {
       return;
     }
@@ -114,59 +109,53 @@ export function useConversationHeaderState() {
     } finally {
       setPendingHeaderAction(null);
     }
-  }, [branchQuery, canCreateBranch, createBranch]);
+  }
 
-  const handlePush = React.useCallback(async () => {
+  async function handlePush() {
     setPendingHeaderAction("push");
     try {
       await pushBranch();
     } finally {
       setPendingHeaderAction(null);
     }
-  }, [pushBranch]);
+  }
 
-  const handleOpenTarget = React.useCallback(
-    async (appId: AppTargetId) => {
-      if (openTargets.some((target) => target.id === appId) === false) {
-        return;
-      }
+  async function handleOpenTarget(appId: AppTargetId) {
+    if (openTargets.some((target) => target.id === appId) === false) {
+      return;
+    }
 
-      setPreferredAppId(appId);
-      setPendingHeaderAction("open-target");
-      try {
-        await openInTarget(appId);
-      } finally {
-        setPendingHeaderAction((current) =>
-          current === "open-target" ? null : current,
-        );
-      }
-    },
-    [openInTarget, openTargets, setPreferredAppId],
-  );
+    setPreferredAppId(appId);
+    setPendingHeaderAction("open-target");
+    try {
+      await openInTarget(appId);
+    } finally {
+      setPendingHeaderAction((current) =>
+        current === "open-target" ? null : current,
+      );
+    }
+  }
 
-  const handleCommitDialogOpenChange = React.useCallback(
-    (open: boolean) => {
-      if (isCommitPending) {
-        return;
-      }
+  function handleCommitDialogOpenChange(open: boolean) {
+    if (isCommitPending) {
+      return;
+    }
 
-      setIsCommitDialogOpen(open);
-      if (!open) {
-        setCommitMessage("");
-      }
-    },
-    [isCommitPending],
-  );
+    setIsCommitDialogOpen(open);
+    if (!open) {
+      setCommitMessage("");
+    }
+  }
 
-  const handleCommitDialogClose = React.useCallback(() => {
+  function handleCommitDialogClose() {
     handleCommitDialogOpenChange(false);
-  }, [handleCommitDialogOpenChange]);
+  }
 
-  const openCommitDialog = React.useCallback(() => {
+  function openCommitDialog() {
     setIsCommitDialogOpen(true);
-  }, []);
+  }
 
-  const handleCommitSubmit = React.useCallback(async () => {
+  async function handleCommitSubmit() {
     const trimmedMessage = commitMessage.trim();
     if (trimmedMessage.length === 0) {
       return;
@@ -180,7 +169,7 @@ export function useConversationHeaderState() {
     } finally {
       setPendingHeaderAction(null);
     }
-  }, [commitChanges, commitMessage]);
+  }
 
   return {
     activeWorkspaceLabel,
@@ -213,9 +202,11 @@ export function useConversationHeaderState() {
 }
 
 function usePreferredOpenTarget(openTargets: ReadonlyArray<AppTarget>) {
-  const [preferredAppId, setPreferredAppId] =
-    React.useState<AppTargetId>(DEFAULT_APP_TARGET_ID);
+  const [preferredAppId, setPreferredAppId] = React.useState<AppTargetId>(
+    DEFAULT_APP_TARGET_ID,
+  );
   const hasInitializedPreferredAppRef = React.useRef(false);
+  const openTargetsKey = openTargets.map((target) => target.id).join("|");
   const resolvedPreferredAppId =
     openTargets.length > 0 &&
     openTargets.some((target) => target.id === preferredAppId)
@@ -239,7 +230,7 @@ function usePreferredOpenTarget(openTargets: ReadonlyArray<AppTarget>) {
 
     hasInitializedPreferredAppRef.current = true;
     setPreferredAppId(nextPreferredAppId);
-  }, [openTargets]);
+  }, [openTargets, openTargetsKey]);
 
   React.useEffect(() => {
     if (openTargets.length === 0) {

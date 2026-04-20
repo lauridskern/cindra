@@ -1,20 +1,13 @@
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ReactNode,
-} from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import * as desktopClient from "../services/desktop/client";
 import type {
   ChatBinding,
-  PromptSettings,
   SessionSnapshot,
 } from "../services/desktop/contracts";
 import { useLatestRef } from "../hooks/useLatestRef";
 import { usePromptDraftStore } from "../hooks/usePromptDraftStore";
+import { usePromptSettings } from "../hooks/usePromptSettings";
 import { useRuntimeStatus } from "../hooks/useRuntimeStatus";
 import { useSessionBootstrap } from "../hooks/useSessionBootstrap";
 import { useSessionCommands } from "../hooks/useSessionCommands";
@@ -36,13 +29,42 @@ import {
   getPromptDraftKey,
 } from "./sessionSnapshot";
 
-export function SessionProvider({ children }: { children: ReactNode }) {
-  const [sessionSnapshot, setSessionSnapshot] = useState<SessionSnapshot | null>(
-    null,
-  );
-  const [promptSettings, setPromptSettings] = useState<PromptSettings | null>(
-    null,
-  );
+async function loadSavedWorkspaceState(workspaceId: string): Promise<{
+  latestSnapshot: SessionSnapshot | null;
+  workspace: NonNullable<
+    Awaited<ReturnType<typeof desktopClient.getSavedWorkspace>>
+  >;
+} | null> {
+  const workspace = await desktopClient
+    .getSavedWorkspace(workspaceId)
+    .catch(() => null);
+  if (workspace == null) {
+    return null;
+  }
+
+  const bindings = extractBindingsFromLayoutJson(workspace.layoutJson);
+  let latestSnapshot: SessionSnapshot | null = null;
+
+  for (const binding of bindings) {
+    latestSnapshot = await desktopClient.ensureConversationView(
+      binding.workspacePath,
+      binding.conversationId,
+    );
+  }
+
+  if (bindings[0] != null) {
+    latestSnapshot = await desktopClient.selectConversation(
+      bindings[0].workspacePath,
+      bindings[0].conversationId,
+    );
+  }
+
+  return { latestSnapshot, workspace };
+}
+
+function useSessionProviderState() {
+  const [sessionSnapshot, setSessionSnapshot] =
+    useState<SessionSnapshot | null>(null);
   const [requestTimingsByConversationId, setRequestTimingsByConversationId] =
     useState<Record<string, Record<string, RequestTimingInfo>>>({});
   const [isOpeningProject, setIsOpeningProject] = useState(false);
@@ -51,17 +73,18 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const sessionSnapshotRef = useLatestRef(sessionSnapshot);
   const boardSelectionRef = useRef<WorkspaceBoardSelection>({ kind: "empty" });
 
-  const setBoardSelection = useCallback((selection: WorkspaceBoardSelection) => {
+  function setBoardSelection(selection: WorkspaceBoardSelection) {
     boardSelectionRef.current = selection;
     setBoardSelectionState(selection);
-  }, []);
+  }
   const boardSelection = boardSelectionState;
 
-  const applySessionSnapshot = useCallback((snapshot: SessionSnapshot) => {
+  function applySessionSnapshot(snapshot: SessionSnapshot) {
     const nextViews =
       snapshot.conversationViews.length > 0
         ? snapshot.conversationViews
-        : snapshot.activeConversationId != null && snapshot.activeWorkspacePath != null
+        : snapshot.activeConversationId != null &&
+            snapshot.activeWorkspacePath != null
           ? [
               {
                 workspacePath: snapshot.activeWorkspacePath,
@@ -81,8 +104,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         const nextState = { ...current };
 
         for (const view of nextViews) {
-          const currentConversationTimings =
-            current[view.conversationId] ?? {};
+          const currentConversationTimings = current[view.conversationId] ?? {};
           const nextConversationTimings = { ...currentConversationTimings };
           const activeRequestIdSet = new Set(view.activeRequestIds ?? []);
 
@@ -147,13 +169,16 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     }
 
     setBoardSelection({ kind: "empty" });
-  }, [setBoardSelection]);
+  }
 
   const currentPromptDraftKey = getPromptDraftKey(
     sessionSnapshot?.activeWorkspacePath,
     sessionSnapshot?.activeConversationId,
   );
   const promptDraftStore = usePromptDraftStore(currentPromptDraftKey);
+  const { promptSettings, setPromptSettings } = usePromptSettings(
+    sessionSnapshot?.activeWorkspacePath ?? null,
+  );
 
   const { refreshRuntimeStatus, runtimeStatus, setRuntimeStatus } =
     useRuntimeStatus(sessionSnapshot?.activeWorkspacePath ?? null);
@@ -192,142 +217,91 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     );
   }, [sessionSnapshot?.activeWorkspacePath]);
 
-  useEffect(() => {
-    let cancelled = false;
-
-    void (async () => {
-      if (sessionSnapshot?.activeWorkspacePath == null) {
-        if (cancelled === false) {
-          setPromptSettings(null);
-        }
-        return;
-      }
-
-      try {
-        const settings = await desktopClient.getPromptSettings(
-          sessionSnapshot.activeWorkspacePath,
-        );
-        if (cancelled === false) {
-          setPromptSettings(settings);
-        }
-      } catch {
-        if (cancelled === false) {
-          setPromptSettings(null);
-        }
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [sessionSnapshot?.activeWorkspacePath]);
-
-  const getConversationView = useCallback(
-    (binding: ChatBinding) =>
+  function getConversationView(binding: ChatBinding) {
+    return (
       sessionSnapshot?.conversationViews.find(
         (view) =>
           view.workspacePath === binding.workspacePath &&
           view.conversationId === binding.conversationId,
-      ) ?? null,
-    [sessionSnapshot?.conversationViews],
-  );
+      ) ?? null
+    );
+  }
 
-  const getWorkspace = useCallback(
-    (workspacePath: string) =>
+  function getWorkspace(workspacePath: string) {
+    return (
       sessionSnapshot?.workspaces.find(
         (workspace) => workspace.workspacePath === workspacePath,
-      ) ?? null,
-    [sessionSnapshot?.workspaces],
-  );
+      ) ?? null
+    );
+  }
 
-  const getConversationSummary = useCallback(
-    (binding: ChatBinding) =>
+  function getConversationSummary(binding: ChatBinding) {
+    return (
       getWorkspace(binding.workspacePath)?.conversations.find(
-        (conversation) => conversation.conversationId === binding.conversationId,
-      ) ?? null,
-    [getWorkspace],
-  );
+        (conversation) =>
+          conversation.conversationId === binding.conversationId,
+      ) ?? null
+    );
+  }
 
-  const openSavedWorkspace = useCallback(
-    async (workspaceId: string) => {
-      try {
-        const workspace = await desktopClient.getSavedWorkspace(workspaceId);
-        if (workspace == null) {
-          return;
-        }
+  async function openSavedWorkspace(workspaceId: string) {
+    const result = await loadSavedWorkspaceState(workspaceId);
+    if (result == null) {
+      return;
+    }
 
-        setBoardSelection({ kind: "saved-workspace", workspace });
-        const bindings = extractBindingsFromLayoutJson(workspace.layoutJson);
-        let latestSnapshot: SessionSnapshot | null = null;
+    setBoardSelection({ kind: "saved-workspace", workspace: result.workspace });
+    if (result.latestSnapshot != null) {
+      applySessionSnapshot(result.latestSnapshot);
+    }
+  }
 
-        for (const binding of bindings) {
-          latestSnapshot = await desktopClient.ensureConversationView(
-            binding.workspacePath,
-            binding.conversationId,
-          );
-        }
-
-        if (bindings[0] != null) {
-          latestSnapshot = await desktopClient.selectConversation(
-            bindings[0].workspacePath,
-            bindings[0].conversationId,
-          );
-        }
-
-        if (latestSnapshot != null) {
-          applySessionSnapshot(latestSnapshot);
-        }
-      } catch {
-        return;
-      }
+  const actionState = {
+    ...baseActionState,
+    openProject: async (workspacePath: string) => {
+      setBoardSelection({ kind: "empty" });
+      await baseActionState.openProject(workspacePath);
     },
-    [applySessionSnapshot, setBoardSelection],
-  );
+    openSavedWorkspace,
+    openWorkspacePicker: async () => {
+      setBoardSelection({ kind: "empty" });
+      return await baseActionState.openWorkspacePicker();
+    },
+    selectConversation: async (
+      workspacePath: string,
+      conversationId: string,
+    ) => {
+      setBoardSelection({
+        kind: "single-chat",
+        chat: { workspacePath, conversationId },
+      });
+      await baseActionState.selectConversation(workspacePath, conversationId);
+    },
+    startNewChat: async (workspacePath?: string) => {
+      const targetWorkspacePath =
+        workspacePath ??
+        sessionSnapshotRef.current?.activeWorkspacePath ??
+        null;
+      if (targetWorkspacePath == null) {
+        return null;
+      }
 
-  const actionState = useMemo(
-    () => ({
-      ...baseActionState,
-      openProject: async (workspacePath: string) => {
-        setBoardSelection({ kind: "empty" });
-        await baseActionState.openProject(workspacePath);
-      },
-      openSavedWorkspace,
-      openWorkspacePicker: async () => {
-        setBoardSelection({ kind: "empty" });
-        return await baseActionState.openWorkspacePicker();
-      },
-      selectConversation: async (workspacePath: string, conversationId: string) => {
-        setBoardSelection({
-          kind: "single-chat",
-          chat: { workspacePath, conversationId },
-        });
-        await baseActionState.selectConversation(workspacePath, conversationId);
-      },
-      startNewChat: async (workspacePath?: string) => {
-        const targetWorkspacePath =
-          workspacePath ?? sessionSnapshotRef.current?.activeWorkspacePath ?? null;
-        if (targetWorkspacePath == null) {
-          return null;
-        }
-
-        const snapshot = await baseActionState.startNewChat(targetWorkspacePath);
-        if (
-          snapshot == null ||
-          snapshot.activeWorkspacePath !== targetWorkspacePath ||
-          snapshot.activeConversationId != null
-        ) {
-          return snapshot;
-        }
-
-        setBoardSelection({
-          kind: "workspace-draft",
-          workspacePath: targetWorkspacePath,
-        });
+      const snapshot = await baseActionState.startNewChat(targetWorkspacePath);
+      if (
+        snapshot == null ||
+        snapshot.activeWorkspacePath !== targetWorkspacePath ||
+        snapshot.activeConversationId != null
+      ) {
         return snapshot;
-      },
-    }),
-    [baseActionState, openSavedWorkspace, sessionSnapshotRef, setBoardSelection],
-  );
+      }
+
+      setBoardSelection({
+        kind: "workspace-draft",
+        workspacePath: targetWorkspacePath,
+      });
+      return snapshot;
+    },
+  };
 
   const canCompose =
     hasCurrentWorkspace &&
@@ -335,103 +309,75 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     followupRequest == null &&
     promptDraftStore.isSendingPrompt === false &&
     (activeConversation?.isRunning ?? false) === false;
-  const requestTimingsById = useMemo(
-    () =>
-      activeConversationId == null
-        ? {}
-        : requestTimingsByConversationId[activeConversationId] ?? {},
-    [activeConversationId, requestTimingsByConversationId],
-  );
+  const requestTimingsById =
+    activeConversationId == null
+      ? {}
+      : (requestTimingsByConversationId[activeConversationId] ?? {});
 
-  const conversationState = useMemo(
-    () => ({
-      activeRequestIds: sessionSnapshot?.visibleActiveRequestIds ?? [],
-      activeWorkspaceConfigurationError,
-      activeWorkspaceConfigured,
-      activeWorkspaceLabel: getActiveWorkspaceLabel(sessionSnapshot),
-      hasCurrentWorkspace,
-      isOpeningProject,
-      messages: sessionSnapshot?.visibleMessages ?? [],
-      requestTimingsById,
-      runtimeStatus,
-      todos: sessionSnapshot?.visibleTodos ?? [],
-      uiError: sessionSnapshot?.uiError ?? null,
-      workspacePath: sessionSnapshot?.activeWorkspacePath ?? null,
-    }),
-    [
-      activeWorkspaceConfigurationError,
-      activeWorkspaceConfigured,
-      hasCurrentWorkspace,
-      isOpeningProject,
-      requestTimingsById,
-      runtimeStatus,
-      sessionSnapshot,
-    ],
-  );
+  const conversationState = {
+    activeRequestIds: sessionSnapshot?.visibleActiveRequestIds ?? [],
+    activeWorkspaceConfigurationError,
+    activeWorkspaceConfigured,
+    activeWorkspaceLabel: getActiveWorkspaceLabel(sessionSnapshot),
+    hasCurrentWorkspace,
+    isOpeningProject,
+    messages: sessionSnapshot?.visibleMessages ?? [],
+    requestTimingsById,
+    runtimeStatus,
+    todos: sessionSnapshot?.visibleTodos ?? [],
+    uiError: sessionSnapshot?.uiError ?? null,
+    workspacePath: sessionSnapshot?.activeWorkspacePath ?? null,
+  };
 
-  const sidebarState = useMemo(
-    () => ({
-      activeWorkspacePath: sessionSnapshot?.activeWorkspacePath ?? null,
-      activeSavedWorkspaceId:
-        boardSelection.kind === "saved-workspace"
-          ? boardSelection.workspace.id
-          : null,
-      hasCurrentWorkspace,
-      savedWorkspaces: sessionSnapshot?.savedWorkspaces ?? [],
-      workspaces: sessionSnapshot?.workspaces ?? [],
-    }),
-    [
-      boardSelection,
-      hasCurrentWorkspace,
-      sessionSnapshot?.activeWorkspacePath,
-      sessionSnapshot?.savedWorkspaces,
-      sessionSnapshot?.workspaces,
-    ],
-  );
+  const sidebarState = {
+    activeWorkspacePath: sessionSnapshot?.activeWorkspacePath ?? null,
+    activeSavedWorkspaceId:
+      boardSelection.kind === "saved-workspace"
+        ? boardSelection.workspace.id
+        : null,
+    hasCurrentWorkspace,
+    savedWorkspaces: sessionSnapshot?.savedWorkspaces ?? [],
+    workspaces: sessionSnapshot?.workspaces ?? [],
+  };
 
-  const workspaceBoardState = useMemo(
-    () => ({
-      applySessionSnapshot,
-      getConversationSummary,
-      getConversationView,
-      getWorkspace,
-      isOpeningProject,
-      requestTimingsByConversationId,
-      selection: boardSelection,
-      sessionSnapshot,
-      setSelection: setBoardSelection,
-    }),
-    [
-      applySessionSnapshot,
-      boardSelection,
-      getConversationSummary,
-      getConversationView,
-      getWorkspace,
-      isOpeningProject,
-      requestTimingsByConversationId,
-      sessionSnapshot,
-      setBoardSelection,
-    ],
-  );
+  const workspaceBoardState = {
+    applySessionSnapshot,
+    getConversationSummary,
+    getConversationView,
+    getWorkspace,
+    isOpeningProject,
+    requestTimingsByConversationId,
+    selection: boardSelection,
+    sessionSnapshot,
+    setSelection: setBoardSelection,
+  };
 
-  const promptState = useMemo(
-    () => ({
-      canCompose,
-      followupRequest,
-      isSendingPrompt: promptDraftStore.isSendingPrompt,
-      promptSettings,
-      promptDraft: promptDraftStore.promptDraft,
-      setPromptDraft: promptDraftStore.setPromptDraft,
-    }),
-    [
-      canCompose,
-      followupRequest,
-      promptDraftStore.isSendingPrompt,
-      promptSettings,
-      promptDraftStore.promptDraft,
-      promptDraftStore.setPromptDraft,
-    ],
-  );
+  const promptState = {
+    canCompose,
+    followupRequest,
+    isSendingPrompt: promptDraftStore.isSendingPrompt,
+    promptSettings,
+    promptDraft: promptDraftStore.promptDraft,
+    setPromptDraft: promptDraftStore.setPromptDraft,
+  };
+
+  return {
+    actionState,
+    conversationState,
+    promptState,
+    sidebarState,
+    workspaceBoardState,
+  };
+}
+
+export function SessionProvider({ children }: { children: ReactNode }) {
+  const {
+    actionState,
+    conversationState,
+    promptState,
+    sidebarState,
+    workspaceBoardState,
+  } = useSessionProviderState();
 
   return (
     <SessionActionsContext.Provider value={actionState}>
