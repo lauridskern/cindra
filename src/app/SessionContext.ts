@@ -58,7 +58,7 @@ export interface SessionActionsContextValue {
     workspacePath: string,
     conversationId: string,
   ) => Promise<void>;
-  startNewChat: (workspacePath?: string) => Promise<void>;
+  startNewChat: (workspacePath?: string) => Promise<SessionSnapshot | null>;
   checkoutBranch: (branchName: string) => Promise<void>;
   createBranch: (branchName: string) => Promise<void>;
   commitChanges: (message: string) => Promise<void>;
@@ -80,6 +80,7 @@ export interface SessionActionsContextValue {
 export type WorkspaceBoardSelection =
   | { kind: "empty" }
   | { kind: "single-chat"; chat: ChatBinding }
+  | { kind: "workspace-draft"; workspacePath: string }
   | { kind: "saved-workspace"; workspace: SavedWorkspaceDetail };
 
 export interface WorkspaceBoardContextValue {

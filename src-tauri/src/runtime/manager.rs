@@ -264,42 +264,21 @@ impl RuntimeManager {
     ) -> anyhow::Result<SessionSnapshotDto> {
         self.with_recorded_ui_error(async {
             let workspace_path = canonicalize_workspace_path(PathBuf::from(workspace_path))?;
-            let runtime = self.prepare_workspace(&workspace_path).await?;
+            self.prepare_workspace(&workspace_path).await?;
 
-            let maybe_existing = {
-                let state = self.state.lock().await;
-                select_empty_draft_conversation_id(&state, &workspace_path)
-            };
+            let mut state = self.state.lock().await;
+            state.active_workspace_path = Some(workspace_path.clone());
+            state.ui_error = None;
+            let workspace = state
+                .workspaces
+                .entry(workspace_path.clone())
+                .or_insert_with(|| WorkspaceSessionState {
+                    workspace_name: workspace_name(Path::new(&workspace_path)),
+                    ..WorkspaceSessionState::default()
+                });
+            workspace.selected_conversation_id = None;
+            drop(state);
 
-            let conversation_id = if let Some(existing) = maybe_existing {
-                existing
-            } else {
-                let mut current = None;
-                let created =
-                    create_conversation_record(runtime.api.as_ref(), &mut current).await?;
-                self.refresh_workspace_conversations(&workspace_path)
-                    .await?;
-                let created_id = created.into_string();
-
-                let mut state = self.state.lock().await;
-                let order = state.allocate_order();
-                state
-                    .conversations
-                    .entry(created_id.clone())
-                    .or_insert_with(|| ConversationSessionState {
-                        workspace_path: workspace_path.clone(),
-                        messages: Vec::new(),
-                        title: Some("New chat".to_string()),
-                        updated_at: None,
-                        active_request_ids: Vec::new(),
-                        is_local_draft: true,
-                        order,
-                    });
-                created_id
-            };
-
-            self.select_workspace_conversation(&workspace_path, &conversation_id)
-                .await;
             self.emit_current_snapshot().await
         })
         .await

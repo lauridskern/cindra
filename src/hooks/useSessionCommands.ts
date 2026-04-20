@@ -117,7 +117,7 @@ export function useSessionCommands({
         workspacePath ?? currentSnapshot?.activeWorkspacePath ?? null
 
       if (targetWorkspacePath == null) {
-        return
+        return null
       }
 
       const originWorkspaceDraftKey = getWorkspaceDraftKey(targetWorkspacePath)
@@ -127,7 +127,7 @@ export function useSessionCommands({
         { refreshRuntimeStatus: true },
       )
       if (snapshot == null) {
-        return
+        return null
       }
 
       const nextDraftKey = getPromptDraftKey(
@@ -135,6 +135,7 @@ export function useSessionCommands({
         snapshot.activeConversationId,
       )
       movePromptDraft(originWorkspaceDraftKey, nextDraftKey)
+      return snapshot
     },
     [movePromptDraft, runSnapshotCommand, sessionSnapshotRef],
   )

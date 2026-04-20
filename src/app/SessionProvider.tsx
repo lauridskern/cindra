@@ -283,11 +283,29 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         await baseActionState.selectConversation(workspacePath, conversationId);
       },
       startNewChat: async (workspacePath?: string) => {
-        setBoardSelection({ kind: "empty" });
-        await baseActionState.startNewChat(workspacePath);
+        const targetWorkspacePath =
+          workspacePath ?? sessionSnapshotRef.current?.activeWorkspacePath ?? null;
+        if (targetWorkspacePath == null) {
+          return null;
+        }
+
+        const snapshot = await baseActionState.startNewChat(targetWorkspacePath);
+        if (
+          snapshot == null ||
+          snapshot.activeWorkspacePath !== targetWorkspacePath ||
+          snapshot.activeConversationId != null
+        ) {
+          return snapshot;
+        }
+
+        setBoardSelection({
+          kind: "workspace-draft",
+          workspacePath: targetWorkspacePath,
+        });
+        return snapshot;
       },
     }),
-    [baseActionState, openSavedWorkspace, setBoardSelection],
+    [baseActionState, openSavedWorkspace, sessionSnapshotRef, setBoardSelection],
   );
 
   const canCompose =

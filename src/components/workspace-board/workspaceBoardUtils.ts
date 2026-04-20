@@ -16,6 +16,8 @@ export function getWorkspaceBoardSelectionKey(
       return "board:empty";
     case "single-chat":
       return `board:single:${createChatPanelId(selection.chat)}`;
+    case "workspace-draft":
+      return `board:draft:${encodeURIComponent(selection.workspacePath)}`;
     case "saved-workspace":
       return `board:saved:${selection.workspace.id}`;
   }
