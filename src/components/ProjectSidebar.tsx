@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { FolderPlus, PanelsTopLeft } from "lucide-react";
 
 import { useSessionActions, useSidebarSession } from "../hooks/useSession";
@@ -18,8 +18,34 @@ import {
   SidebarMenuItem,
 } from "./ui/sidebar";
 
+const EXPANDED_PROJECTS_STORAGE_KEY = "project-sidebar:expanded-projects";
+
+function loadExpandedProjectPaths() {
+  if (typeof window === "undefined") {
+    return [];
+  }
+
+  try {
+    const storedValue = window.localStorage.getItem(
+      EXPANDED_PROJECTS_STORAGE_KEY,
+    );
+    if (storedValue == null) {
+      return [];
+    }
+
+    const parsedValue: unknown = JSON.parse(storedValue);
+    return Array.isArray(parsedValue)
+      ? parsedValue.filter((value): value is string => typeof value === "string")
+      : [];
+  } catch {
+    return [];
+  }
+}
+
 export function ProjectSidebar() {
-  const [collapsedProjectPaths, setCollapsedProjectPaths] = useState<string[]>([]);
+  const [expandedProjectPaths, setExpandedProjectPaths] = useState<string[]>(
+    () => loadExpandedProjectPaths(),
+  );
   const {
     openWorkspacePicker,
     openProject,
@@ -35,12 +61,19 @@ export function ProjectSidebar() {
     workspaces,
   } = useSidebarSession();
 
+  useEffect(() => {
+    window.localStorage.setItem(
+      EXPANDED_PROJECTS_STORAGE_KEY,
+      JSON.stringify(expandedProjectPaths),
+    );
+  }, [expandedProjectPaths]);
+
   function isWorkspaceExpanded(workspacePath: string) {
-    return !collapsedProjectPaths.includes(workspacePath);
+    return expandedProjectPaths.includes(workspacePath);
   }
 
   function toggleProjectExpanded(workspacePath: string) {
-    setCollapsedProjectPaths((current) =>
+    setExpandedProjectPaths((current) =>
       current.includes(workspacePath)
         ? current.filter((path) => path !== workspacePath)
         : [...current, workspacePath],
@@ -48,7 +81,21 @@ export function ProjectSidebar() {
   }
 
   function handleOpenProject(workspacePath: string) {
+    setExpandedProjectPaths((current) =>
+      current.includes(workspacePath) ? current : [...current, workspacePath],
+    );
     void openProject(workspacePath);
+  }
+
+  async function handleOpenWorkspacePicker() {
+    const selectedPath = await openWorkspacePicker();
+    if (selectedPath == null) {
+      return;
+    }
+
+    setExpandedProjectPaths((current) =>
+      current.includes(selectedPath) ? current : [...current, selectedPath],
+    );
   }
 
   function handleSelectConversation(
@@ -72,7 +119,7 @@ export function ProjectSidebar() {
         <ProjectSidebarActions
           hasCurrentWorkspace={hasCurrentWorkspace}
           onStartNewChat={() => handleStartNewChat()}
-          onOpenWorkspacePicker={() => void openWorkspacePicker()}
+          onOpenWorkspacePicker={() => void handleOpenWorkspacePicker()}
         />
       </SidebarHeader>
 
@@ -123,7 +170,7 @@ export function ProjectSidebar() {
               className="-mr-2"
               aria-label="Open project"
               title="Open project"
-              onClick={() => void openWorkspacePicker()}
+              onClick={() => void handleOpenWorkspacePicker()}
             >
               <FolderPlus strokeWidth={2} className="size-3.5 shrink-0" />
             </Button>
