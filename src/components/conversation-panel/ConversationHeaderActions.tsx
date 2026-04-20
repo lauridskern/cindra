@@ -3,6 +3,8 @@ import {
   EllipsisIcon,
   GitCommitHorizontalIcon,
   GitPullRequestCreateIcon,
+  LayoutPanelTopIcon,
+  SquareTerminalIcon,
   UploadIcon,
   XIcon,
 } from "lucide-react";
@@ -28,6 +30,8 @@ interface ConversationHeaderActionsProps {
   isOpenTargetBusy: boolean;
   onCloseChat?: () => void;
   onOpenCommitDialog: () => void;
+  onOpenPreview?: () => void;
+  onOpenTerminal?: () => void;
   onPush: () => Promise<void>;
   onSelectOpenTarget: (appId: AppTargetId) => Promise<void>;
   openTargets: ReadonlyArray<AppTarget>;
@@ -40,6 +44,8 @@ export function ConversationHeaderActions({
   isOpenTargetBusy,
   onCloseChat,
   onOpenCommitDialog,
+  onOpenPreview,
+  onOpenTerminal,
   onPush,
   onSelectOpenTarget,
   openTargets,
@@ -176,8 +182,25 @@ export function ConversationHeaderActions({
         >
           <EllipsisIcon />
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-40">
+        <DropdownMenuContent align="end" className="w-48">
           <DropdownMenuGroup>
+            <DropdownMenuItem
+              onClick={() => {
+                onOpenPreview?.();
+              }}
+            >
+              <LayoutPanelTopIcon />
+              Open Preview
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => {
+                onOpenTerminal?.();
+              }}
+            >
+              <SquareTerminalIcon />
+              Open Terminal
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
             <DropdownMenuItem
               variant="destructive"
               disabled={!isCloseChatEnabled}

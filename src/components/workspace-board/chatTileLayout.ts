@@ -32,40 +32,56 @@ export function buildDefaultChatTileLayout(
   api: DockviewApi,
   binding: ChatBinding,
 ): void {
-  const chatPanel = api.addPanel({
+  api.addPanel({
     id: CHAT_PANE_ID,
     component: INNER_CHAT_COMPONENT,
     tabComponent: INNER_CHAT_COMPONENT,
     title: "Chat",
     params: binding,
   });
-  const previewPanel = api.addPanel<PlaceholderPaneParams>({
-    id: PREVIEW_PANE_ID,
-    component: INNER_PLACEHOLDER_COMPONENT,
-    title: "Preview",
-    params: {
-      ...binding,
-      kind: "preview",
-      label: "Preview",
-    },
-    position: {
-      direction: "right",
-      referencePanel: chatPanel,
-    },
-  });
+
+  applyChatTileLayoutConstraints(api);
+}
+
+export function openChatTilePane(
+  api: DockviewApi,
+  binding: ChatBinding,
+  kind: PlaceholderPaneParams["kind"],
+): void {
+  const panelId = kind === "preview" ? PREVIEW_PANE_ID : TERMINAL_PANE_ID;
+  const existingPanel = api.getPanel(panelId);
+  if (existingPanel != null) {
+    existingPanel.focus();
+    applyChatTileLayoutConstraints(api);
+    return;
+  }
+
+  const chatPanel = api.getPanel(CHAT_PANE_ID);
+  if (chatPanel == null) {
+    buildDefaultChatTileLayout(api, binding);
+    openChatTilePane(api, binding, kind);
+    return;
+  }
+
+  const previewPanel = api.getPanel(PREVIEW_PANE_ID);
+  const panelTitle = kind === "preview" ? "Preview" : "Terminal";
+  const referencePanel =
+    kind === "terminal" && previewPanel != null ? previewPanel : chatPanel;
+  const direction =
+    kind === "preview" ? "right" : previewPanel != null ? "below" : "right";
 
   api.addPanel<PlaceholderPaneParams>({
-    id: TERMINAL_PANE_ID,
+    id: panelId,
     component: INNER_PLACEHOLDER_COMPONENT,
-    title: "Terminal",
+    title: panelTitle,
     params: {
       ...binding,
-      kind: "terminal",
-      label: "Terminal",
+      kind,
+      label: panelTitle,
     },
     position: {
-      direction: "below",
-      referencePanel: previewPanel,
+      direction,
+      referencePanel,
     },
   });
 

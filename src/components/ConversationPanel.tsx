@@ -15,6 +15,8 @@ interface PanelDragHandle {
 interface ConversationPanelProps {
   canCloseChat?: () => boolean;
   onCloseChat?: () => void;
+  onOpenPreview?: () => void;
+  onOpenTerminal?: () => void;
   panelDragHandle?: PanelDragHandle;
   panelDragEnabled?: boolean;
   reserveTitlebarInset?: boolean;
@@ -24,6 +26,8 @@ interface ConversationPanelProps {
 export function ConversationPanel({
   canCloseChat,
   onCloseChat,
+  onOpenPreview,
+  onOpenTerminal,
   panelDragHandle,
   panelDragEnabled = false,
   reserveTitlebarInset = false,
@@ -57,6 +61,8 @@ export function ConversationPanel({
       <ConversationPanelHeader
         canCloseChat={canCloseChat}
         onCloseChat={onCloseChat}
+        onOpenPreview={onOpenPreview}
+        onOpenTerminal={onOpenTerminal}
         panelDragHandle={panelDragHandle}
         panelDragEnabled={panelDragEnabled}
         reserveTitlebarInset={reserveTitlebarInset}

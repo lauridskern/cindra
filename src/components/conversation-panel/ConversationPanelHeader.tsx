@@ -21,6 +21,8 @@ import { useConversationHeaderState } from "./useConversationHeaderState";
 interface ConversationPanelHeaderProps {
   canCloseChat?: () => boolean;
   onCloseChat?: () => void;
+  onOpenPreview?: () => void;
+  onOpenTerminal?: () => void;
   panelDragHandle?: {
     containerApi: DockviewApi;
     group: DockviewGroupPanel;
@@ -33,6 +35,8 @@ interface ConversationPanelHeaderProps {
 export function ConversationPanelHeader({
   canCloseChat,
   onCloseChat,
+  onOpenPreview,
+  onOpenTerminal,
   panelDragHandle,
   panelDragEnabled = false,
   reserveTitlebarInset,
@@ -148,6 +152,8 @@ export function ConversationPanelHeader({
           isOpenTargetBusy={isOpenTargetPending}
           onCloseChat={onCloseChat}
           onOpenCommitDialog={openCommitDialog}
+          onOpenPreview={onOpenPreview}
+          onOpenTerminal={onOpenTerminal}
           onPush={handlePush}
           onSelectOpenTarget={handleOpenTarget}
           openTargets={openTargets}

@@ -28,6 +28,7 @@ import {
   applyChatTileLayoutConstraints,
   buildDefaultChatTileLayout,
   isSingleChatSelfDrop,
+  openChatTilePane,
   shouldPreventChatOverlay,
 } from "./chatTileLayout";
 import type { ChatBinding } from "@/services/desktop/contracts";
@@ -83,6 +84,23 @@ export function ChatTile({
     };
   }, []);
 
+  const scheduleInnerLayoutSave = useCallback(() => {
+    schedulePersist(() => innerApiRef.current);
+  }, [schedulePersist]);
+
+  const handleOpenPane = useCallback(
+    (kind: "preview" | "terminal") => {
+      const api = innerApiRef.current;
+      if (api == null) {
+        return;
+      }
+
+      openChatTilePane(api, binding, kind);
+      scheduleInnerLayoutSave();
+    },
+    [binding, scheduleInnerLayoutSave],
+  );
+
   const components = useMemo(
     () => ({
       [INNER_CHAT_COMPONENT]: function ConversationPane(
@@ -93,6 +111,12 @@ export function ChatTile({
             <ConversationPanel
               canCloseChat={canCloseChat}
               onCloseChat={onCloseChat}
+              onOpenPreview={() => {
+                handleOpenPane("preview");
+              }}
+              onOpenTerminal={() => {
+                handleOpenPane("terminal");
+              }}
               panelDragHandle={{
                 containerApi: props.containerApi,
                 group: props.api.group,
@@ -105,7 +129,7 @@ export function ChatTile({
       },
       [INNER_PLACEHOLDER_COMPONENT]: PlaceholderPane,
     }),
-    [binding, canCloseChat, onCloseChat],
+    [binding, canCloseChat, handleOpenPane, onCloseChat],
   );
 
   const tabComponents = useMemo(
@@ -163,10 +187,6 @@ export function ChatTile({
       markPersistedLayout,
     ],
   );
-
-  const scheduleInnerLayoutSave = useCallback(() => {
-    schedulePersist(() => innerApiRef.current);
-  }, [schedulePersist]);
 
   const handleInnerReady = useCallback(
     (event: DockviewReadyEvent) => {
