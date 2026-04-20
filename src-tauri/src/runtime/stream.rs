@@ -9,6 +9,7 @@ use crate::dto::{
 
 use super::{
     ForgeRuntime, RuntimeManager, apply_todo_result, derive_conversation_title_from_messages,
+    format_error_chain,
 };
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -29,8 +30,12 @@ impl RuntimeManager {
         let parsed_conversation_id = match ConversationId::parse(&conversation_id) {
             Ok(value) => value,
             Err(error) => {
-                self.record_stream_error(&conversation_id, &request_id, error.to_string())
-                    .await;
+                self.record_stream_error(
+                    &conversation_id,
+                    &request_id,
+                    format_error_chain(&anyhow::Error::new(error)),
+                )
+                .await;
                 let _ = self.emit_session_snapshot().await;
                 return;
             }
@@ -52,7 +57,7 @@ impl RuntimeManager {
         {
             Ok(stream) => stream,
             Err(error) => {
-                self.record_stream_error(&conversation_id, &request_id, error.to_string())
+                self.record_stream_error(&conversation_id, &request_id, format_error_chain(&error))
                     .await;
                 let _ = self
                     .finish_request(&workspace_path, &conversation_id, &request_id, false)
@@ -89,8 +94,12 @@ impl RuntimeManager {
                     }
                 }
                 Err(error) => {
-                    self.record_stream_error(&conversation_id, &request_id, error.to_string())
-                        .await;
+                    self.record_stream_error(
+                        &conversation_id,
+                        &request_id,
+                        format_error_chain(&error),
+                    )
+                    .await;
                     let _ = self.emit_session_snapshot().await;
                     let _ = self
                         .finish_request(&workspace_path, &conversation_id, &request_id, false)

@@ -5,7 +5,8 @@ use forge_api::API;
 
 use super::{
     ForgeRuntime, PersistedConversationSummary, RuntimeManager, WorkspaceSessionState,
-    configuration_error_message, fallback_workspace_state, read_config, workspace_name,
+    configuration_error_message, fallback_workspace_state, format_error_chain, read_config,
+    workspace_name,
 };
 
 impl RuntimeManager {
@@ -34,7 +35,9 @@ impl RuntimeManager {
             let workspace_state = self
                 .load_workspace_state(path.clone(), None)
                 .await
-                .unwrap_or_else(|error| fallback_workspace_state(&path, error.to_string()));
+                .unwrap_or_else(|error| {
+                    fallback_workspace_state(&path, format_error_chain(&error))
+                });
 
             let mut state = self.state.lock().await;
             state

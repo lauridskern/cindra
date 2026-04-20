@@ -1,5 +1,6 @@
 mod actions;
 mod conversation;
+mod errors;
 mod factory;
 mod manager;
 mod snapshot;
@@ -10,6 +11,7 @@ mod transforms;
 mod workspace;
 
 pub(crate) use conversation::select_empty_draft_conversation_id;
+pub(crate) use errors::format_error_chain;
 pub(crate) use factory::{
     ForgeRuntime, MISSING_SESSION_MESSAGE, RuntimeFactory, configuration_error_message,
     create_conversation_record, read_config,

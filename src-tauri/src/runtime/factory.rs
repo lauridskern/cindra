@@ -11,6 +11,7 @@ use forge_services::ForgeServices;
 
 use crate::bridge::desktop_infra::DesktopInfra;
 use crate::bridge::followup::FollowupBridge;
+use crate::runtime::format_error_chain;
 pub(crate) type DesktopRepo = ForgeRepo<DesktopInfra>;
 pub(crate) type DesktopServices = ForgeServices<DesktopRepo>;
 pub(crate) type DesktopApi = ForgeAPI<DesktopServices, DesktopRepo>;
@@ -60,7 +61,10 @@ impl RuntimeFactory {
 pub(crate) fn read_config() -> (ForgeConfig, Option<String>) {
     match ForgeConfig::read() {
         Ok(config) => (config, None),
-        Err(error) => (ForgeConfig::default(), Some(error.to_string())),
+        Err(error) => {
+            let error = anyhow::Error::new(error);
+            (ForgeConfig::default(), Some(format_error_chain(&error)))
+        }
     }
 }
 

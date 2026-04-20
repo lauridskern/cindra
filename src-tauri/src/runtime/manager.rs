@@ -23,8 +23,9 @@ use super::{
     ConversationSessionState, ForgeRuntime, MISSING_SESSION_MESSAGE, RuntimeFactory, RuntimeState,
     WorkspaceSessionState, build_snapshot, canonicalize_workspace_path,
     configuration_error_message, create_conversation_record, create_message_id,
-    derive_conversation_title_from_messages, read_config, select_empty_draft_conversation_id,
-    shared_runtime_state, user_prompt_text_for_display, workspace_name,
+    derive_conversation_title_from_messages, format_error_chain, read_config,
+    select_empty_draft_conversation_id, shared_runtime_state, user_prompt_text_for_display,
+    workspace_name,
 };
 
 #[derive(Clone)]
@@ -528,7 +529,7 @@ impl RuntimeManager {
         let result = operation.await;
 
         if let Err(error) = &result {
-            let _ = self.record_ui_error(&error.to_string()).await;
+            let _ = self.record_ui_error(&format_error_chain(error)).await;
         }
 
         result

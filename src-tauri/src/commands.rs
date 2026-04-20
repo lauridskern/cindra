@@ -4,11 +4,15 @@ use crate::dto::{
     QuickStartVisibility, RuntimeStatusDto, SaveConversationLayoutInput, SendPromptInput,
     SessionSnapshotDto, UpdatePromptSettingsInput, UpdateSavedWorkspaceLayoutInput,
 };
-use crate::runtime::DesktopState;
+use crate::runtime::{DesktopState, format_error_chain};
 use anyhow::Context;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use tauri_plugin_dialog::{DialogExt, FilePath};
+
+fn map_command_error(error: anyhow::Error) -> String {
+    format_error_chain(&error)
+}
 
 #[tauri::command]
 pub(crate) async fn pick_workspace(app: tauri::AppHandle) -> Result<Option<String>, String> {
@@ -43,7 +47,7 @@ pub(crate) async fn open_workspace(
         .manager
         .open_workspace(path.into())
         .await
-        .map_err(|error| error.to_string())
+        .map_err(map_command_error)
 }
 
 #[tauri::command]
@@ -55,7 +59,7 @@ pub(crate) async fn get_runtime_status(
         .manager
         .get_runtime_status(workspace_path)
         .await
-        .map_err(|error| error.to_string())
+        .map_err(map_command_error)
 }
 
 #[tauri::command]
@@ -66,7 +70,7 @@ pub(crate) async fn get_session_snapshot(
         .manager
         .get_session_snapshot()
         .await
-        .map_err(|error| error.to_string())
+        .map_err(map_command_error)
 }
 
 #[tauri::command]
@@ -78,7 +82,7 @@ pub(crate) async fn get_prompt_settings(
         .manager
         .get_prompt_settings(workspace_path)
         .await
-        .map_err(|error| error.to_string())
+        .map_err(map_command_error)
 }
 
 #[tauri::command]
@@ -90,7 +94,7 @@ pub(crate) async fn send_prompt(
         .manager
         .send_prompt(input)
         .await
-        .map_err(|error| error.to_string())
+        .map_err(map_command_error)
 }
 
 #[tauri::command]
@@ -102,7 +106,7 @@ pub(crate) async fn update_prompt_settings(
         .manager
         .update_prompt_settings(input)
         .await
-        .map_err(|error| error.to_string())
+        .map_err(map_command_error)
 }
 
 #[tauri::command]
@@ -115,7 +119,7 @@ pub(crate) async fn select_conversation(
         .manager
         .select_conversation(workspace_path, conversation_id)
         .await
-        .map_err(|error| error.to_string())
+        .map_err(map_command_error)
 }
 
 #[tauri::command]
@@ -128,7 +132,7 @@ pub(crate) async fn ensure_conversation_view(
         .manager
         .ensure_conversation_view(workspace_path, conversation_id)
         .await
-        .map_err(|error| error.to_string())
+        .map_err(map_command_error)
 }
 
 #[tauri::command]
@@ -140,7 +144,7 @@ pub(crate) async fn start_new_chat(
         .manager
         .start_new_chat(workspace_path)
         .await
-        .map_err(|error| error.to_string())
+        .map_err(map_command_error)
 }
 
 #[tauri::command]
@@ -152,17 +156,17 @@ pub(crate) async fn respond_followup(
         .manager
         .respond_followup(response)
         .await
-        .map_err(|error| error.to_string())
+        .map_err(map_command_error)
 }
 
 #[tauri::command]
 pub(crate) async fn clone_repository(input: CloneRepositoryInput) -> Result<String, String> {
-    clone_repository_to_directory(input).map_err(|error| error.to_string())
+    clone_repository_to_directory(input).map_err(map_command_error)
 }
 
 #[tauri::command]
 pub(crate) async fn quick_start_project(input: QuickStartProjectInput) -> Result<String, String> {
-    create_github_project(input).map_err(|error| error.to_string())
+    create_github_project(input).map_err(map_command_error)
 }
 
 #[tauri::command]
@@ -174,7 +178,7 @@ pub(crate) async fn checkout_git_branch(
         .manager
         .checkout_git_branch(input.workspace_path, input.branch_name)
         .await
-        .map_err(|error| error.to_string())
+        .map_err(map_command_error)
 }
 
 #[tauri::command]
@@ -186,7 +190,7 @@ pub(crate) async fn create_git_branch(
         .manager
         .create_git_branch(input.workspace_path, input.branch_name)
         .await
-        .map_err(|error| error.to_string())
+        .map_err(map_command_error)
 }
 
 #[tauri::command]
@@ -198,7 +202,7 @@ pub(crate) async fn commit_git_changes(
         .manager
         .commit_git_changes(input.workspace_path, input.message)
         .await
-        .map_err(|error| error.to_string())
+        .map_err(map_command_error)
 }
 
 #[tauri::command]
@@ -210,7 +214,7 @@ pub(crate) async fn push_git_branch(
         .manager
         .push_git_branch(workspace_path)
         .await
-        .map_err(|error| error.to_string())
+        .map_err(map_command_error)
 }
 
 #[tauri::command]
@@ -223,7 +227,7 @@ pub(crate) async fn open_in_target(
         .manager
         .open_in_target(workspace_path, target_id)
         .await
-        .map_err(|error| error.to_string())
+        .map_err(map_command_error)
 }
 
 #[tauri::command]
@@ -235,7 +239,7 @@ pub(crate) async fn save_conversation_layout(
         .manager
         .save_conversation_layout(input)
         .await
-        .map_err(|error| error.to_string())
+        .map_err(map_command_error)
 }
 
 #[tauri::command]
@@ -247,7 +251,7 @@ pub(crate) async fn get_conversation_layout(
         .manager
         .get_conversation_layout(conversation_id)
         .await
-        .map_err(|error| error.to_string())
+        .map_err(map_command_error)
 }
 
 #[tauri::command]
@@ -259,7 +263,7 @@ pub(crate) async fn create_saved_workspace(
         .manager
         .create_saved_workspace(input)
         .await
-        .map_err(|error| error.to_string())
+        .map_err(map_command_error)
 }
 
 #[tauri::command]
@@ -271,7 +275,7 @@ pub(crate) async fn update_saved_workspace_layout(
         .manager
         .update_saved_workspace_layout(input)
         .await
-        .map_err(|error| error.to_string())
+        .map_err(map_command_error)
 }
 
 #[tauri::command]
@@ -283,7 +287,7 @@ pub(crate) async fn get_saved_workspace(
         .manager
         .get_saved_workspace(workspace_id)
         .await
-        .map_err(|error| error.to_string())
+        .map_err(map_command_error)
 }
 fn file_path_to_string(path: FilePath) -> Option<String> {
     match path {
