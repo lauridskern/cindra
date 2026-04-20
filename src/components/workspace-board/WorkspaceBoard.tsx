@@ -12,6 +12,7 @@ import {
   type IDockviewPanelProps,
 } from "dockview-react";
 
+import { ConversationPanel } from "@/components/ConversationPanel";
 import { LandingScreen } from "@/components/LandingScreen";
 import { useConversationSession, useWorkspaceBoard } from "@/hooks/useSession";
 import * as desktopClient from "@/services/desktop/client";
@@ -439,6 +440,10 @@ export function WorkspaceBoard() {
         uiError={uiError}
       />
     );
+  }
+
+  if (selection.kind === "workspace-draft") {
+    return <ConversationPanel />;
   }
 
   return (

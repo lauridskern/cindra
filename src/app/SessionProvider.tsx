@@ -32,6 +32,7 @@ import {
   getActiveConversation,
   getActiveWorkspace,
   getActiveWorkspaceLabel,
+  LATEST_WORKSPACE_STORAGE_KEY,
   getPromptDraftKey,
 } from "./sessionSnapshot";
 
@@ -136,6 +137,14 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       return;
     }
 
+    if (snapshot.activeWorkspacePath != null) {
+      setBoardSelection({
+        kind: "workspace-draft",
+        workspacePath: snapshot.activeWorkspacePath,
+      });
+      return;
+    }
+
     setBoardSelection({ kind: "empty" });
   }, [setBoardSelection]);
 
@@ -170,6 +179,17 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     activeWorkspace?.configurationError ??
     null;
   useSessionBootstrap({ setSessionSnapshot: applySessionSnapshot });
+
+  useEffect(() => {
+    if (sessionSnapshot?.activeWorkspacePath == null) {
+      return;
+    }
+
+    window.localStorage.setItem(
+      LATEST_WORKSPACE_STORAGE_KEY,
+      sessionSnapshot.activeWorkspacePath,
+    );
+  }, [sessionSnapshot?.activeWorkspacePath]);
 
   useEffect(() => {
     let cancelled = false;

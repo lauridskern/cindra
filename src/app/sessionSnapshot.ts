@@ -4,6 +4,8 @@ import type {
   WorkspaceSession,
 } from '../services/desktop/contracts'
 
+export const LATEST_WORKSPACE_STORAGE_KEY = 'session:latest-workspace-path'
+
 function getConversationDraftKey(conversationId: string): string {
   return `conversation:${conversationId}`
 }
@@ -58,4 +60,20 @@ export function getActiveConversation(
       (conversation) => conversation.conversationId === snapshot.activeConversationId,
     ) ?? null
   )
+}
+
+export function resolveLatestWorkspacePath(
+  snapshot: SessionSnapshot,
+  storedWorkspacePath: string | null,
+): string | null {
+  if (storedWorkspacePath != null) {
+    const matchingWorkspace = snapshot.workspaces.find(
+      (workspace) => workspace.workspacePath === storedWorkspacePath,
+    )
+    if (matchingWorkspace != null) {
+      return matchingWorkspace.workspacePath
+    }
+  }
+
+  return snapshot.workspaces[0]?.workspacePath ?? null
 }

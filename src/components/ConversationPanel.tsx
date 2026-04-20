@@ -35,6 +35,7 @@ export function ConversationPanel({
 }: ConversationPanelProps) {
   const {
     activeRequestIds,
+    activeWorkspaceLabel,
     activeWorkspaceConfigured,
     activeWorkspaceConfigurationError,
     hasCurrentWorkspace,
@@ -80,6 +81,7 @@ export function ConversationPanel({
           messages={messages}
           activeRequestIds={activeRequestIds}
           requestTimingsById={requestTimingsById}
+          workspaceLabel={activeWorkspaceLabel}
           workspacePath={workspacePath}
         />
       </section>

@@ -15,6 +15,7 @@ interface ChatThreadProps {
   activeRequestIds: string[];
   messages: TranscriptMessage[];
   requestTimingsById: Record<string, RequestTimingInfo>;
+  workspaceLabel: string;
   workspacePath: string | null;
 }
 
@@ -114,6 +115,7 @@ export function ChatThread({
   activeRequestIds,
   messages,
   requestTimingsById,
+  workspaceLabel,
   workspacePath,
 }: ChatThreadProps) {
   const items = useMemo(
@@ -146,7 +148,21 @@ export function ChatThread({
         paddingTop: 20,
         paddingBottom: 32,
       }}
-      ListEmptyComponent={<div className="min-h-px" aria-hidden="true" />}
+      ListEmptyComponent={
+        <div className="mx-auto flex min-h-full w-full max-w-3xl items-center justify-center px-6 py-12">
+          <div className="w-full rounded-3xl border border-black/5 bg-black/[0.02] px-8 py-10 text-center dark:border-white/10 dark:bg-white/[0.03]">
+            <p className="text-xs font-medium uppercase tracking-[0.22em] text-neutral-500 dark:text-neutral-400">
+              New chat
+            </p>
+            <h2 className="mt-3 text-2xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-50">
+              Ask anything about {workspaceLabel}
+            </h2>
+            <p className="mt-3 text-sm leading-6 text-neutral-600 dark:text-neutral-400">
+              Start with a question, a task, or a change you want to make in this workspace.
+            </p>
+          </div>
+        </div>
+      }
     />
   );
 }
