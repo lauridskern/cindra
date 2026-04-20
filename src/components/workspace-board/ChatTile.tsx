@@ -16,8 +16,6 @@ import {
 } from "dockview-react";
 
 import { ConversationPanel } from "@/components/ConversationPanel";
-
-import { ScopedConversationProviders } from "./ScopedConversationProviders";
 import { PlaceholderPane } from "./PlaceholderPane";
 import {
   INNER_CHAT_COMPONENT,
@@ -107,24 +105,23 @@ export function ChatTile({
         props: IDockviewPanelProps<ChatBinding>,
       ) {
         return (
-          <ScopedConversationProviders binding={binding}>
-            <ConversationPanel
-              canCloseChat={canCloseChat}
-              onCloseChat={onCloseChat}
-              onOpenPreview={() => {
-                handleOpenPane("preview");
-              }}
-              onOpenTerminal={() => {
-                handleOpenPane("terminal");
-              }}
-              panelDragHandle={{
-                containerApi: props.containerApi,
-                group: props.api.group,
-              }}
-              panelDragEnabled
-              windowDragEnabled={false}
-            />
-          </ScopedConversationProviders>
+          <ConversationPanel
+            binding={binding}
+            canCloseChat={canCloseChat}
+            onCloseChat={onCloseChat}
+            onOpenPreview={() => {
+              handleOpenPane("preview");
+            }}
+            onOpenTerminal={() => {
+              handleOpenPane("terminal");
+            }}
+            panelDragHandle={{
+              containerApi: props.containerApi,
+              group: props.api.group,
+            }}
+            panelDragEnabled
+            windowDragEnabled={false}
+          />
         );
       },
       [INNER_PLACEHOLDER_COMPONENT]: PlaceholderPane,
