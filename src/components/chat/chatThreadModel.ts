@@ -320,12 +320,16 @@ export function buildChatThreadItems(
   }
 
   for (const requestId of requestIdsInEncounterOrder) {
-    if (!emittedWorkItemRequestIds.has(requestId)) {
-      const activities = takePendingActivities(requestId);
-      const isRunning = activeRequestIdSet.has(requestId);
-      if (activities.length > 0 || isRunning) {
-        pushWorkItem(requestId, activities, isRunning);
-      }
+    const activities = takePendingActivities(requestId);
+    const isRunning = activeRequestIdSet.has(requestId);
+
+    if (activities.length > 0) {
+      pushWorkItem(requestId, activities, isRunning);
+      continue;
+    }
+
+    if (!emittedWorkItemRequestIds.has(requestId) && isRunning) {
+      pushWorkItem(requestId, activities, true);
     }
   }
 
