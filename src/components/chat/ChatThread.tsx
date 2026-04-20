@@ -18,6 +18,8 @@ interface ChatThreadProps {
   workspacePath: string | null;
 }
 
+const THREAD_ITEM_GAP = 16;
+
 function getMessageText(message: TranscriptMessage): string {
   switch (message.kind) {
     case "user":
@@ -62,9 +64,12 @@ function estimateRequestWorkItemSize(
 }
 
 function estimateChatThreadItemSize(item: ChatThreadItem): number {
-  return item.kind === "message"
-    ? estimateMessageItemSize(item.message)
-    : estimateRequestWorkItemSize(item);
+  const contentSize =
+    item.kind === "message"
+      ? estimateMessageItemSize(item.message)
+      : estimateRequestWorkItemSize(item);
+
+  return contentSize + THREAD_ITEM_GAP;
 }
 
 function renderChatMessage(message: TranscriptMessage) {
@@ -79,10 +84,10 @@ function renderChatMessage(message: TranscriptMessage) {
 }
 
 function renderChatThreadItem(
-  { item }: LegendListRenderItemProps<ChatThreadItem>,
-  previousItem: ChatThreadItem | undefined,
+  { item, index }: LegendListRenderItemProps<ChatThreadItem>,
   requestTimingsById: Record<string, RequestTimingInfo>,
   workspacePath: string | null,
+  itemCount: number,
 ) {
   const row =
     item.kind === "message" ? (
@@ -95,18 +100,14 @@ function renderChatThreadItem(
       />
     );
 
-  const className =
-    item.kind === "message" &&
-    item.message.kind === "assistant" &&
-    previousItem?.kind === "request_work"
-      ? "mx-auto min-w-0 w-full max-w-3xl select-text pt-4"
-      : item.kind === "request_work" &&
-          previousItem?.kind === "message" &&
-          previousItem.message.kind === "user"
-        ? "mx-auto min-w-0 w-full max-w-3xl select-text pt-4"
-        : "mx-auto min-w-0 w-full max-w-3xl select-text";
-
-  return <div className={className}>{row}</div>;
+  return (
+    <div
+      className="mx-auto min-w-0 w-full max-w-3xl select-text"
+      style={{ paddingBottom: index === itemCount - 1 ? 0 : THREAD_ITEM_GAP }}
+    >
+      {row}
+    </div>
+  );
 }
 
 export function ChatThread({
@@ -126,9 +127,9 @@ export function ChatThread({
       renderItem={(props) =>
         renderChatThreadItem(
           props,
-          props.index > 0 ? items[props.index - 1] : undefined,
           requestTimingsById,
           workspacePath,
+          items.length,
         )
       }
       keyExtractor={(item) => item.key}
@@ -141,7 +142,10 @@ export function ChatThread({
       maintainVisibleContentPosition
       estimatedItemSize={88}
       style={{ height: "100%" }}
-      contentContainerStyle={{ paddingTop: 20, paddingBottom: 32 }}
+      contentContainerStyle={{
+        paddingTop: 20,
+        paddingBottom: 32,
+      }}
       ListEmptyComponent={<div className="min-h-px" aria-hidden="true" />}
     />
   );
