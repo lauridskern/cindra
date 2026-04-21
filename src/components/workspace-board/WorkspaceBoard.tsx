@@ -51,6 +51,30 @@ import {
 import { useDockviewLayoutPersistence } from "./useDockviewLayoutPersistence";
 import { useDockviewTheme } from "./useDockviewTheme";
 
+type ApplySavedWorkspaceLayoutResult =
+  | { kind: "restored" }
+  | { kind: "default"; bindings: ChatBinding[] }
+  | { kind: "fallback"; bindings: ChatBinding[] };
+
+function applySavedWorkspaceLayout(
+  api: DockviewApi,
+  layoutJson: string,
+): ApplySavedWorkspaceLayoutResult {
+  const savedLayout = parseDockviewLayoutJson(layoutJson);
+  const savedBindings = extractBindingsFromLayoutJson(layoutJson);
+
+  if (savedLayout == null) {
+    return { kind: "default", bindings: savedBindings };
+  }
+
+  try {
+    api.fromJSON(savedLayout, { reuseExistingPanels: false });
+    return { kind: "restored" };
+  } catch {
+    return { kind: "fallback", bindings: savedBindings };
+  }
+}
+
 export function WorkspaceBoard() {
   const selection = useBoardSelection();
   const selectionKey = useBoardSelectionKey();
@@ -167,6 +191,13 @@ export function WorkspaceBoard() {
 
     schedulePersist(() => outerApiRef.current);
   }, [schedulePersist]);
+  const finishSelectionRestore = useCallback(
+    (layoutJson: string | null) => {
+      markPersistedLayout(layoutJson);
+      isApplyingLayoutRef.current = false;
+    },
+    [isApplyingLayoutRef, markPersistedLayout],
+  );
 
   const focusChat = useCallback(
     async (binding: ChatBinding) =>
@@ -225,58 +256,40 @@ export function WorkspaceBoard() {
   const restoreSelection = useCallback(
     async (api: DockviewApi) => {
       isApplyingLayoutRef.current = true;
-      try {
-        if (fallbackBindingsRef.current != null) {
-          const bindings = fallbackBindingsRef.current;
-          fallbackBindingsRef.current = null;
-          markPersistedLayout(null);
-          buildDefaultOuterLayout(api, bindings);
-          return;
-        }
+      if (fallbackBindingsRef.current != null) {
+        const bindings = fallbackBindingsRef.current;
+        fallbackBindingsRef.current = null;
+        finishSelectionRestore(null);
+        buildDefaultOuterLayout(api, bindings);
+        return;
+      }
 
-        if (selection.kind === "single-chat") {
-          markPersistedLayout(null);
-          buildDefaultOuterLayout(api, [selection.chat]);
-          return;
-        }
+      if (selection.kind === "single-chat") {
+        finishSelectionRestore(null);
+        buildDefaultOuterLayout(api, [selection.chat]);
+        return;
+      }
 
-        if (selection.kind !== "saved-workspace") {
-          markPersistedLayout(null);
-          api.clear();
-          return;
-        }
+      if (selection.kind !== "saved-workspace") {
+        finishSelectionRestore(null);
+        api.clear();
+        return;
+      }
 
-        const savedLayout = parseDockviewLayoutJson(selection.workspace.layoutJson);
-        const savedBindings = extractBindingsFromLayoutJson(
-          selection.workspace.layoutJson,
-        );
+      const restoreResult = applySavedWorkspaceLayout(
+        api,
+        selection.workspace.layoutJson,
+      );
+      if (restoreResult.kind === "fallback") {
+        fallbackBindingsRef.current = restoreResult.bindings;
+        isApplyingLayoutRef.current = false;
+        setLayoutResetNonce((current) => current + 1);
+        return;
+      }
 
-        if (savedLayout != null) {
-          try {
-            api.fromJSON(savedLayout, { reuseExistingPanels: false });
-            markPersistedLayout(selection.workspace.layoutJson);
-            applyOuterLayoutConstraints(api);
-            const activeBinding = getActiveOuterBinding(api);
-            if (
-              activeBinding != null &&
-              !areChatBindingsEqual(selection.activeChat, activeBinding)
-            ) {
-              setSelection({
-                kind: "saved-workspace",
-                workspace: selection.workspace,
-                activeChat: activeBinding,
-              });
-            }
-            return;
-          } catch {
-            fallbackBindingsRef.current = savedBindings;
-            setLayoutResetNonce((current) => current + 1);
-            return;
-          }
-        }
-
-        markPersistedLayout(null);
-        buildDefaultOuterLayout(api, savedBindings);
+      if (restoreResult.kind === "restored") {
+        finishSelectionRestore(selection.workspace.layoutJson);
+        applyOuterLayoutConstraints(api);
         const activeBinding = getActiveOuterBinding(api);
         if (
           activeBinding != null &&
@@ -288,15 +301,28 @@ export function WorkspaceBoard() {
             activeChat: activeBinding,
           });
         }
-      } finally {
-        isApplyingLayoutRef.current = false;
+        return;
+      }
+
+      finishSelectionRestore(null);
+      buildDefaultOuterLayout(api, restoreResult.bindings);
+      const activeBinding = getActiveOuterBinding(api);
+      if (
+        activeBinding != null &&
+        !areChatBindingsEqual(selection.activeChat, activeBinding)
+      ) {
+        setSelection({
+          kind: "saved-workspace",
+          workspace: selection.workspace,
+          activeChat: activeBinding,
+        });
       }
     },
     [
       applyOuterLayoutConstraints,
       buildDefaultOuterLayout,
+      finishSelectionRestore,
       isApplyingLayoutRef,
-      markPersistedLayout,
       selection,
       setSelection,
     ],

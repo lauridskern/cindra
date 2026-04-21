@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import {
   CheckCircle2,
   ChevronDown,
@@ -10,7 +10,13 @@ import {
 } from "lucide-react";
 
 import type { SessionTodo } from "@/services/desktop/contracts";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import {
   Collapsible,
   CollapsibleContent,
@@ -30,24 +36,35 @@ export function SessionTodoDock({
 }: SessionTodoDockProps) {
   const hasActiveTodo = todos.some(isActiveTodo);
   const isBusy = isRequestActive || hasActiveTodo;
-  const [isIdleCollapsed, setIsIdleCollapsed] = useState(true);
-  const wasBusyRef = useRef(isBusy);
-
-  useEffect(() => {
-    if (wasBusyRef.current && !isBusy) {
-      setIsIdleCollapsed(true);
-    }
-
-    wasBusyRef.current = isBusy;
-  }, [isBusy]);
 
   if (todos.length === 0) {
     return null;
   }
 
+  return (
+    <SessionTodoDockCard
+      key={isBusy ? "busy" : "idle"}
+      isBusy={isBusy}
+      previewTodo={selectPreviewTodo(todos)}
+      summary={buildTodoSummary(todos)}
+      todos={todos}
+    />
+  );
+}
+
+function SessionTodoDockCard({
+  isBusy,
+  previewTodo,
+  summary,
+  todos,
+}: {
+  isBusy: boolean;
+  previewTodo: SessionTodo | null;
+  summary: string;
+  todos: SessionTodo[];
+}) {
+  const [isIdleCollapsed, setIsIdleCollapsed] = useState(true);
   const open = isBusy || !isIdleCollapsed;
-  const summary = buildTodoSummary(todos);
-  const previewTodo = selectPreviewTodo(todos);
 
   return (
     <div className="mx-auto mb-3 w-full max-w-3xl">
@@ -192,10 +209,14 @@ function TodoStatusIcon({ status }: { status: SessionTodo["status"] }) {
         <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
       );
     case "cancelled":
-      return <XCircle className="mt-0.5 size-4 shrink-0 text-muted-foreground" />;
+      return (
+        <XCircle className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+      );
     case "pending":
     default:
-      return <Circle className="mt-0.5 size-4 shrink-0 text-muted-foreground" />;
+      return (
+        <Circle className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+      );
   }
 }
 

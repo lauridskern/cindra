@@ -38,6 +38,27 @@ function ChatPaneTab() {
   return <div className="chat-pane-dockview-tab" aria-hidden="true" />;
 }
 
+function applySavedConversationLayout(
+  api: DockviewApi,
+  layoutJson: string | null,
+) {
+  if (layoutJson == null) {
+    return { kind: "default" as const };
+  }
+
+  const savedLayout = parseDockviewLayoutJson(layoutJson);
+  if (savedLayout == null) {
+    return { kind: "default" as const };
+  }
+
+  try {
+    api.fromJSON(savedLayout, { reuseExistingPanels: false });
+    return { kind: "restored" as const };
+  } catch {
+    return { kind: "fallback" as const };
+  }
+}
+
 interface ChatTileProps {
   binding: ChatBinding;
   canCloseChat: () => boolean;
@@ -142,46 +163,49 @@ export function ChatTile({
     },
     [binding],
   );
+  const finishInnerLayoutRestore = useCallback(
+    (layoutJson: string | null) => {
+      markPersistedLayout(layoutJson);
+      isApplyingLayoutRef.current = false;
+    },
+    [isApplyingLayoutRef, markPersistedLayout],
+  );
 
   const restoreInnerLayout = useCallback(
     async (api: DockviewApi) => {
       isApplyingLayoutRef.current = true;
-      try {
-        if (fallbackToDefaultLayoutRef.current) {
-          fallbackToDefaultLayoutRef.current = false;
-          markPersistedLayout(null);
-          buildDefaultInnerLayout(api);
-          return;
-        }
-
-        const savedLayoutJson = await desktopClient.getConversationLayout(
-          binding.conversationId,
-        );
-        const savedLayout = parseDockviewLayoutJson(savedLayoutJson);
-        if (savedLayout != null) {
-          try {
-            api.fromJSON(savedLayout, { reuseExistingPanels: false });
-            markPersistedLayout(savedLayoutJson);
-            applyChatTileLayoutConstraints(api);
-            return;
-          } catch {
-            fallbackToDefaultLayoutRef.current = true;
-            setLayoutResetNonce((current) => current + 1);
-            return;
-          }
-        }
-
-        markPersistedLayout(null);
+      if (fallbackToDefaultLayoutRef.current) {
+        fallbackToDefaultLayoutRef.current = false;
+        finishInnerLayoutRestore(null);
         buildDefaultInnerLayout(api);
-      } finally {
-        isApplyingLayoutRef.current = false;
+        return;
       }
+
+      const savedLayoutJson = await desktopClient.getConversationLayout(
+        binding.conversationId,
+      );
+      const restoreResult = applySavedConversationLayout(api, savedLayoutJson);
+      if (restoreResult.kind === "restored") {
+        finishInnerLayoutRestore(savedLayoutJson);
+        applyChatTileLayoutConstraints(api);
+        return;
+      }
+
+      if (restoreResult.kind === "fallback") {
+        fallbackToDefaultLayoutRef.current = true;
+        isApplyingLayoutRef.current = false;
+        setLayoutResetNonce((current) => current + 1);
+        return;
+      }
+
+      finishInnerLayoutRestore(null);
+      buildDefaultInnerLayout(api);
     },
     [
       binding.conversationId,
       buildDefaultInnerLayout,
+      finishInnerLayoutRestore,
       isApplyingLayoutRef,
-      markPersistedLayout,
     ],
   );
 
