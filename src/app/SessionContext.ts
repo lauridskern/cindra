@@ -40,6 +40,7 @@ export interface SessionActionsContextValue {
 
 export type WorkspaceBoardSelection =
   | { kind: "empty" }
+  | { kind: "demo-chat" }
   | { kind: "single-chat"; chat: ChatBinding }
   | { kind: "workspace-draft"; workspacePath: string }
   | {

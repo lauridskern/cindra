@@ -156,6 +156,7 @@ export function useSidebarSession() {
       const activeConversationId = getUiActiveConversationId(state);
       return {
         activeConversationId,
+        isDemoChatSelected: state.selection.kind === "demo-chat",
         activeSavedWorkspaceId:
           state.selection.kind === "saved-workspace"
             ? state.selection.workspace.id

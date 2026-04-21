@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
-import { FolderPlus, PanelsTopLeft } from "lucide-react";
+import { FlaskConical, FolderPlus, PanelsTopLeft } from "lucide-react";
 
 import {
   useSessionActions,
+  useSessionStore,
   useSidebarSession,
 } from "../hooks/useSession";
 import { handleWindowDragStart } from "../utils/window";
@@ -16,6 +17,7 @@ import {
   SidebarGroupContent,
   SidebarGroupLabel,
   SidebarHeader,
+  SidebarMenuBadge,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
@@ -48,6 +50,7 @@ function loadExpandedProjectPaths() {
 }
 
 export function ProjectSidebar() {
+  const isDevBuild = import.meta.env.DEV;
   const [expandedProjectPaths, setExpandedProjectPaths] = useState<string[]>(
     () => loadExpandedProjectPaths(),
   );
@@ -63,9 +66,11 @@ export function ProjectSidebar() {
     activeSavedWorkspaceId,
     activeWorkspacePath,
     hasCurrentWorkspace,
+    isDemoChatSelected,
     savedWorkspaces,
     workspaces,
   } = useSidebarSession();
+  const setBoardSelection = useSessionStore((state) => state.setBoardSelection);
 
   useEffect(() => {
     window.localStorage.setItem(
@@ -113,6 +118,10 @@ export function ProjectSidebar() {
 
   function handleStartNewChat(workspacePath?: string) {
     void startNewChat(workspacePath);
+  }
+
+  function handleSelectDemoChat() {
+    setBoardSelection({ kind: "demo-chat" });
   }
 
   return (
@@ -192,9 +201,11 @@ export function ProjectSidebar() {
               <SidebarMenu>
                 {workspaces.map((project) => {
                   const isActive =
+                    !isDemoChatSelected &&
                     project.workspacePath === activeWorkspacePath;
                   const isExpanded = isWorkspaceExpanded(project.workspacePath);
                   const selectedConversationId =
+                    !isDemoChatSelected &&
                     project.workspacePath === activeWorkspacePath
                       ? activeConversationId ?? project.selectedConversationId
                       : null;
@@ -217,6 +228,35 @@ export function ProjectSidebar() {
             )}
           </SidebarGroupContent>
         </SidebarGroup>
+
+        {isDevBuild ? (
+          <SidebarGroup className="pt-0">
+            <div className="mb-1 flex h-7 items-center justify-between px-2">
+              <SidebarGroupLabel className="h-full px-0 font-medium">
+                Dev
+              </SidebarGroupLabel>
+            </div>
+
+            <SidebarGroupContent>
+              <SidebarMenu>
+                <SidebarMenuItem className="relative">
+                  <SidebarMenuButton
+                    isActive={isDemoChatSelected}
+                    tooltip="Demo chat"
+                    className="pr-12 font-medium"
+                    onClick={handleSelectDemoChat}
+                  >
+                    <FlaskConical strokeWidth={2} className="size-3.5" />
+                    <span>Demo chat</span>
+                  </SidebarMenuButton>
+                  <SidebarMenuBadge className="right-2 rounded-full bg-amber-500/10 px-1.5 text-[10px] font-medium uppercase tracking-[0.18em] text-amber-700 dark:bg-amber-400/10 dark:text-amber-300">
+                    Dev
+                  </SidebarMenuBadge>
+                </SidebarMenuItem>
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        ) : null}
       </SidebarContent>
     </Sidebar>
   );

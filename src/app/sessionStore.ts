@@ -275,6 +275,8 @@ function areSelectionsEqual(
   switch (left.kind) {
     case "empty":
       return true;
+    case "demo-chat":
+      return true;
     case "single-chat": {
       const rightSelection = right as Extract<
         WorkspaceBoardSelection,
@@ -421,7 +423,8 @@ function createSessionStoreState(set: SessionStoreSetter): SessionStoreState {
           requestTimingsByConversationId: nextRequestTimingsByConversationId,
           savedWorkspaces: snapshot.savedWorkspaces,
           selection:
-            current.selection.kind === "saved-workspace"
+            current.selection.kind === "saved-workspace" ||
+            current.selection.kind === "demo-chat"
               ? current.selection
               : deriveSelectionFromSnapshot(snapshot),
           uiError: snapshot.uiError,
@@ -606,6 +609,7 @@ export function getUiActiveBinding(
       return state.selection.activeChat;
     case "single-chat":
       return state.selection.chat;
+    case "demo-chat":
     default:
       if (
         state.activeWorkspacePath != null &&
@@ -630,6 +634,8 @@ export function getUiActiveWorkspacePath(
   switch (state.selection.kind) {
     case "saved-workspace":
       return state.selection.activeChat?.workspacePath ?? state.activeWorkspacePath;
+    case "demo-chat":
+      return state.activeWorkspacePath;
     case "single-chat":
       return state.selection.chat.workspacePath;
     case "workspace-draft":
@@ -648,6 +654,8 @@ export function getUiActiveConversationId(
   switch (state.selection.kind) {
     case "saved-workspace":
       return state.selection.activeChat?.conversationId ?? null;
+    case "demo-chat":
+      return state.activeConversationId;
     case "single-chat":
       return state.selection.chat.conversationId;
     default:

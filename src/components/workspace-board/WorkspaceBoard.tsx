@@ -14,6 +14,7 @@ import {
 
 import { ConversationPanel } from "@/components/ConversationPanel";
 import { LandingScreen } from "@/components/LandingScreen";
+import { DemoConversationPanel } from "@/components/demo-chat/DemoConversationPanel";
 import {
   useBoardSelection,
   useBoardSelectionKey,
@@ -565,6 +566,18 @@ export function WorkspaceBoard() {
 
   if (selection.kind === "workspace-draft") {
     return <ConversationPanel />;
+  }
+
+  if (selection.kind === "demo-chat") {
+    return import.meta.env.DEV ? (
+      <DemoConversationPanel />
+    ) : (
+      <LandingScreen
+        isOpeningProject={isOpeningProject}
+        runtimeStatus={runtimeStatus}
+        uiError={uiError}
+      />
+    );
   }
 
   return (

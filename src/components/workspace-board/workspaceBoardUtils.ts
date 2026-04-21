@@ -15,6 +15,8 @@ export function getWorkspaceBoardSelectionKey(
   switch (selection.kind) {
     case "empty":
       return "board:empty";
+    case "demo-chat":
+      return "board:demo-chat";
     case "single-chat":
       return `board:single:${createChatPanelId(selection.chat)}`;
     case "workspace-draft":
