@@ -102,6 +102,7 @@ pub(crate) fn hydrate_conversation_state(
         workspace_path: workspace_path.to_string(),
         messages: session_messages_from_conversation(&conversation),
         todos: map_session_todos(conversation.metrics.get_todos()),
+        pending_file_updates: Default::default(),
         title: Some(persisted.title),
         updated_at: persisted.updated_at,
         active_request_ids: Vec::new(),

@@ -2,7 +2,9 @@ use crate::dto::{
     CheckoutGitBranchInput, CloneRepositoryInput, CommitGitChangesInput, CreateGitBranchInput,
     CreateSavedWorkspaceInput, FollowupResponseDto, PromptSettingsDto, QuickStartProjectInput,
     QuickStartVisibility, RuntimeStatusDto, SaveConversationLayoutInput, SendPromptInput,
-    SessionSnapshotDto, UpdatePromptSettingsInput, UpdateSavedWorkspaceLayoutInput,
+    SessionSnapshotDto, TerminalCloseInput, TerminalOpenInput, TerminalResizeInput,
+    TerminalSessionDto, TerminalWriteInput, UpdatePromptSettingsInput,
+    UpdateSavedWorkspaceLayoutInput,
 };
 use crate::runtime::{DesktopState, format_error_chain};
 use anyhow::Context;
@@ -286,6 +288,54 @@ pub(crate) async fn get_saved_workspace(
     state
         .manager
         .get_saved_workspace(workspace_id)
+        .await
+        .map_err(map_command_error)
+}
+
+#[tauri::command]
+pub(crate) async fn terminal_open(
+    input: TerminalOpenInput,
+    state: tauri::State<'_, DesktopState>,
+) -> Result<TerminalSessionDto, String> {
+    state
+        .terminal_manager
+        .open(input)
+        .await
+        .map_err(map_command_error)
+}
+
+#[tauri::command]
+pub(crate) async fn terminal_write(
+    input: TerminalWriteInput,
+    state: tauri::State<'_, DesktopState>,
+) -> Result<(), String> {
+    state
+        .terminal_manager
+        .write(input)
+        .await
+        .map_err(map_command_error)
+}
+
+#[tauri::command]
+pub(crate) async fn terminal_resize(
+    input: TerminalResizeInput,
+    state: tauri::State<'_, DesktopState>,
+) -> Result<(), String> {
+    state
+        .terminal_manager
+        .resize(input)
+        .await
+        .map_err(map_command_error)
+}
+
+#[tauri::command]
+pub(crate) async fn terminal_close(
+    input: TerminalCloseInput,
+    state: tauri::State<'_, DesktopState>,
+) -> Result<(), String> {
+    state
+        .terminal_manager
+        .close(input)
         .await
         .map_err(map_command_error)
 }

@@ -50,7 +50,7 @@ export function BranchSwitcherMenu({
             size="xs"
             aria-label="Choose git branch"
             disabled={isBusy}
-            className="-ml-2 h-auto gap-1 rounded-sm px-1.5 py-1 text-xs font-medium text-neutral-800 hover:text-foreground dark:text-neutral-400 dark:hover:text-neutral-100"
+            className="-ml-2 h-auto min-h-0 gap-1 rounded-sm px-1.5 py-0.5 text-xs leading-none font-medium text-neutral-800 hover:text-foreground dark:text-neutral-400 dark:hover:text-neutral-100"
           />
         }
       >

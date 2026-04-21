@@ -8,8 +8,8 @@ use crate::dto::{
 };
 
 use super::{
-    ForgeRuntime, RuntimeManager, apply_todo_result, derive_conversation_title_from_messages,
-    format_error_chain,
+    ConversationSessionState, ForgeRuntime, RuntimeManager, apply_todo_result,
+    derive_conversation_title_from_messages, format_error_chain,
 };
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -77,7 +77,37 @@ impl RuntimeManager {
                         self.apply_todo_update(&conversation_id, output).await;
                     }
 
-                    if let Some(event) = crate::dto::map_chat_response(&response) {
+                    if let Some(mut event) = crate::dto::map_chat_response(&response) {
+                        match &mut event {
+                            ChatEventKind::ToolStart {
+                                call_id, detail, ..
+                            } => {
+                                self.capture_pending_file_update(
+                                    &conversation_id,
+                                    &request_id,
+                                    call_id.as_deref(),
+                                    detail,
+                                )
+                                .await;
+                            }
+                            ChatEventKind::ToolEnd {
+                                call_id,
+                                is_error,
+                                detail,
+                                ..
+                            } => {
+                                self.attach_file_diff_to_result(
+                                    &conversation_id,
+                                    &request_id,
+                                    call_id.as_deref(),
+                                    *is_error,
+                                    detail,
+                                )
+                                .await;
+                            }
+                            _ => {}
+                        }
+
                         if matches!(event, ChatEventKind::Complete) {
                             saw_complete = true;
                         }
@@ -240,16 +270,12 @@ impl RuntimeManager {
                     });
                 }
                 ChatEventKind::Complete => {
-                    conversation
-                        .active_request_ids
-                        .retain(|current| current != request_id);
+                    clear_request_tracking(conversation, request_id);
                 }
                 ChatEventKind::Error { message } => {
                     should_clear_followup = true;
                     next_ui_error = Some(message.clone());
-                    conversation
-                        .active_request_ids
-                        .retain(|current| current != request_id);
+                    clear_request_tracking(conversation, request_id);
                     let next_index = conversation.messages.len();
                     conversation.messages.push(SessionMessageDto::Error {
                         id: create_message_id("error", request_id, next_index),
@@ -277,9 +303,7 @@ impl RuntimeManager {
     async fn record_stream_error(&self, conversation_id: &str, request_id: &str, message: String) {
         let mut state = self.state.lock().await;
         if let Some(conversation) = state.conversations.get_mut(conversation_id) {
-            conversation
-                .active_request_ids
-                .retain(|current| current != request_id);
+            clear_request_tracking(conversation, request_id);
             let next_index = conversation.messages.len();
             conversation.messages.push(SessionMessageDto::Error {
                 id: create_message_id("error", request_id, next_index),
@@ -306,9 +330,7 @@ impl RuntimeManager {
         {
             let mut state = self.state.lock().await;
             if let Some(conversation) = state.conversations.get_mut(conversation_id) {
-                conversation
-                    .active_request_ids
-                    .retain(|current| current != request_id);
+                clear_request_tracking(conversation, request_id);
             }
         }
 
@@ -355,6 +377,15 @@ impl RuntimeManager {
 
 pub(crate) fn create_message_id(prefix: &str, request_id: &str, index: usize) -> String {
     format!("{prefix}:{request_id}:{index}")
+}
+
+fn clear_request_tracking(conversation: &mut ConversationSessionState, request_id: &str) {
+    conversation
+        .active_request_ids
+        .retain(|current| current != request_id);
+    conversation
+        .pending_file_updates
+        .retain(|_, pending| pending.request_id != request_id);
 }
 
 fn append_streamed_message(

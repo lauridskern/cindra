@@ -3,6 +3,7 @@ mod chat;
 mod followup;
 mod runtime;
 mod session;
+mod terminal;
 
 pub use activity::{FileOperationDto, OutputPreviewDto, ToolCallDetailDto, ToolResultDetailDto};
 pub(crate) use activity::{map_tool_call_detail, map_tool_result_detail, summarize_tool_result};
@@ -18,4 +19,8 @@ pub use session::{
     ChatBindingDto, ConversationSessionSummaryDto, ConversationViewSnapshotDto,
     SavedWorkspaceDetailDto, SavedWorkspaceSummaryDto, SessionMessageDto, SessionSnapshotDto,
     SessionTodoDto, SessionTodoStatusDto, WorkspaceSessionDto,
+};
+pub use terminal::{
+    TerminalCloseInput, TerminalErrorEventDto, TerminalExitEventDto, TerminalOpenInput,
+    TerminalOutputEventDto, TerminalResizeInput, TerminalSessionDto, TerminalWriteInput,
 };

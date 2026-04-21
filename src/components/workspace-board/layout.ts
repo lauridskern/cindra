@@ -12,6 +12,7 @@ export const INNER_PLACEHOLDER_COMPONENT = "placeholder-pane";
 export const CHAT_PANE_ID = "chat";
 export const PREVIEW_PANE_ID = "preview";
 export const TERMINAL_PANE_ID = "terminal";
+export const TERMINAL_RESTART_EVENT_NAME = "agent-ui://terminal-restart-request";
 
 let activeDraggedChatBinding: ChatBinding | null = null;
 
@@ -23,6 +24,10 @@ export interface PlaceholderPaneParams extends ChatBinding {
   kind: "preview" | "terminal";
   label: string;
 }
+
+export type TerminalPaneParams = PlaceholderPaneParams & {
+  kind: "terminal";
+};
 
 export function areChatBindingsEqual(
   left: ChatBinding | null | undefined,
@@ -40,6 +45,18 @@ export function areChatBindingsEqual(
 
 export function createChatPanelId(binding: ChatBinding): string {
   return `chat:${encodeURIComponent(binding.workspacePath)}::${binding.conversationId}`;
+}
+
+export function createTerminalSessionId(binding: ChatBinding): string {
+  return `terminal:${encodeURIComponent(binding.workspacePath)}::${binding.conversationId}`;
+}
+
+export function dispatchTerminalRestartRequest(terminalId: string): void {
+  window.dispatchEvent(
+    new CustomEvent(TERMINAL_RESTART_EVENT_NAME, {
+      detail: { terminalId },
+    }),
+  );
 }
 
 export function parseDockviewLayoutJson(

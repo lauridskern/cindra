@@ -111,8 +111,9 @@ pub fn map_chat_response(response: &ChatResponse) -> Option<ChatEventKind> {
                 subtitle: title.sub_title.clone(),
                 category: title.category.clone().into(),
             }),
-            ChatResponseContent::ToolOutput(text) => normalize_tool_output_text(text)
-                .map(|text| ChatEventKind::StatusOutput { text }),
+            ChatResponseContent::ToolOutput(text) => {
+                normalize_tool_output_text(text).map(|text| ChatEventKind::StatusOutput { text })
+            }
             ChatResponseContent::Markdown { text, .. } => {
                 Some(ChatEventKind::AssistantMarkdown { text: text.clone() })
             }

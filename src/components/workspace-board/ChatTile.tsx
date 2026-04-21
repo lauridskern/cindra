@@ -9,18 +9,24 @@ import {
   DockviewReact,
   positionToDirection,
   type DockviewApi,
-  type DockviewReadyEvent,
   type DockviewGroupPanel,
+  type DockviewReadyEvent,
   type IDockviewPanel,
   type IDockviewPanelProps,
 } from "dockview-react";
 
 import { ConversationPanel } from "@/components/ConversationPanel";
+import type { ChatBinding } from "@/services/desktop/contracts";
+import * as desktopClient from "@/services/desktop/client";
+
 import { PlaceholderPane } from "./PlaceholderPane";
+import { TerminalPane } from "./TerminalPane";
 import {
   INNER_CHAT_COMPONENT,
   INNER_PLACEHOLDER_COMPONENT,
   parseDockviewLayoutJson,
+  type PlaceholderPaneParams,
+  type TerminalPaneParams,
 } from "./layout";
 import {
   applyChatTileLayoutConstraints,
@@ -29,10 +35,9 @@ import {
   openChatTilePane,
   shouldPreventChatOverlay,
 } from "./chatTileLayout";
-import type { ChatBinding } from "@/services/desktop/contracts";
-import * as desktopClient from "@/services/desktop/client";
 import { useDockviewLayoutPersistence } from "./useDockviewLayoutPersistence";
 import { useDockviewTheme } from "./useDockviewTheme";
+import "./chat-tile-dockview.css";
 
 function ChatPaneTab() {
   return <div className="chat-pane-dockview-tab" aria-hidden="true" />;
@@ -145,7 +150,19 @@ export function ChatTile({
           />
         );
       },
-      [INNER_PLACEHOLDER_COMPONENT]: PlaceholderPane,
+      [INNER_PLACEHOLDER_COMPONENT]: function AuxiliaryPane(
+        props: IDockviewPanelProps<PlaceholderPaneParams>,
+      ) {
+        if (props.params.kind === "terminal") {
+          return (
+            <TerminalPane
+              {...(props as IDockviewPanelProps<TerminalPaneParams>)}
+            />
+          );
+        }
+
+        return <PlaceholderPane {...props} />;
+      },
     }),
     [binding, canCloseChat, handleOpenPane, onCloseChat],
   );

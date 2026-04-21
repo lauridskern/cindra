@@ -1,6 +1,10 @@
+use std::collections::HashMap;
+
 use anyhow::Context;
 use forge_api::API;
 use forge_domain::ConversationId;
+
+use crate::dto::{SessionMessageDto, ToolResultDetailDto};
 
 use super::{
     ConversationSessionState, PersistedConversationSummary, RuntimeManager,
@@ -21,7 +25,7 @@ impl RuntimeManager {
             .get(conversation_id)
             .cloned();
         if existing.as_ref().is_some_and(|conversation| {
-            conversation.active_request_ids.is_empty() == false || conversation.is_local_draft
+            !conversation.active_request_ids.is_empty() || conversation.is_local_draft
         }) {
             return Ok(());
         }
@@ -47,11 +51,24 @@ impl RuntimeManager {
         let persisted = PersistedConversationSummary::from_conversation(&conversation);
 
         let mut state = self.state.lock().await;
-        let order = order_hint.unwrap_or_else(|| state.allocate_order());
-        state.conversations.insert(
-            conversation_id.to_string(),
-            hydrate_conversation_state(workspace_path, conversation, persisted, order),
-        );
+        let existing_order = state
+            .conversations
+            .get(conversation_id)
+            .map(|current| current.order);
+        let transient_details = state
+            .conversations
+            .get(conversation_id)
+            .map(|current| collect_transient_tool_result_details(&current.messages))
+            .unwrap_or_default();
+        let order = order_hint
+            .or(existing_order)
+            .unwrap_or_else(|| state.allocate_order());
+        let mut next_state =
+            hydrate_conversation_state(workspace_path, conversation, persisted, order);
+        apply_transient_tool_result_details(&mut next_state.messages, &transient_details);
+        state
+            .conversations
+            .insert(conversation_id.to_string(), next_state);
         Ok(())
     }
 
@@ -85,6 +102,7 @@ impl RuntimeManager {
                         workspace_path: workspace_path.to_string(),
                         messages: Vec::new(),
                         todos: Vec::new(),
+                        pending_file_updates: Default::default(),
                         title: Some("New chat".to_string()),
                         updated_at: None,
                         active_request_ids: Vec::new(),
@@ -112,4 +130,36 @@ pub(crate) fn select_empty_draft_conversation_id(
         })
         .max_by_key(|(_, conversation)| conversation.order)
         .map(|(conversation_id, _)| conversation_id.clone())
+}
+
+fn collect_transient_tool_result_details(
+    messages: &[SessionMessageDto],
+) -> HashMap<String, ToolResultDetailDto> {
+    messages
+        .iter()
+        .filter_map(|message| match message {
+            SessionMessageDto::ToolEnd {
+                id,
+                detail: Some(detail @ ToolResultDetailDto::FileDiff { .. }),
+                ..
+            } => Some((id.clone(), detail.clone())),
+            _ => None,
+        })
+        .collect()
+}
+
+fn apply_transient_tool_result_details(
+    messages: &mut [SessionMessageDto],
+    transient_details: &HashMap<String, ToolResultDetailDto>,
+) {
+    for message in messages {
+        let SessionMessageDto::ToolEnd { id, detail, .. } = message else {
+            continue;
+        };
+        let Some(transient_detail) = transient_details.get(id) else {
+            continue;
+        };
+
+        *detail = Some(transient_detail.clone());
+    }
 }

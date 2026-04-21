@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::path::PathBuf;
 use std::sync::Arc;
 
 use tokio::sync::Mutex;
@@ -8,6 +9,7 @@ use crate::bridge::emitter::UiEventEmitter;
 use crate::bridge::followup::FollowupBridge;
 use crate::dto::{FollowupRequestDto, SessionMessageDto, SessionTodoDto};
 use crate::persistence::project_store::ProjectStore;
+use crate::terminal::TerminalManager;
 
 use super::{ForgeRuntime, PersistedConversationSummary, RuntimeManager};
 
@@ -21,11 +23,21 @@ pub(crate) struct WorkspaceSessionState {
     pub(crate) persisted_conversations: Vec<PersistedConversationSummary>,
 }
 
+#[derive(Clone)]
+pub(crate) struct PendingFileUpdateState {
+    pub(crate) before_text: Option<String>,
+    pub(crate) display_path: String,
+    pub(crate) path: String,
+    pub(crate) request_id: String,
+    pub(crate) workspace_path: PathBuf,
+}
+
 #[derive(Clone, Default)]
 pub(crate) struct ConversationSessionState {
     pub(crate) workspace_path: String,
     pub(crate) messages: Vec<SessionMessageDto>,
     pub(crate) todos: Vec<SessionTodoDto>,
+    pub(crate) pending_file_updates: HashMap<String, PendingFileUpdateState>,
     pub(crate) title: Option<String>,
     pub(crate) updated_at: Option<String>,
     pub(crate) active_request_ids: Vec<String>,
@@ -57,13 +69,15 @@ pub(crate) fn shared_runtime_state() -> Arc<Mutex<RuntimeState>> {
 
 pub struct DesktopState {
     pub manager: Arc<RuntimeManager>,
+    pub terminal_manager: Arc<TerminalManager>,
 }
 
 impl DesktopState {
     pub fn new(emitter: Arc<dyn UiEventEmitter>, projects: Arc<ProjectStore>) -> Self {
         let (followup_sender, followup_receiver) = mpsc::unbounded_channel();
         let followups = Arc::new(FollowupBridge::new(followup_sender));
-        let manager = Arc::new(RuntimeManager::new(emitter, followups, projects));
+        let manager = Arc::new(RuntimeManager::new(emitter.clone(), followups, projects));
+        let terminal_manager = Arc::new(TerminalManager::new(emitter));
         let background_manager = manager.clone();
         tauri::async_runtime::spawn(async move {
             background_manager
@@ -71,6 +85,9 @@ impl DesktopState {
                 .await;
         });
 
-        Self { manager }
+        Self {
+            manager,
+            terminal_manager,
+        }
     }
 }

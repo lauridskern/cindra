@@ -9,7 +9,7 @@ export type OutputPreview = { content: string, totalLines: number, headDisplayLi
 
 export type ToolCallDetail = { "kind": "file_read", path: string, startLine: number | null, endLine: number | null, } | { "kind": "file_update", path: string, operation: FileOperation, } | { "kind": "shell", command: string, cwd: string | null, description: string | null, } | { "kind": "search", pattern: string, path: string | null, glob: string | null, fileType: string | null, } | { "kind": "codebase_search", queries: Array<string>, } | { "kind": "fetch", url: string, } | { "kind": "followup", question: string, } | { "kind": "plan", planName: string, } | { "kind": "skill", name: string, } | { "kind": "task", agentId: string, } | { "kind": "todo_write", count: number, } | { "kind": "todo_read" } | { "kind": "unknown", name: string, };
 
-export type ToolResultDetail = { "kind": "shell_output", command: string, shell: string, exitCode: number | null, description: string | null, stdout: OutputPreview | null, stderr: OutputPreview | null, } | { "kind": "text", text: string, };
+export type ToolResultDetail = { "kind": "file_diff", path: string, patch: string, } | { "kind": "shell_output", command: string, shell: string, exitCode: number | null, description: string | null, stdout: OutputPreview | null, stderr: OutputPreview | null, } | { "kind": "text", text: string, };
 
 export type FollowupKind = "text" | "single" | "multi";
 
@@ -66,3 +66,19 @@ export type CreateSavedWorkspaceInput = { chats: Array<ChatBinding>, layoutJson:
 export type UpdateSavedWorkspaceLayoutInput = { workspaceId: string, layoutJson: string, };
 
 export type SaveConversationLayoutInput = { conversationId: string, layoutJson: string, };
+
+export type TerminalOpenInput = { terminalId: string, workspacePath: string, cols: number, rows: number, };
+
+export type TerminalWriteInput = { terminalId: string, data: string, };
+
+export type TerminalResizeInput = { terminalId: string, cols: number, rows: number, };
+
+export type TerminalCloseInput = { terminalId: string, };
+
+export type TerminalSession = { terminalId: string, workspacePath: string, shell: string, cols: number, rows: number, };
+
+export type TerminalOutputEvent = { terminalId: string, data: string, };
+
+export type TerminalExitEvent = { terminalId: string, exitCode: number | null, signal: string | null, };
+
+export type TerminalErrorEvent = { terminalId: string, message: string, };

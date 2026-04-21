@@ -2,6 +2,7 @@ mod commands;
 mod desktop_open;
 pub mod dto;
 mod runtime;
+mod terminal;
 
 mod bridge {
     pub mod desktop_infra;
@@ -18,11 +19,12 @@ use std::sync::Arc;
 use bridge::emitter::TauriEventEmitter;
 use commands::{
     checkout_git_branch, clone_repository, commit_git_changes, create_git_branch,
-    create_saved_workspace, ensure_conversation_view, get_conversation_layout,
-    get_prompt_settings, get_runtime_status, get_saved_workspace, get_session_snapshot,
-    open_in_target, open_workspace, pick_directory, pick_workspace, push_git_branch,
-    quick_start_project, respond_followup, save_conversation_layout, select_conversation,
-    send_prompt, start_new_chat, update_prompt_settings, update_saved_workspace_layout,
+    create_saved_workspace, ensure_conversation_view, get_conversation_layout, get_prompt_settings,
+    get_runtime_status, get_saved_workspace, get_session_snapshot, open_in_target, open_workspace,
+    pick_directory, pick_workspace, push_git_branch, quick_start_project, respond_followup,
+    save_conversation_layout, select_conversation, send_prompt, start_new_chat, terminal_close,
+    terminal_open, terminal_resize, terminal_write, update_prompt_settings,
+    update_saved_workspace_layout,
 };
 use persistence::project_store::ProjectStore;
 use runtime::DesktopState;
@@ -83,7 +85,11 @@ pub fn run() {
             get_conversation_layout,
             create_saved_workspace,
             update_saved_workspace_layout,
-            get_saved_workspace
+            get_saved_workspace,
+            terminal_open,
+            terminal_write,
+            terminal_resize,
+            terminal_close
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
