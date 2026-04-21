@@ -13,8 +13,9 @@ const HIDDEN_PROMPT_TAGS: &[&str] = &["system_date"];
 const PARTIAL_SUMMARY_FRAME_PREFIX: &str = "Use the following summary frames as the authoritative reference for all coding suggestions and decisions. Do not re-explain or revisit it unless I ask. Additional summary frames will be added as the conversation progresses.";
 const PARTIAL_SUMMARY_FRAME_HEADING: &str = "## Summary";
 const PARTIAL_SUMMARY_FRAME_FOOTER: &str = "Proceed with implementation based on this context.";
+const CONTEXT_COMPACTED_LABEL: &str = "Context automatically compacted";
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum SummaryFrameRole {
     User,
     Assistant,
@@ -249,14 +250,20 @@ fn expand_internal_summary_frame(
     entry_index: usize,
 ) -> Option<Vec<SessionMessageDto>> {
     let blocks = parse_internal_summary_frame(value)?;
-    let mut messages = Vec::new();
+    let request_id = request_id.to_string();
+    let mut messages = vec![SessionMessageDto::ContextCompacted {
+        id: format!("history-summary-compacted:{entry_index}"),
+        request_id: request_id.clone(),
+        text: CONTEXT_COMPACTED_LABEL.to_string(),
+    }];
 
     for (block_index, block) in blocks.into_iter().enumerate() {
+        let role = block.role;
         let mut tool_index = 0usize;
         let mut text_index = 0usize;
 
         for content in block.contents {
-            match (block.role.clone(), content) {
+            match (role, content) {
                 (SummaryFrameRole::User, SummaryFrameContent::Text(text)) => {
                     let display = user_prompt_text_for_display(&text);
                     if display.is_empty() {
@@ -267,7 +274,7 @@ fn expand_internal_summary_frame(
                         id: format!(
                             "history-summary-user:{entry_index}:{block_index}:{text_index}"
                         ),
-                        request_id: request_id.to_string(),
+                        request_id: request_id.clone(),
                         text: display,
                     });
                     text_index += 1;
@@ -282,7 +289,7 @@ fn expand_internal_summary_frame(
                         id: format!(
                             "history-summary-assistant:{entry_index}:{block_index}:{text_index}"
                         ),
-                        request_id: request_id.to_string(),
+                        request_id: request_id.clone(),
                         text: trimmed.to_string(),
                     });
                     text_index += 1;
@@ -294,7 +301,7 @@ fn expand_internal_summary_frame(
                         id: format!(
                             "history-summary-tool-start:{entry_index}:{block_index}:{tool_index}"
                         ),
-                        request_id: request_id.to_string(),
+                        request_id: request_id.clone(),
                         name: tool.name.clone(),
                         call_id: Some(call_id.clone()),
                         detail: tool.detail.clone(),
@@ -303,7 +310,7 @@ fn expand_internal_summary_frame(
                         id: format!(
                             "history-summary-tool-end:{entry_index}:{block_index}:{tool_index}"
                         ),
-                        request_id: request_id.to_string(),
+                        request_id: request_id.clone(),
                         name: tool.name,
                         call_id: Some(call_id),
                         summary: None,
@@ -778,6 +785,11 @@ mod tests {
         let actual = session_messages_from_conversation(&fixture);
 
         let expected = vec![
+            SessionMessageDto::ContextCompacted {
+                id: "history-summary-compacted:0".to_string(),
+                request_id: request_id.clone(),
+                text: CONTEXT_COMPACTED_LABEL.to_string(),
+            },
             SessionMessageDto::User {
                 id: "history-summary-user:0:0:0".to_string(),
                 request_id: request_id.clone(),
