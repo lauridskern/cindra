@@ -12,7 +12,7 @@ import {
 } from "../components/ui/resizable";
 import { SidebarProvider, useSidebar } from "../components/ui/sidebar";
 import { TooltipProvider } from "../components/ui/tooltip";
-import { useConversationSession, useSessionActions } from "../hooks/useSession";
+import { useHasCurrentWorkspace, useSessionActions } from "../hooks/useSession";
 import { SessionProvider } from "./SessionProvider";
 
 const DEFAULT_SIDEBAR_WIDTH = 320;
@@ -71,7 +71,7 @@ function AppSidebarToggle({
 
 function AppShell() {
   useSystemThemeClass();
-  const { hasCurrentWorkspace } = useConversationSession();
+  const hasCurrentWorkspace = useHasCurrentWorkspace();
   const { startNewChat } = useSessionActions();
   const [isDesktopSidebarVisible, setIsDesktopSidebarVisible] = useState(true);
   const sidebarPanelRef = useRef<PanelImperativeHandle | null>(null);

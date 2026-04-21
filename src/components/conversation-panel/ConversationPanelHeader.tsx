@@ -1,6 +1,7 @@
 import { useRef } from "react";
 import { ChevronRight, GitFork } from "lucide-react";
 import type { DockviewApi, DockviewGroupPanel } from "dockview-react";
+import type { ChatBinding } from "@/services/desktop/contracts";
 
 import {
   Breadcrumb,
@@ -19,6 +20,7 @@ import { useDockviewGroupDragHandle } from "./useDockviewGroupDragHandle";
 import { useConversationHeaderState } from "./useConversationHeaderState";
 
 interface ConversationPanelHeaderProps {
+  binding?: ChatBinding | null;
   canCloseChat?: () => boolean;
   onCloseChat?: () => void;
   onOpenPreview?: () => void;
@@ -33,6 +35,7 @@ interface ConversationPanelHeaderProps {
 }
 
 export function ConversationPanelHeader({
+  binding,
   canCloseChat,
   onCloseChat,
   onOpenPreview,
@@ -70,7 +73,7 @@ export function ConversationPanelHeader({
     handleOpenTarget,
     handlePush,
     openCommitDialog,
-  } = useConversationHeaderState();
+  } = useConversationHeaderState(binding);
 
   useDockviewGroupDragHandle({
     dragHandle: panelDragHandle,

@@ -1,15 +1,20 @@
 import {
   useConversationSession,
   usePromptDraft,
-  useSessionActions,
 } from "../hooks/useSession";
+import { useConversationActions } from "../hooks/useConversationActions";
+import type { ChatBinding } from "../services/desktop/contracts";
 import { FollowupComposer } from "./FollowupComposer";
 import { PromptInputCard } from "./PromptInputCard";
 import { SessionTodoDock } from "./conversation-panel/SessionTodoDock";
 
-export function PromptComposer() {
-  const { submitPrompt, updatePromptSettings } = useSessionActions();
-  const { activeRequestIds, todos } = useConversationSession();
+interface PromptComposerProps {
+  binding?: ChatBinding | null;
+}
+
+export function PromptComposer({ binding }: PromptComposerProps) {
+  const { submitPrompt, updatePromptSettings } = useConversationActions(binding);
+  const { activeRequestIds, todos } = useConversationSession(binding);
   const {
     canCompose,
     followupRequest,
@@ -17,7 +22,7 @@ export function PromptComposer() {
     promptSettings,
     promptDraft,
     setPromptDraft,
-  } = usePromptDraft();
+  } = usePromptDraft(binding);
 
   return (
     <div className="px-6 pb-6">

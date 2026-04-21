@@ -136,9 +136,9 @@ export function ChatThread({
         item.kind === "message" ? item.message.kind : "request_work"
       }
       getEstimatedItemSize={estimateChatThreadItemSize}
+      initialScrollAtEnd={items.length > 0}
       maintainScrollAtEnd
       maintainScrollAtEndThreshold={0.3}
-      maintainVisibleContentPosition
       estimatedItemSize={88}
       style={{ height: "100%" }}
       contentContainerStyle={{

@@ -1,7 +1,10 @@
 import { useEffect, useState } from "react";
 import { FolderPlus, PanelsTopLeft } from "lucide-react";
 
-import { useSessionActions, useSidebarSession } from "../hooks/useSession";
+import {
+  useSessionActions,
+  useSidebarSession,
+} from "../hooks/useSession";
 import { handleWindowDragStart } from "../utils/window";
 import { ProjectSidebarActions } from "./ProjectSidebarActions";
 import { ProjectSidebarProject } from "./ProjectSidebarProject";
@@ -56,6 +59,7 @@ export function ProjectSidebar() {
     startNewChat,
   } = useSessionActions();
   const {
+    activeConversationId,
     activeSavedWorkspaceId,
     activeWorkspacePath,
     hasCurrentWorkspace,
@@ -190,6 +194,10 @@ export function ProjectSidebar() {
                   const isActive =
                     project.workspacePath === activeWorkspacePath;
                   const isExpanded = isWorkspaceExpanded(project.workspacePath);
+                  const selectedConversationId =
+                    project.workspacePath === activeWorkspacePath
+                      ? activeConversationId ?? project.selectedConversationId
+                      : null;
 
                   return (
                     <ProjectSidebarProject
@@ -197,6 +205,7 @@ export function ProjectSidebar() {
                       isExpanded={isExpanded}
                       isActive={isActive}
                       project={project}
+                      selectedConversationId={selectedConversationId}
                       onOpenProject={handleOpenProject}
                       onSelectConversation={handleSelectConversation}
                       onStartNewChat={handleStartNewChat}

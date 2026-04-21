@@ -6,6 +6,7 @@ import { ConversationPanelHeader } from "@/components/conversation-panel/Convers
 import { LandingScreen } from "@/components/LandingScreen";
 import { PromptComposer } from "@/components/PromptComposer";
 import { useConversationSession } from "@/hooks/useSession";
+import type { ChatBinding } from "@/services/desktop/contracts";
 
 interface PanelDragHandle {
   containerApi: DockviewApi;
@@ -13,6 +14,7 @@ interface PanelDragHandle {
 }
 
 interface ConversationPanelProps {
+  binding?: ChatBinding | null;
   canCloseChat?: () => boolean;
   onCloseChat?: () => void;
   onOpenPreview?: () => void;
@@ -24,6 +26,7 @@ interface ConversationPanelProps {
 }
 
 export function ConversationPanel({
+  binding,
   canCloseChat,
   onCloseChat,
   onOpenPreview,
@@ -45,7 +48,7 @@ export function ConversationPanel({
     runtimeStatus,
     uiError,
     workspacePath,
-  } = useConversationSession();
+  } = useConversationSession(binding);
 
   if (!hasCurrentWorkspace) {
     return (
@@ -60,6 +63,7 @@ export function ConversationPanel({
   return (
     <section className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden border border-white/60 bg-white/80 shadow-xl shadow-neutral-950/5 backdrop-blur-xl dark:border-white/10 dark:bg-neutral-900/80 dark:shadow-black/20">
       <ConversationPanelHeader
+        binding={binding}
         canCloseChat={canCloseChat}
         onCloseChat={onCloseChat}
         onOpenPreview={onOpenPreview}
@@ -86,7 +90,7 @@ export function ConversationPanel({
         />
       </section>
 
-      <PromptComposer />
+      <PromptComposer binding={binding} />
     </section>
   );
 }

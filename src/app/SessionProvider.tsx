@@ -1,395 +1,379 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, type ReactNode } from "react";
+import { useStore } from "zustand";
 
 import * as desktopClient from "../services/desktop/client";
 import type {
   ChatBinding,
   SessionSnapshot,
 } from "../services/desktop/contracts";
-import { useLatestRef } from "../hooks/useLatestRef";
-import { usePromptDraftStore } from "../hooks/usePromptDraftStore";
-import { usePromptSettings } from "../hooks/usePromptSettings";
-import { useRuntimeStatus } from "../hooks/useRuntimeStatus";
-import { useSessionBootstrap } from "../hooks/useSessionBootstrap";
-import { useSessionCommands } from "../hooks/useSessionCommands";
 import { extractBindingsFromLayoutJson } from "../components/workspace-board/layout";
+import { SessionActionsContext } from "./SessionContext";
 import {
-  ConversationStateContext,
-  PromptDraftContext,
-  type RequestTimingInfo,
-  SessionActionsContext,
-  SidebarStateContext,
-  WorkspaceBoardContext,
-  type WorkspaceBoardSelection,
-} from "./SessionContext";
+  openWorkspaceInTarget,
+  runWorkspaceRuntimeStatusAction,
+  submitFollowupResponse,
+  updateWorkspacePromptSettings,
+} from "./sessionClientActions";
 import {
-  getActiveConversation,
-  getActiveWorkspace,
-  getActiveWorkspaceLabel,
-  LATEST_WORKSPACE_STORAGE_KEY,
+  beginConversationSelectionRequest,
+  ensureConversationViewLoaded,
+  ensureWorkspacePromptSettingsLoaded,
+  ensureWorkspaceRuntimeStatusLoaded,
+  getConversationStoreKeyForBinding,
+  getConversationView,
+  isLatestConversationSelectionRequest,
+  getPromptDraftState,
+  getUiActiveBinding,
+  getUiActiveConversationId,
+  getUiActiveWorkspacePath,
+  sessionStore,
+} from "./sessionStore";
+import {
   getPromptDraftKey,
+  getWorkspaceDraftKey,
+  LATEST_WORKSPACE_STORAGE_KEY,
 } from "./sessionSnapshot";
+import { useSessionBootstrap } from "../hooks/useSessionBootstrap";
 
-async function loadSavedWorkspaceState(workspaceId: string): Promise<{
-  latestSnapshot: SessionSnapshot | null;
-  workspace: NonNullable<
-    Awaited<ReturnType<typeof desktopClient.getSavedWorkspace>>
-  >;
-} | null> {
-  const workspace = await desktopClient
-    .getSavedWorkspace(workspaceId)
-    .catch(() => null);
-  if (workspace == null) {
-    return null;
-  }
-
-  const bindings = extractBindingsFromLayoutJson(workspace.layoutJson);
-  let latestSnapshot: SessionSnapshot | null = null;
-
-  for (const binding of bindings) {
-    latestSnapshot = await desktopClient.ensureConversationView(
-      binding.workspacePath,
-      binding.conversationId,
-    );
-  }
-
-  if (bindings[0] != null) {
-    latestSnapshot = await desktopClient.selectConversation(
-      bindings[0].workspacePath,
-      bindings[0].conversationId,
-    );
-  }
-
-  return { latestSnapshot, workspace };
-}
-
-function useSessionProviderState() {
-  const [sessionSnapshot, setSessionSnapshot] =
-    useState<SessionSnapshot | null>(null);
-  const [requestTimingsByConversationId, setRequestTimingsByConversationId] =
-    useState<Record<string, Record<string, RequestTimingInfo>>>({});
-  const [isOpeningProject, setIsOpeningProject] = useState(false);
-  const [boardSelectionState, setBoardSelectionState] =
-    useState<WorkspaceBoardSelection>({ kind: "empty" });
-  const sessionSnapshotRef = useLatestRef(sessionSnapshot);
-  const boardSelectionRef = useRef<WorkspaceBoardSelection>({ kind: "empty" });
-
-  function setBoardSelection(selection: WorkspaceBoardSelection) {
-    boardSelectionRef.current = selection;
-    setBoardSelectionState(selection);
-  }
-  const boardSelection = boardSelectionState;
-
-  function applySessionSnapshot(snapshot: SessionSnapshot) {
-    const nextViews =
-      snapshot.conversationViews.length > 0
-        ? snapshot.conversationViews
-        : snapshot.activeConversationId != null &&
-            snapshot.activeWorkspacePath != null
-          ? [
-              {
-                workspacePath: snapshot.activeWorkspacePath,
-                conversationId: snapshot.activeConversationId,
-                messages: snapshot.visibleMessages,
-                activeRequestIds: snapshot.visibleActiveRequestIds,
-                todos: snapshot.visibleTodos,
-                followup: snapshot.visibleFollowup,
-              },
-            ]
-          : [];
-
-    if (nextViews.length > 0) {
-      setRequestTimingsByConversationId((current) => {
-        const now = Date.now();
-        let changed = false;
-        const nextState = { ...current };
-
-        for (const view of nextViews) {
-          const currentConversationTimings = current[view.conversationId] ?? {};
-          const nextConversationTimings = { ...currentConversationTimings };
-          const activeRequestIdSet = new Set(view.activeRequestIds ?? []);
-
-          for (const requestId of view.activeRequestIds ?? []) {
-            if (nextConversationTimings[requestId] == null) {
-              nextConversationTimings[requestId] = {
-                startedAtMs: now,
-                completedAtMs: null,
-              };
-              changed = true;
-            }
-          }
-
-          for (const [requestId, timing] of Object.entries(
-            nextConversationTimings,
-          )) {
-            if (
-              timing.completedAtMs == null &&
-              !activeRequestIdSet.has(requestId)
-            ) {
-              nextConversationTimings[requestId] = {
-                ...timing,
-                completedAtMs: now,
-              };
-              changed = true;
-            }
-          }
-
-          nextState[view.conversationId] = nextConversationTimings;
-        }
-
-        return changed ? nextState : current;
-      });
-    }
-
-    setSessionSnapshot(snapshot);
-
-    if (boardSelectionRef.current.kind === "saved-workspace") {
-      return;
-    }
-
-    if (
-      snapshot.activeWorkspacePath != null &&
-      snapshot.activeConversationId != null
-    ) {
-      setBoardSelection({
-        kind: "single-chat",
-        chat: {
-          workspacePath: snapshot.activeWorkspacePath,
-          conversationId: snapshot.activeConversationId,
-        },
-      });
-      return;
-    }
-
-    if (snapshot.activeWorkspacePath != null) {
-      setBoardSelection({
-        kind: "workspace-draft",
-        workspacePath: snapshot.activeWorkspacePath,
-      });
-      return;
-    }
-
-    setBoardSelection({ kind: "empty" });
-  }
-
-  const currentPromptDraftKey = getPromptDraftKey(
-    sessionSnapshot?.activeWorkspacePath,
-    sessionSnapshot?.activeConversationId,
-  );
-  const promptDraftStore = usePromptDraftStore(currentPromptDraftKey);
-  const { promptSettings, setPromptSettings } = usePromptSettings(
-    sessionSnapshot?.activeWorkspacePath ?? null,
+export function SessionProvider({ children }: { children: ReactNode }) {
+  const activeWorkspacePath = useStore(
+    sessionStore,
+    (state) => getUiActiveWorkspacePath(state),
   );
 
-  const { refreshRuntimeStatus, runtimeStatus, setRuntimeStatus } =
-    useRuntimeStatus(sessionSnapshot?.activeWorkspacePath ?? null);
+  const applySessionSnapshot = useCallback((snapshot: SessionSnapshot) => {
+    sessionStore.getState().applySessionSnapshot(snapshot);
+  }, []);
 
-  const baseActionState = useSessionCommands({
-    promptDraftStore,
-    setPromptSettings,
-    refreshRuntimeStatus,
-    sessionSnapshotRef,
-    setIsOpeningProject,
-    setRuntimeStatus,
-    setSessionSnapshot: applySessionSnapshot,
-  });
-
-  const hasCurrentWorkspace = sessionSnapshot?.activeWorkspacePath != null;
-  const activeConversationId = sessionSnapshot?.activeConversationId ?? null;
-  const activeWorkspace = getActiveWorkspace(sessionSnapshot);
-  const activeConversation = getActiveConversation(sessionSnapshot);
-  const followupRequest = sessionSnapshot?.visibleFollowup ?? null;
-  const activeWorkspaceConfigured =
-    runtimeStatus?.configured ?? activeWorkspace?.configured ?? true;
-  const activeWorkspaceConfigurationError =
-    runtimeStatus?.configurationError ??
-    activeWorkspace?.configurationError ??
-    null;
   useSessionBootstrap({ setSessionSnapshot: applySessionSnapshot });
 
   useEffect(() => {
-    if (sessionSnapshot?.activeWorkspacePath == null) {
+    if (activeWorkspacePath == null) {
       return;
     }
 
     window.localStorage.setItem(
       LATEST_WORKSPACE_STORAGE_KEY,
-      sessionSnapshot.activeWorkspacePath,
+      activeWorkspacePath,
     );
-  }, [sessionSnapshot?.activeWorkspacePath]);
+  }, [activeWorkspacePath]);
 
-  function getConversationView(binding: ChatBinding) {
-    return (
-      sessionSnapshot?.conversationViews.find(
-        (view) =>
-          view.workspacePath === binding.workspacePath &&
-          view.conversationId === binding.conversationId,
-      ) ?? null
-    );
-  }
-
-  function getWorkspace(workspacePath: string) {
-    return (
-      sessionSnapshot?.workspaces.find(
-        (workspace) => workspace.workspacePath === workspacePath,
-      ) ?? null
-    );
-  }
-
-  function getConversationSummary(binding: ChatBinding) {
-    return (
-      getWorkspace(binding.workspacePath)?.conversations.find(
-        (conversation) =>
-          conversation.conversationId === binding.conversationId,
-      ) ?? null
-    );
-  }
-
-  async function openSavedWorkspace(workspaceId: string) {
-    const result = await loadSavedWorkspaceState(workspaceId);
-    if (result == null) {
-      return;
-    }
-
-    setBoardSelection({ kind: "saved-workspace", workspace: result.workspace });
-    if (result.latestSnapshot != null) {
-      applySessionSnapshot(result.latestSnapshot);
-    }
-  }
-
-  const actionState = {
-    ...baseActionState,
-    openProject: async (workspacePath: string) => {
-      setBoardSelection({ kind: "empty" });
-      await baseActionState.openProject(workspacePath);
-    },
-    openSavedWorkspace,
-    openWorkspacePicker: async () => {
-      setBoardSelection({ kind: "empty" });
-      return await baseActionState.openWorkspacePicker();
-    },
-    selectConversation: async (
-      workspacePath: string,
-      conversationId: string,
-    ) => {
-      setBoardSelection({
-        kind: "single-chat",
-        chat: { workspacePath, conversationId },
+  const ensureWorkspaceMeta = useCallback(
+    (workspacePath: string, options?: { forceRuntimeStatus?: boolean }) => {
+      void ensureWorkspaceRuntimeStatusLoaded(workspacePath, {
+        force: options?.forceRuntimeStatus,
       });
-      await baseActionState.selectConversation(workspacePath, conversationId);
+      void ensureWorkspacePromptSettingsLoaded(workspacePath);
     },
-    startNewChat: async (workspacePath?: string) => {
-      const targetWorkspacePath =
-        workspacePath ??
-        sessionSnapshotRef.current?.activeWorkspacePath ??
-        null;
-      if (targetWorkspacePath == null) {
-        return null;
-      }
+    [],
+  );
 
-      const snapshot = await baseActionState.startNewChat(targetWorkspacePath);
-      if (
-        snapshot == null ||
-        snapshot.activeWorkspacePath !== targetWorkspacePath ||
-        snapshot.activeConversationId != null
-      ) {
+  const openWorkspaceByPath = useCallback(async (workspacePath: string) => {
+    const store = sessionStore.getState();
+    store.setBoardSelection({ kind: "empty" });
+    store.setIsOpeningProject(true);
+
+    const snapshot = await desktopClient.openWorkspace(workspacePath).catch(
+      () => null,
+    );
+    if (snapshot != null) {
+      store.applySessionSnapshot(snapshot);
+      ensureWorkspaceMeta(workspacePath, { forceRuntimeStatus: true });
+    }
+
+    sessionStore.getState().setIsOpeningProject(false);
+  }, [ensureWorkspaceMeta]);
+
+  const actionState = useMemo(
+    () => ({
+      checkoutBranch: async (branchName: string) => {
+        const workspacePath = getUiActiveWorkspacePath(sessionStore.getState());
+        if (workspacePath == null) {
+          return;
+        }
+
+        await runWorkspaceRuntimeStatusAction(workspacePath, () =>
+          desktopClient.checkoutGitBranch({
+            branchName,
+            workspacePath,
+          }),
+        );
+      },
+      commitChanges: async (message: string) => {
+        const workspacePath = getUiActiveWorkspacePath(sessionStore.getState());
+        if (workspacePath == null) {
+          return;
+        }
+
+        await runWorkspaceRuntimeStatusAction(workspacePath, () =>
+          desktopClient.commitGitChanges({
+            message,
+            workspacePath,
+          }),
+        );
+      },
+      createBranch: async (branchName: string) => {
+        const workspacePath = getUiActiveWorkspacePath(sessionStore.getState());
+        if (workspacePath == null) {
+          return;
+        }
+
+        await runWorkspaceRuntimeStatusAction(workspacePath, () =>
+          desktopClient.createGitBranch({
+            branchName,
+            workspacePath,
+          }),
+        );
+      },
+      openInTarget: async (targetId: string) => {
+        const workspacePath = getUiActiveWorkspacePath(sessionStore.getState());
+        if (workspacePath == null) {
+          return;
+        }
+
+        await openWorkspaceInTarget(workspacePath, targetId);
+      },
+      openProject: async (workspacePath: string) => {
+        await openWorkspaceByPath(workspacePath);
+      },
+      openSavedWorkspace: async (workspaceId: string) => {
+        const workspace = await desktopClient
+          .getSavedWorkspace(workspaceId)
+          .catch(() => null);
+        if (workspace == null) {
+          return;
+        }
+
+        const bindings = extractBindingsFromLayoutJson(workspace.layoutJson);
+        const initialBinding = bindings[0] ?? null;
+        const uniqueBindings = Array.from(
+          new Map(
+            bindings.map((binding) => [
+              getConversationStoreKeyForBinding(binding),
+              binding,
+            ]),
+          ).values(),
+        );
+        sessionStore.getState().setBoardSelection({
+          kind: "saved-workspace",
+          workspace,
+          activeChat: initialBinding,
+        });
+
+        await Promise.all(
+          uniqueBindings.map((binding) => ensureConversationViewLoaded(binding)),
+        );
+
+        const workspacePaths = Array.from(
+          new Set(uniqueBindings.map((binding) => binding.workspacePath)),
+        );
+        workspacePaths.forEach((workspacePath) => {
+          ensureWorkspaceMeta(workspacePath);
+        });
+
+        if (initialBinding == null) {
+          return;
+        }
+
+        const snapshot = await desktopClient
+          .selectConversation(
+            initialBinding.workspacePath,
+            initialBinding.conversationId,
+          )
+          .catch(() => null);
+        if (snapshot != null) {
+          sessionStore.getState().applySessionSnapshot(snapshot);
+        }
+      },
+      openWorkspacePicker: async () => {
+        try {
+          const selectedPath = await desktopClient.pickWorkspace();
+          if (selectedPath == null) {
+            return null;
+          }
+
+          await openWorkspaceByPath(selectedPath);
+          return selectedPath;
+        } catch {
+          return null;
+        }
+      },
+      pushBranch: async () => {
+        const workspacePath = getUiActiveWorkspacePath(sessionStore.getState());
+        if (workspacePath == null) {
+          return;
+        }
+
+        await runWorkspaceRuntimeStatusAction(workspacePath, () =>
+          desktopClient.pushGitBranch(workspacePath),
+        );
+      },
+      selectConversation: async (
+        workspacePath: string,
+        conversationId: string,
+      ) => {
+        const requestId = beginConversationSelectionRequest();
+
+        const binding = { conversationId, workspacePath } satisfies ChatBinding;
+        const currentSelection = sessionStore.getState().selection;
+
+        ensureWorkspaceMeta(workspacePath);
+
+        if (currentSelection.kind === "saved-workspace") {
+          sessionStore.getState().setBoardSelection({
+            kind: "saved-workspace",
+            workspace: currentSelection.workspace,
+            activeChat: binding,
+          });
+
+          await ensureConversationViewLoaded(binding);
+          return;
+        }
+
+        sessionStore.getState().setBoardSelection({
+          kind: "single-chat",
+          chat: binding,
+        });
+
+        try {
+          const snapshot = await desktopClient.selectConversation(
+            workspacePath,
+            conversationId,
+          );
+          if (!isLatestConversationSelectionRequest(requestId)) {
+            return;
+          }
+
+          sessionStore.getState().applySessionSnapshot(snapshot);
+          ensureWorkspaceMeta(workspacePath, { forceRuntimeStatus: true });
+        } catch {
+          return;
+        }
+      },
+      startNewChat: async (workspacePath?: string) => {
+        const targetWorkspacePath =
+          workspacePath ?? getUiActiveWorkspacePath(sessionStore.getState());
+        if (targetWorkspacePath == null) {
+          return null;
+        }
+
+        const originPromptDraftKey = getWorkspaceDraftKey(targetWorkspacePath);
+        const snapshot = await desktopClient
+          .startNewChat(targetWorkspacePath)
+          .catch(() => null);
+        if (snapshot == null) {
+          return null;
+        }
+
+          sessionStore.getState().applySessionSnapshot(snapshot);
+        const nextPromptDraftKey = getPromptDraftKey(
+          snapshot.activeWorkspacePath,
+          snapshot.activeConversationId,
+        );
+        sessionStore
+          .getState()
+          .movePromptDraft(originPromptDraftKey, nextPromptDraftKey);
+
+        if (
+          snapshot.activeWorkspacePath === targetWorkspacePath &&
+          snapshot.activeConversationId == null
+        ) {
+          sessionStore.getState().setBoardSelection({
+            kind: "workspace-draft",
+            workspacePath: targetWorkspacePath,
+          });
+        }
+
+        ensureWorkspaceMeta(targetWorkspacePath, {
+          forceRuntimeStatus: true,
+        });
         return snapshot;
-      }
+      },
+      submitFollowup: async (input: {
+        cancelled: boolean;
+        text?: string;
+        selectedOptionIds?: string[];
+      }) => {
+        const activeBinding = getUiActiveBinding(sessionStore.getState());
+        const followupRequest =
+          activeBinding == null ? null : getConversationView(activeBinding)?.followup ?? null;
+        if (followupRequest == null) {
+          return;
+        }
 
-      setBoardSelection({
-        kind: "workspace-draft",
-        workspacePath: targetWorkspacePath,
-      });
-      return snapshot;
-    },
-  };
+        await submitFollowupResponse({
+          cancelled: input.cancelled,
+          followupId: followupRequest.followupId,
+          selectedOptionIds: input.selectedOptionIds,
+          text: input.text,
+        });
+      },
+      submitPrompt: async () => {
+        const workspacePath = getUiActiveWorkspacePath(sessionStore.getState());
+        if (workspacePath == null) {
+          return;
+        }
 
-  const canCompose =
-    hasCurrentWorkspace &&
-    activeWorkspaceConfigured &&
-    followupRequest == null &&
-    promptDraftStore.isSendingPrompt === false &&
-    (activeConversation?.isRunning ?? false) === false;
-  const requestTimingsById =
-    activeConversationId == null
-      ? {}
-      : (requestTimingsByConversationId[activeConversationId] ?? {});
+        const conversationId = getUiActiveConversationId(sessionStore.getState());
+        const promptDraftKey = getPromptDraftKey(workspacePath, conversationId);
+        if (promptDraftKey == null) {
+          return;
+        }
 
-  const conversationState = {
-    activeRequestIds: sessionSnapshot?.visibleActiveRequestIds ?? [],
-    activeWorkspaceConfigurationError,
-    activeWorkspaceConfigured,
-    activeWorkspaceLabel: getActiveWorkspaceLabel(sessionSnapshot),
-    hasCurrentWorkspace,
-    isOpeningProject,
-    messages: sessionSnapshot?.visibleMessages ?? [],
-    requestTimingsById,
-    runtimeStatus,
-    todos: sessionSnapshot?.visibleTodos ?? [],
-    uiError: sessionSnapshot?.uiError ?? null,
-    workspacePath: sessionSnapshot?.activeWorkspacePath ?? null,
-  };
+        const prompt = getPromptDraftState(promptDraftKey).value.trim();
+        if (prompt.length === 0) {
+          return;
+        }
 
-  const sidebarState = {
-    activeWorkspacePath: sessionSnapshot?.activeWorkspacePath ?? null,
-    activeSavedWorkspaceId:
-      boardSelection.kind === "saved-workspace"
-        ? boardSelection.workspace.id
-        : null,
-    hasCurrentWorkspace,
-    savedWorkspaces: sessionSnapshot?.savedWorkspaces ?? [],
-    workspaces: sessionSnapshot?.workspaces ?? [],
-  };
+        let nextPromptDraftKey: string | null = promptDraftKey;
+        sessionStore.getState().setPromptDraftPending(promptDraftKey, true);
 
-  const workspaceBoardState = {
-    applySessionSnapshot,
-    getConversationSummary,
-    getConversationView,
-    getWorkspace,
-    isOpeningProject,
-    requestTimingsByConversationId,
-    selection: boardSelection,
-    sessionSnapshot,
-    setSelection: setBoardSelection,
-  };
+        const snapshot = await desktopClient
+          .sendPrompt({
+            conversationId,
+            prompt,
+            workspacePath,
+          })
+          .catch(() => null);
+        if (snapshot != null) {
+          sessionStore.getState().applySessionSnapshot(snapshot);
 
-  const promptState = {
-    canCompose,
-    followupRequest,
-    isSendingPrompt: promptDraftStore.isSendingPrompt,
-    promptSettings,
-    promptDraft: promptDraftStore.promptDraft,
-    setPromptDraft: promptDraftStore.setPromptDraft,
-  };
+          nextPromptDraftKey = getPromptDraftKey(
+            snapshot.activeWorkspacePath,
+            snapshot.activeConversationId,
+          );
+          sessionStore
+            .getState()
+            .movePromptDraft(promptDraftKey, nextPromptDraftKey);
+          sessionStore.getState().clearPromptDraft(nextPromptDraftKey);
+        }
 
-  return {
-    actionState,
-    conversationState,
-    promptState,
-    sidebarState,
-    workspaceBoardState,
-  };
-}
+        sessionStore.getState().setPromptDraftPending(promptDraftKey, false);
+        if (nextPromptDraftKey !== promptDraftKey) {
+          sessionStore
+            .getState()
+            .setPromptDraftPending(nextPromptDraftKey, false);
+        }
+      },
+      updatePromptSettings: async (input: {
+        providerId: string;
+        modelId: string;
+        reasoningEffort?: string | null;
+      }) => {
+        const workspacePath = getUiActiveWorkspacePath(sessionStore.getState());
+        if (workspacePath == null) {
+          return;
+        }
 
-export function SessionProvider({ children }: { children: ReactNode }) {
-  const {
-    actionState,
-    conversationState,
-    promptState,
-    sidebarState,
-    workspaceBoardState,
-  } = useSessionProviderState();
+        await updateWorkspacePromptSettings(workspacePath, input);
+      },
+    }),
+    [ensureWorkspaceMeta, openWorkspaceByPath],
+  );
 
   return (
     <SessionActionsContext.Provider value={actionState}>
-      <WorkspaceBoardContext.Provider value={workspaceBoardState}>
-        <ConversationStateContext.Provider value={conversationState}>
-          <SidebarStateContext.Provider value={sidebarState}>
-            <PromptDraftContext.Provider value={promptState}>
-              {children}
-            </PromptDraftContext.Provider>
-          </SidebarStateContext.Provider>
-        </ConversationStateContext.Provider>
-      </WorkspaceBoardContext.Provider>
+      {children}
     </SessionActionsContext.Provider>
   );
 }

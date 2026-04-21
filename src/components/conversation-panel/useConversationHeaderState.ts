@@ -1,6 +1,8 @@
 import * as React from "react";
 
-import { useConversationSession, useSessionActions } from "@/hooks/useSession";
+import { useConversationActions } from "@/hooks/useConversationActions";
+import { useConversationSession } from "@/hooks/useSession";
+import type { ChatBinding } from "@/services/desktop/contracts";
 
 import {
   appTargets,
@@ -16,7 +18,7 @@ import {
 
 const EMPTY_STRING_ARRAY: readonly string[] = [];
 
-export function useConversationHeaderState() {
+export function useConversationHeaderState(binding?: ChatBinding | null) {
   const [branchQuery, setBranchQuery] = React.useState("");
   const [isBranchMenuOpen, setIsBranchMenuOpen] = React.useState(false);
   const [isCommitDialogOpen, setIsCommitDialogOpen] = React.useState(false);
@@ -25,14 +27,14 @@ export function useConversationHeaderState() {
     React.useState<PendingHeaderAction | null>(null);
   const branchSearchInputRef = React.useRef<HTMLInputElement | null>(null);
 
-  const { activeWorkspaceLabel, runtimeStatus } = useConversationSession();
+  const { activeWorkspaceLabel, runtimeStatus } = useConversationSession(binding);
   const {
     checkoutBranch,
     commitChanges,
     createBranch,
     openInTarget,
     pushBranch,
-  } = useSessionActions();
+  } = useConversationActions(binding);
 
   const repoName = runtimeStatus?.gitRepoName ?? null;
   const branchName = runtimeStatus?.gitBranchName ?? null;
