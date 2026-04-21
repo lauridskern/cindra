@@ -435,7 +435,7 @@ export function DemoConversationPanel() {
   }
 
   return (
-    <section className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden border border-white/60 bg-white/80 shadow-xl shadow-neutral-950/5 backdrop-blur-xl dark:border-white/10 dark:bg-neutral-900/80 dark:shadow-black/20">
+    <section className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-white/80 shadow-xl shadow-neutral-950/5 backdrop-blur-xl dark:bg-neutral-900/80 dark:shadow-black/20">
       <header className="flex h-9.5 items-center justify-between gap-3 border-b border-black/5 px-3 pr-1.5 dark:border-white/5">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
