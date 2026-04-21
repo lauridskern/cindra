@@ -200,13 +200,13 @@ export function ProjectSidebar() {
             ) : (
               <SidebarMenu>
                 {workspaces.map((project) => {
-                  const isActive =
+                  const isProjectOpen =
                     !isDemoChatSelected &&
                     project.workspacePath === activeWorkspacePath;
+                  const isActive = isProjectOpen && activeConversationId == null;
                   const isExpanded = isWorkspaceExpanded(project.workspacePath);
                   const selectedConversationId =
-                    !isDemoChatSelected &&
-                    project.workspacePath === activeWorkspacePath
+                    isProjectOpen
                       ? activeConversationId ?? project.selectedConversationId
                       : null;
 
