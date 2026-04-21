@@ -7,7 +7,11 @@
   --chat-tile-header-padding-x: 0.375rem;
   --chat-tile-header-item-height: 1.5rem;
   --chat-tile-surface: var(--pane-surface);
-  --chat-tile-header-divider: color-mix(in oklab, var(--foreground) 10%, transparent);
+  --chat-tile-header-divider: rgb(0 0 0 / 5%);
+}
+
+.dark .chat-tile-inner-dock {
+  --chat-tile-header-divider: rgb(255 255 255 / 5%);
 }
 
 .chat-tile-inner-dock:is(.dockview-theme-light, .dockview-theme-dark),
@@ -32,6 +36,8 @@
 
 .chat-tile-inner-dock .dv-groupview > .dv-tabs-and-actions-container {
   box-sizing: border-box;
+  height: var(--chat-tile-header-height);
+  min-height: var(--chat-tile-header-height);
   align-items: center;
   padding-inline: var(--chat-tile-header-padding-x);
   background: var(--chat-tile-surface);
@@ -59,6 +65,11 @@
 .chat-tile-inner-dock .dv-groupview > .dv-tabs-and-actions-container .dv-tab.dv-active-tab,
 .chat-tile-inner-dock .dv-groupview > .dv-tabs-and-actions-container .dv-tab.dv-inactive-tab {
   background: transparent !important;
+}
+
+.chat-pane-dockview-tab {
+  width: 100%;
+  min-width: 0;
 }
 
 .chat-tile-inner-dock .dv-groupview > .dv-tabs-and-actions-container .dv-right-actions-container {

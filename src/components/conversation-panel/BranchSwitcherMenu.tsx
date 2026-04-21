@@ -2,6 +2,7 @@ import * as React from "react";
 import { ChevronDownIcon, GitBranchIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -24,6 +25,7 @@ interface BranchSwitcherMenuProps {
   onCreateBranch: () => Promise<void>;
   onOpenChange: (open: boolean) => void;
   onSelectBranch: (branchName: string) => Promise<void>;
+  triggerClassName?: string;
 }
 
 export function BranchSwitcherMenu({
@@ -38,6 +40,7 @@ export function BranchSwitcherMenu({
   onCreateBranch,
   onOpenChange,
   onSelectBranch,
+  triggerClassName,
 }: BranchSwitcherMenuProps) {
   const trimmedQuery = branchQuery.trim();
 
@@ -50,7 +53,10 @@ export function BranchSwitcherMenu({
             size="xs"
             aria-label="Choose git branch"
             disabled={isBusy}
-            className="-ml-2 h-auto min-h-0 gap-1 rounded-sm px-1.5 py-0.5 text-xs leading-none font-medium text-neutral-800 hover:text-foreground dark:text-neutral-400 dark:hover:text-neutral-100"
+            className={cn(
+              "-ml-2 h-auto min-h-0 gap-1 rounded-sm px-1.5 py-0.5 text-xs leading-none font-medium text-neutral-800 hover:text-foreground dark:text-neutral-400 dark:hover:text-neutral-100",
+              triggerClassName,
+            )}
           />
         }
       >

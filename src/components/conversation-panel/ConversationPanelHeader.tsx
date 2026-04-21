@@ -1,6 +1,4 @@
-import { useRef } from "react";
 import { ChevronRight, GitFork } from "lucide-react";
-import type { DockviewApi, DockviewGroupPanel } from "dockview-react";
 import type { ChatBinding } from "@/services/desktop/contracts";
 
 import {
@@ -16,7 +14,6 @@ import { handleWindowDragStart } from "@/utils/window";
 import { BranchSwitcherMenu } from "./BranchSwitcherMenu";
 import { CommitChangesDialog } from "./CommitChangesDialog";
 import { ConversationHeaderActions } from "./ConversationHeaderActions";
-import { useDockviewGroupDragHandle } from "./useDockviewGroupDragHandle";
 import { useConversationHeaderState } from "./useConversationHeaderState";
 
 interface ConversationPanelHeaderProps {
@@ -25,11 +22,6 @@ interface ConversationPanelHeaderProps {
   onCloseChat?: () => void;
   onOpenPreview?: () => void;
   onOpenTerminal?: () => void;
-  panelDragHandle?: {
-    containerApi: DockviewApi;
-    group: DockviewGroupPanel;
-  };
-  panelDragEnabled?: boolean;
   reserveTitlebarInset: boolean;
   windowDragEnabled: boolean;
 }
@@ -40,12 +32,9 @@ export function ConversationPanelHeader({
   onCloseChat,
   onOpenPreview,
   onOpenTerminal,
-  panelDragHandle,
-  panelDragEnabled = false,
   reserveTitlebarInset,
   windowDragEnabled,
 }: ConversationPanelHeaderProps) {
-  const panelDragHandleRef = useRef<HTMLDivElement | null>(null);
   const {
     activeWorkspaceLabel,
     branchName,
@@ -74,12 +63,10 @@ export function ConversationPanelHeader({
     handlePush,
     openCommitDialog,
   } = useConversationHeaderState(binding);
-
-  useDockviewGroupDragHandle({
-    dragHandle: panelDragHandle,
-    elementRef: panelDragHandleRef,
-    enabled: panelDragEnabled,
-  });
+  const windowDragClassName = cn(
+    "bg-transparent",
+    windowDragEnabled && "cursor-grab active:cursor-grabbing",
+  );
 
   return (
     <>
@@ -98,13 +85,22 @@ export function ConversationPanelHeader({
               <Breadcrumb className="min-w-0">
                 <BreadcrumbList className="min-w-0 flex-nowrap">
                   <BreadcrumbItem className="min-w-0">
-                    <BreadcrumbPage className="inline-flex min-w-0 items-center gap-1.5 text-xs font-medium text-neutral-800 dark:text-neutral-100">
-                      <GitFork
-                        strokeWidth={2}
-                        className="size-3 shrink-0 text-neutral-500 dark:text-neutral-500"
-                      />
-                      <span className="truncate">{repoName}</span>
-                    </BreadcrumbPage>
+                    <div
+                      role="presentation"
+                      className={cn(
+                        "inline-flex min-w-0 items-center",
+                        windowDragClassName,
+                      )}
+                      onMouseDown={windowDragEnabled ? handleWindowDragStart : undefined}
+                    >
+                      <BreadcrumbPage className="pointer-events-none inline-flex min-w-0 items-center gap-1.5 text-xs font-medium text-neutral-800 dark:text-neutral-100">
+                        <GitFork
+                          strokeWidth={2}
+                          className="size-3 shrink-0 text-neutral-500 dark:text-neutral-500"
+                        />
+                        <span className="truncate">{repoName}</span>
+                      </BreadcrumbPage>
+                    </div>
                   </BreadcrumbItem>
 
                   {branchName ? (
@@ -133,20 +129,21 @@ export function ConversationPanelHeader({
               </Breadcrumb>
             </>
           ) : (
-            <span className="truncate text-xs font-medium tracking-tight text-neutral-500 dark:text-neutral-400">
-              {activeWorkspaceLabel}
-            </span>
+            <div
+              role="presentation"
+              className={cn("min-w-0", windowDragClassName)}
+              onMouseDown={windowDragEnabled ? handleWindowDragStart : undefined}
+            >
+              <span className="pointer-events-none truncate text-xs font-medium tracking-tight text-neutral-500 dark:text-neutral-400">
+                {activeWorkspaceLabel}
+              </span>
+            </div>
           )}
         </div>
 
         <div
-          ref={panelDragHandleRef}
           role="presentation"
-          className={cn(
-            "h-full min-w-8 flex-1 bg-transparent",
-            (panelDragEnabled || windowDragEnabled) &&
-              "cursor-grab active:cursor-grabbing",
-          )}
+          className={cn("h-full min-w-8 flex-1", windowDragClassName)}
           onMouseDown={windowDragEnabled ? handleWindowDragStart : undefined}
         />
 

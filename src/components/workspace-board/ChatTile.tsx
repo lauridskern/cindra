@@ -6,22 +6,35 @@ import {
   useState,
 } from "react";
 import {
+  RotateCcwIcon,
+  XIcon,
+} from "lucide-react";
+import {
   DockviewReact,
   positionToDirection,
   type DockviewApi,
   type DockviewGroupPanel,
+  type IDockviewHeaderActionsProps,
   type DockviewReadyEvent,
   type IDockviewPanel,
+  type IDockviewPanelHeaderProps,
   type IDockviewPanelProps,
 } from "dockview-react";
 
 import { ConversationPanel } from "@/components/ConversationPanel";
+import { ConversationDockviewHeaderActions } from "@/components/conversation-panel/ConversationDockviewHeaderActions";
+import { ConversationDockviewTab } from "@/components/conversation-panel/ConversationDockviewTab";
+import { Button } from "@/components/ui/button";
+import { ButtonGroup } from "@/components/ui/button-group";
 import type { ChatBinding } from "@/services/desktop/contracts";
 import * as desktopClient from "@/services/desktop/client";
 
 import { PlaceholderPane } from "./PlaceholderPane";
 import { TerminalPane } from "./TerminalPane";
 import {
+  CHAT_PANE_ID,
+  createTerminalSessionId,
+  dispatchTerminalRestartRequest,
   INNER_CHAT_COMPONENT,
   INNER_PLACEHOLDER_COMPONENT,
   parseDockviewLayoutJson,
@@ -39,9 +52,18 @@ import { useDockviewLayoutPersistence } from "./useDockviewLayoutPersistence";
 import { useDockviewTheme } from "./useDockviewTheme";
 import "./chat-tile-dockview.css";
 
-function ChatPaneTab() {
-  return <div className="chat-pane-dockview-tab" aria-hidden="true" />;
+function AuxiliaryPaneTab({
+  params,
+}: IDockviewPanelHeaderProps<PlaceholderPaneParams>) {
+  return (
+    <div className="terminal-pane-tab inline-flex h-6 min-w-0 items-center gap-1.5 px-1.5 text-xs font-medium tracking-tight text-neutral-800 dark:text-neutral-100">
+      <span className="truncate">{params.label}</span>
+    </div>
+  );
 }
+
+const headerActionsClassName =
+  "relative z-20 ml-auto flex h-6 shrink-0 items-center gap-1.5 pointer-events-auto";
 
 function applySavedConversationLayout(
   api: DockviewApi,
@@ -125,11 +147,92 @@ export function ChatTile({
     [binding, scheduleInnerLayoutSave],
   );
 
+  const headerActionsComponent = useCallback(function InnerHeaderActions({
+    activePanel,
+  }: IDockviewHeaderActionsProps) {
+    if (activePanel?.id === CHAT_PANE_ID) {
+      return (
+        <ConversationDockviewHeaderActions
+          binding={binding}
+          canCloseChat={canCloseChat}
+          onCloseChat={onCloseChat}
+          onOpenPreview={() => {
+            handleOpenPane("preview");
+          }}
+          onOpenTerminal={() => {
+            handleOpenPane("terminal");
+          }}
+        />
+      );
+    }
+
+    const panelParams = activePanel?.params as Partial<PlaceholderPaneParams> | undefined;
+    const kind = panelParams?.kind;
+
+    if (activePanel == null || (kind !== "preview" && kind !== "terminal")) {
+      return null;
+    }
+
+    const handleClose = () => {
+      activePanel.api.close();
+    };
+
+    if (kind === "preview") {
+      return (
+        <div className={headerActionsClassName}>
+          <Button
+            variant="outline"
+            size="icon-sm"
+            aria-label="Close preview"
+            onClick={handleClose}
+          >
+            <XIcon />
+          </Button>
+        </div>
+      );
+    }
+
+    const resolvedParams = panelParams ?? {};
+    const workspacePath = typeof resolvedParams.workspacePath === "string"
+      ? resolvedParams.workspacePath
+      : "";
+    const conversationId = typeof resolvedParams.conversationId === "string"
+      ? resolvedParams.conversationId
+      : "";
+    const terminalId = createTerminalSessionId({
+      workspacePath,
+      conversationId,
+    });
+
+    return (
+      <div className={headerActionsClassName}>
+        <ButtonGroup aria-label="Terminal actions">
+          <Button
+            variant="outline"
+            size="icon-sm"
+            aria-label="Restart terminal"
+            onClick={() => {
+              dispatchTerminalRestartRequest(terminalId);
+            }}
+          >
+            <RotateCcwIcon />
+          </Button>
+          <Button
+            variant="outline"
+            size="icon-sm"
+            aria-label="Close terminal"
+            onClick={handleClose}
+          >
+            <XIcon />
+          </Button>
+        </ButtonGroup>
+      </div>
+    );
+  }, [binding, canCloseChat, handleOpenPane, onCloseChat]);
+
   const components = useMemo(
     () => ({
-      [INNER_CHAT_COMPONENT]: function ConversationPane(
-        props: IDockviewPanelProps<ChatBinding>,
-      ) {
+      [INNER_CHAT_COMPONENT]: function ConversationPane() {
         return (
           <ConversationPanel
             binding={binding}
@@ -141,11 +244,7 @@ export function ChatTile({
             onOpenTerminal={() => {
               handleOpenPane("terminal");
             }}
-            panelDragHandle={{
-              containerApi: props.containerApi,
-              group: props.api.group,
-            }}
-            panelDragEnabled
+            showHeader={false}
             windowDragEnabled={false}
           />
         );
@@ -169,9 +268,12 @@ export function ChatTile({
 
   const tabComponents = useMemo(
     () => ({
-      [INNER_CHAT_COMPONENT]: ChatPaneTab,
+      [INNER_CHAT_COMPONENT]: function ChatPaneTab() {
+        return <ConversationDockviewTab binding={binding} />;
+      },
+      [INNER_PLACEHOLDER_COMPONENT]: AuxiliaryPaneTab,
     }),
-    [],
+    [binding],
   );
 
   const buildDefaultInnerLayout = useCallback(
@@ -337,8 +439,10 @@ export function ChatTile({
         key={`${binding.conversationId}:${layoutResetNonce}`}
         className="chat-tile-inner-dock h-full w-full"
         components={components}
+        defaultTabComponent={AuxiliaryPaneTab}
         disableFloatingGroups
         onReady={handleInnerReady}
+        rightHeaderActionsComponent={headerActionsComponent}
         singleTabMode="fullwidth"
         tabComponents={tabComponents}
         theme={theme}
