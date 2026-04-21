@@ -14,11 +14,6 @@ import {
 
 const DEFAULT_COLS = 80;
 const DEFAULT_ROWS = 24;
-const TERMINAL_FONT_SIZE_PX = 13;
-const TERMINAL_LINE_HEIGHT = 1.2;
-const TERMINAL_ROW_HEIGHT_PX = Math.ceil(
-  TERMINAL_FONT_SIZE_PX * TERMINAL_LINE_HEIGHT,
-);
 
 type TerminalStatus =
   | { kind: "connecting"; message: string }
@@ -245,22 +240,14 @@ function useIsDarkTheme() {
 function applyTerminalAppearance(element: HTMLElement, isDarkTheme: boolean) {
   element.classList.remove("theme-light", "theme-solarized-dark");
   element.classList.add(isDarkTheme ? "theme-solarized-dark" : "theme-light");
-
-  element.style.setProperty("--term-bg", "transparent");
-  element.style.setProperty(
-    "--term-font-family",
-    '"Geist Mono", ui-monospace, SFMono-Regular, SF Mono, Menlo, Monaco, Consolas, monospace',
-  );
-  element.style.setProperty("--term-font-size", `${TERMINAL_FONT_SIZE_PX}px`);
-  element.style.setProperty(
-    "--term-line-height",
-    TERMINAL_LINE_HEIGHT.toString(),
-  );
-  element.style.setProperty("--term-row-height", `${TERMINAL_ROW_HEIGHT_PX}px`);
-
-  element.style.borderRadius = "0";
-  element.style.boxShadow = "none";
-  element.style.padding = "0";
+  element.style.removeProperty("--term-bg");
+  element.style.removeProperty("--term-font-family");
+  element.style.removeProperty("--term-font-size");
+  element.style.removeProperty("--term-line-height");
+  element.style.removeProperty("--term-row-height");
+  element.style.removeProperty("border-radius");
+  element.style.removeProperty("box-shadow");
+  element.style.removeProperty("padding");
 }
 
 async function waitForInitialTerminalSize(terminal: WTerm) {

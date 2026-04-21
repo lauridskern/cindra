@@ -274,6 +274,24 @@
     background: var(--pane-surface);
 }
 
+.terminal-pane-shell .wterm {
+    --term-bg: transparent;
+    --term-font-family:
+        "Geist Mono",
+        ui-monospace,
+        SFMono-Regular,
+        SF Mono,
+        Menlo,
+        Monaco,
+        Consolas,
+        monospace;
+    --term-font-size: 13px;
+    background: transparent;
+    padding: 0;
+    border-radius: 0;
+    box-shadow: none;
+}
+
 .workspace-board .dv-drop-target-anchor,
 .workspace-board .dv-drop-target-selection {
     border: 1px solid color-mix(in oklab, var(--foreground) 24%, transparent);
