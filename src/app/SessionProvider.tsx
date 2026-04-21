@@ -215,20 +215,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         const requestId = beginConversationSelectionRequest();
 
         const binding = { conversationId, workspacePath } satisfies ChatBinding;
-        const currentSelection = sessionStore.getState().selection;
 
         ensureWorkspaceMeta(workspacePath);
-
-        if (currentSelection.kind === "saved-workspace") {
-          sessionStore.getState().setBoardSelection({
-            kind: "saved-workspace",
-            workspace: currentSelection.workspace,
-            activeChat: binding,
-          });
-
-          await ensureConversationViewLoaded(binding);
-          return;
-        }
 
         sessionStore.getState().setBoardSelection({
           kind: "single-chat",
