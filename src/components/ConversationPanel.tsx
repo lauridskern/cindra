@@ -1,30 +1,39 @@
+import type { DockviewApi, DockviewGroupPanel } from "dockview-react";
+
 import { ChatThread } from "@/components/chat/ChatThread";
 import { ConversationPanelAlerts } from "@/components/conversation-panel/ConversationPanelAlerts";
 import { ConversationPanelHeader } from "@/components/conversation-panel/ConversationPanelHeader";
 import { LandingScreen } from "@/components/LandingScreen";
 import { PromptComposer } from "@/components/PromptComposer";
-import { PaneSurface } from "@/components/ui/pane-surface";
 import { useConversationSession } from "@/hooks/useSession";
+import type { ChatBinding } from "@/services/desktop/contracts";
+
+interface PanelDragHandle {
+  containerApi: DockviewApi;
+  group: DockviewGroupPanel;
+}
 
 interface ConversationPanelProps {
+  binding?: ChatBinding | null;
   canCloseChat?: () => boolean;
-  embedded?: boolean;
   onCloseChat?: () => void;
   onOpenPreview?: () => void;
   onOpenTerminal?: () => void;
+  panelDragHandle?: PanelDragHandle;
+  panelDragEnabled?: boolean;
   reserveTitlebarInset?: boolean;
-  showHeader?: boolean;
   windowDragEnabled?: boolean;
 }
 
 export function ConversationPanel({
+  binding,
   canCloseChat,
-  embedded = false,
   onCloseChat,
   onOpenPreview,
   onOpenTerminal,
+  panelDragHandle,
+  panelDragEnabled = false,
   reserveTitlebarInset = false,
-  showHeader = true,
   windowDragEnabled = true,
 }: ConversationPanelProps) {
   const {
@@ -39,7 +48,7 @@ export function ConversationPanel({
     runtimeStatus,
     uiError,
     workspacePath,
-  } = useConversationSession();
+  } = useConversationSession(binding);
 
   if (!hasCurrentWorkspace) {
     return (
@@ -52,17 +61,18 @@ export function ConversationPanel({
   }
 
   return (
-    <PaneSurface className="flex-1" framed={!embedded}>
-      {showHeader ? (
-        <ConversationPanelHeader
-          canCloseChat={canCloseChat}
-          onCloseChat={onCloseChat}
-          onOpenPreview={onOpenPreview}
-          onOpenTerminal={onOpenTerminal}
-          reserveTitlebarInset={reserveTitlebarInset}
-          windowDragEnabled={windowDragEnabled}
-        />
-      ) : null}
+    <section className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden border border-white/60 bg-white/80 shadow-xl shadow-neutral-950/5 backdrop-blur-xl dark:border-white/10 dark:bg-neutral-900/80 dark:shadow-black/20">
+      <ConversationPanelHeader
+        binding={binding}
+        canCloseChat={canCloseChat}
+        onCloseChat={onCloseChat}
+        onOpenPreview={onOpenPreview}
+        onOpenTerminal={onOpenTerminal}
+        panelDragHandle={panelDragHandle}
+        panelDragEnabled={panelDragEnabled}
+        reserveTitlebarInset={reserveTitlebarInset}
+        windowDragEnabled={windowDragEnabled}
+      />
 
       <ConversationPanelAlerts
         activeWorkspaceConfigurationError={activeWorkspaceConfigurationError}
@@ -80,7 +90,7 @@ export function ConversationPanel({
         />
       </section>
 
-      <PromptComposer />
-    </PaneSurface>
+      <PromptComposer binding={binding} />
+    </section>
   );
 }

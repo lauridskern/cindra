@@ -104,18 +104,16 @@ export function PromptInputCard({
     });
   }
 
-  return (
-    <form
-      className="mx-auto w-full max-w-3xl"
-      onSubmit={async (event) => {
-        event.preventDefault();
-        if (!canCompose || promptDraft.trim().length === 0) {
-          return;
-        }
+  function handleSubmit() {
+    if (!canCompose || promptDraft.trim().length === 0) {
+      return;
+    }
 
-        await submitPrompt();
-      }}
-    >
+    void submitPrompt();
+  }
+
+  return (
+    <div className="mx-auto w-full max-w-3xl">
       <Card className="gap-0 rounded-xl border-0 bg-accent p-3 ring-0">
         <CardHeader className="sr-only">
           <CardTitle>Prompt</CardTitle>
@@ -132,6 +130,15 @@ export function PromptInputCard({
             placeholder="Ask about this workspace…"
             value={promptDraft}
             onChange={(event) => setPromptDraft(event.target.value)}
+            onKeyDown={(event) => {
+              if (
+                event.key === "Enter" &&
+                (event.metaKey || event.ctrlKey) &&
+                !isSubmitDisabled
+              ) {
+                handleSubmit();
+              }
+            }}
             disabled={!canCompose || isSendingPrompt}
             rows={3}
           />
@@ -153,7 +160,11 @@ export function PromptInputCard({
                   />
                 }
               >
-                <span>{selectedModel?.modelName ?? selectedModel?.modelId ?? "Model"}</span>
+                <span>
+                  {selectedModel?.modelName ??
+                    selectedModel?.modelId ??
+                    "Model"}
+                </span>
                 <ChevronDownIcon />
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="w-72">
@@ -222,16 +233,17 @@ export function PromptInputCard({
             </DropdownMenu>
           </div>
           <Button
-            type="submit"
+            type="button"
             size="lg"
             aria-label="Send"
+            onClick={handleSubmit}
             disabled={isSubmitDisabled}
           >
             {isSendingPrompt ? "Sending" : "Send"}
           </Button>
         </CardFooter>
       </Card>
-    </form>
+    </div>
   );
 }
 

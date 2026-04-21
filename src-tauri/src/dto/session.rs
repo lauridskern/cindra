@@ -14,6 +14,12 @@ pub enum SessionMessageDto {
         request_id: String,
         text: String,
     },
+    ContextCompacted {
+        id: String,
+        #[serde(rename = "requestId")]
+        request_id: String,
+        text: String,
+    },
     Assistant {
         id: String,
         #[serde(rename = "requestId")]

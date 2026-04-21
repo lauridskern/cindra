@@ -215,6 +215,7 @@ export function buildChatThreadItems(
   for (const message of messages) {
     switch (message.kind) {
       case "user":
+      case "context_compacted":
         flushGroup();
         items.push({
           kind: "message",

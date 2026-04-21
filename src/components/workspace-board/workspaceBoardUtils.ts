@@ -1,9 +1,10 @@
 import type { DockviewApi } from "dockview-react";
 
-import type {
-  WorkspaceBoardContextValue,
-  WorkspaceBoardSelection,
-} from "@/app/SessionContext";
+import {
+  getConversationSummary,
+  getWorkspaceSession,
+} from "@/app/sessionStore";
+import type { WorkspaceBoardSelection } from "@/app/SessionContext";
 import type { ChatBinding } from "@/services/desktop/contracts";
 
 import { createChatPanelId, type OuterChatPanelParams } from "./layout";
@@ -49,10 +50,8 @@ export function getActiveOuterBinding(
 
 export function getChatTitle(
   binding: ChatBinding,
-  getWorkspace: WorkspaceBoardContextValue["getWorkspace"],
-  getConversationSummary: WorkspaceBoardContextValue["getConversationSummary"],
 ): string {
-  const workspace = getWorkspace(binding.workspacePath);
+  const workspace = getWorkspaceSession(binding.workspacePath);
   const conversation = getConversationSummary(binding);
 
   if (workspace == null && conversation == null) {

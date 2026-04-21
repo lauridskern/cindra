@@ -4,7 +4,6 @@ import { FolderPlus, PanelsTopLeft } from "lucide-react";
 import {
   useSessionActions,
   useSidebarSession,
-  useWorkspaceBoardSelection,
 } from "../hooks/useSession";
 import { handleWindowDragStart } from "../utils/window";
 import { ProjectSidebarActions } from "./ProjectSidebarActions";
@@ -39,7 +38,9 @@ function loadExpandedProjectPaths() {
 
     const parsedValue: unknown = JSON.parse(storedValue);
     return Array.isArray(parsedValue)
-      ? parsedValue.filter((value): value is string => typeof value === "string")
+      ? parsedValue.filter(
+          (value): value is string => typeof value === "string",
+        )
       : [];
   } catch {
     return [];
@@ -58,29 +59,13 @@ export function ProjectSidebar() {
     startNewChat,
   } = useSessionActions();
   const {
+    activeConversationId,
+    activeSavedWorkspaceId,
     activeWorkspacePath,
     hasCurrentWorkspace,
     savedWorkspaces,
     workspaces,
   } = useSidebarSession();
-  const { selection } = useWorkspaceBoardSelection();
-
-  const activeSavedWorkspaceId =
-    selection.kind === "saved-workspace" ? selection.workspace.id : null;
-  const localActiveWorkspacePath =
-    selection.kind === "saved-workspace"
-      ? selection.activeChat?.workspacePath ?? activeWorkspacePath
-      : selection.kind === "single-chat"
-        ? selection.chat.workspacePath
-        : selection.kind === "workspace-draft"
-          ? selection.workspacePath
-          : activeWorkspacePath;
-  const localActiveConversationId =
-    selection.kind === "saved-workspace"
-      ? selection.activeChat?.conversationId ?? null
-      : selection.kind === "single-chat"
-        ? selection.chat.conversationId
-        : null;
 
   useEffect(() => {
     window.localStorage.setItem(
@@ -135,6 +120,7 @@ export function ProjectSidebar() {
       <SidebarHeader className="relative pb-1 pt-10">
         <div
           className="absolute inset-x-0 top-0 h-9 cursor-grab bg-transparent active:cursor-grabbing"
+          role="presentation"
           onMouseDown={handleWindowDragStart}
         />
         <ProjectSidebarActions
@@ -205,11 +191,12 @@ export function ProjectSidebar() {
             ) : (
               <SidebarMenu>
                 {workspaces.map((project) => {
-                  const isActive = project.workspacePath === localActiveWorkspacePath;
+                  const isActive =
+                    project.workspacePath === activeWorkspacePath;
                   const isExpanded = isWorkspaceExpanded(project.workspacePath);
                   const selectedConversationId =
-                    project.workspacePath === localActiveWorkspacePath
-                      ? localActiveConversationId ?? project.selectedConversationId
+                    project.workspacePath === activeWorkspacePath
+                      ? activeConversationId ?? project.selectedConversationId
                       : null;
 
                   return (

@@ -1,3 +1,5 @@
+import { useEffect, useRef } from "react";
+
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -28,16 +30,26 @@ export function CommitChangesDialog({
   onOpenChange,
   onSubmit,
 }: CommitChangesDialogProps) {
+  const inputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    if (!isOpen || isSubmitting) {
+      return;
+    }
+
+    const frame = window.requestAnimationFrame(() => {
+      inputRef.current?.focus();
+    });
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+    };
+  }, [isOpen, isSubmitting]);
+
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
-        <form
-          className="space-y-4"
-          onSubmit={(event) => {
-            event.preventDefault();
-            void onSubmit();
-          }}
-        >
+        <div className="space-y-4">
           <DialogHeader>
             <DialogTitle>Commit changes</DialogTitle>
             <DialogDescription>
@@ -45,13 +57,18 @@ export function CommitChangesDialog({
             </DialogDescription>
           </DialogHeader>
           <Input
+            ref={inputRef}
             value={commitMessage}
             onChange={(event) => {
               onCommitMessageChange(event.target.value);
             }}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" && !isSubmitting) {
+                void onSubmit();
+              }
+            }}
             placeholder="Commit message"
             disabled={isSubmitting}
-            autoFocus
           />
           <DialogFooter>
             <Button
@@ -63,13 +80,16 @@ export function CommitChangesDialog({
               Cancel
             </Button>
             <Button
-              type="submit"
+              type="button"
+              onClick={() => {
+                void onSubmit();
+              }}
               disabled={isSubmitting || commitMessage.trim().length === 0}
             >
               Commit
             </Button>
           </DialogFooter>
-        </form>
+        </div>
       </DialogContent>
     </Dialog>
   );

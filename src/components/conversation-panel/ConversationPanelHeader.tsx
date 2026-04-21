@@ -1,4 +1,7 @@
+import { useRef } from "react";
 import { ChevronRight, GitFork } from "lucide-react";
+import type { DockviewApi, DockviewGroupPanel } from "dockview-react";
+import type { ChatBinding } from "@/services/desktop/contracts";
 
 import {
   Breadcrumb,
@@ -13,25 +16,36 @@ import { handleWindowDragStart } from "@/utils/window";
 import { BranchSwitcherMenu } from "./BranchSwitcherMenu";
 import { CommitChangesDialog } from "./CommitChangesDialog";
 import { ConversationHeaderActions } from "./ConversationHeaderActions";
+import { useDockviewGroupDragHandle } from "./useDockviewGroupDragHandle";
 import { useConversationHeaderState } from "./useConversationHeaderState";
 
 interface ConversationPanelHeaderProps {
+  binding?: ChatBinding | null;
   canCloseChat?: () => boolean;
   onCloseChat?: () => void;
   onOpenPreview?: () => void;
   onOpenTerminal?: () => void;
+  panelDragHandle?: {
+    containerApi: DockviewApi;
+    group: DockviewGroupPanel;
+  };
+  panelDragEnabled?: boolean;
   reserveTitlebarInset: boolean;
   windowDragEnabled: boolean;
 }
 
 export function ConversationPanelHeader({
+  binding,
   canCloseChat,
   onCloseChat,
   onOpenPreview,
   onOpenTerminal,
+  panelDragHandle,
+  panelDragEnabled = false,
   reserveTitlebarInset,
   windowDragEnabled,
 }: ConversationPanelHeaderProps) {
+  const panelDragHandleRef = useRef<HTMLDivElement | null>(null);
   const {
     activeWorkspaceLabel,
     branchName,
@@ -59,7 +73,13 @@ export function ConversationPanelHeader({
     handleOpenTarget,
     handlePush,
     openCommitDialog,
-  } = useConversationHeaderState();
+  } = useConversationHeaderState(binding);
+
+  useDockviewGroupDragHandle({
+    dragHandle: panelDragHandle,
+    elementRef: panelDragHandleRef,
+    enabled: panelDragEnabled,
+  });
 
   return (
     <>
@@ -120,9 +140,11 @@ export function ConversationPanelHeader({
         </div>
 
         <div
+          ref={panelDragHandleRef}
+          role="presentation"
           className={cn(
             "h-full min-w-8 flex-1 bg-transparent",
-            windowDragEnabled &&
+            (panelDragEnabled || windowDragEnabled) &&
               "cursor-grab active:cursor-grabbing",
           )}
           onMouseDown={windowDragEnabled ? handleWindowDragStart : undefined}

@@ -2,7 +2,6 @@ import {
   LegendList,
   type LegendListRenderItemProps,
 } from "@legendapp/list/react";
-import { useMemo } from "react";
 
 import type { RequestTimingInfo } from "../../app/SessionContext";
 import type { TranscriptMessage } from "../../services/desktop/contracts";
@@ -24,6 +23,7 @@ const THREAD_ITEM_GAP = 16;
 function getMessageText(message: TranscriptMessage): string {
   switch (message.kind) {
     case "user":
+    case "context_compacted":
     case "assistant":
     case "reasoning":
     case "status_output":
@@ -47,6 +47,8 @@ function estimateMessageItemSize(message: TranscriptMessage): number {
   switch (message.kind) {
     case "user":
       return 42 + lineCount * 34;
+    case "context_compacted":
+      return 48;
     case "assistant":
       return 32 + lineCount * 26;
     case "reasoning":
@@ -95,6 +97,7 @@ function renderChatThreadItem(
       renderChatMessage(item.message)
     ) : (
       <ChatWorkRow
+        key={`${item.key}:${item.isRunning ? "running" : item.hasError ? "error" : "idle"}`}
         item={item}
         requestTiming={requestTimingsById[item.requestId]}
         workspacePath={workspacePath}
@@ -118,10 +121,7 @@ export function ChatThread({
   workspaceLabel,
   workspacePath,
 }: ChatThreadProps) {
-  const items = useMemo(
-    () => buildChatThreadItems(messages, activeRequestIds),
-    [activeRequestIds, messages],
-  );
+  const items = buildChatThreadItems(messages, activeRequestIds);
 
   return (
     <LegendList
@@ -139,9 +139,9 @@ export function ChatThread({
         item.kind === "message" ? item.message.kind : "request_work"
       }
       getEstimatedItemSize={estimateChatThreadItemSize}
+      initialScrollAtEnd={items.length > 0}
       maintainScrollAtEnd
       maintainScrollAtEndThreshold={0.3}
-      maintainVisibleContentPosition
       estimatedItemSize={88}
       style={{ height: "100%" }}
       contentContainerStyle={{
@@ -158,7 +158,8 @@ export function ChatThread({
               Ask anything about {workspaceLabel}
             </h2>
             <p className="mt-3 text-sm leading-6 text-neutral-600 dark:text-neutral-400">
-              Start with a question, a task, or a change you want to make in this workspace.
+              Start with a question, a task, or a change you want to make in
+              this workspace.
             </p>
           </div>
         </div>

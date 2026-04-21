@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 import type { DockviewApi } from "dockview-react";
 
 import { serializeDockviewLayout } from "./layout";
@@ -16,46 +16,40 @@ export function useDockviewLayoutPersistence({
   const lastPersistedLayoutJsonRef = useRef<string | null>(null);
   const isApplyingLayoutRef = useRef(false);
 
-  const cancelPendingPersist = useCallback(() => {
+  function cancelPendingPersist() {
     if (persistTimeoutRef.current != null) {
       window.clearTimeout(persistTimeoutRef.current);
       persistTimeoutRef.current = null;
     }
-  }, []);
+  }
 
-  useEffect(
-    () => cancelPendingPersist,
-    [cancelPendingPersist, delayMs, onPersist],
-  );
+  useEffect(() => cancelPendingPersist, [delayMs, onPersist]);
 
-  const markPersistedLayout = useCallback((layoutJson: string | null) => {
+  function markPersistedLayout(layoutJson: string | null) {
     lastPersistedLayoutJsonRef.current = layoutJson;
-  }, []);
+  }
 
-  const schedulePersist = useCallback(
-    (getApi: () => DockviewApi | null | undefined) => {
-      if (isApplyingLayoutRef.current) {
+  function schedulePersist(getApi: () => DockviewApi | null | undefined) {
+    if (isApplyingLayoutRef.current) {
+      return;
+    }
+
+    cancelPendingPersist();
+    persistTimeoutRef.current = window.setTimeout(async () => {
+      const api = getApi();
+      if (api == null) {
         return;
       }
 
-      cancelPendingPersist();
-      persistTimeoutRef.current = window.setTimeout(async () => {
-        const api = getApi();
-        if (api == null) {
-          return;
-        }
+      const layoutJson = serializeDockviewLayout(api.toJSON());
+      if (lastPersistedLayoutJsonRef.current === layoutJson) {
+        return;
+      }
 
-        const layoutJson = serializeDockviewLayout(api.toJSON());
-        if (lastPersistedLayoutJsonRef.current === layoutJson) {
-          return;
-        }
-
-        await onPersist(layoutJson);
-        lastPersistedLayoutJsonRef.current = layoutJson;
-      }, delayMs);
-    },
-    [cancelPendingPersist, delayMs, onPersist],
-  );
+      await onPersist(layoutJson);
+      lastPersistedLayoutJsonRef.current = layoutJson;
+    }, delayMs);
+  }
 
   return {
     cancelPendingPersist,

@@ -18,19 +18,19 @@ export function ChatMarkdown({ text, className }: ChatMarkdownProps) {
     >
       <ReactMarkdown
         components={{
-          a: ({ children, href }) => (
-            <a
-              href={href}
-              onClick={(event) => {
-                if (!href || href.startsWith("/")) {
-                  event.preventDefault();
-                }
-              }}
-              className="text-sky-500 transition hover:text-sky-600 dark:text-sky-400 dark:hover:text-sky-300"
-            >
-              {children}
-            </a>
-          ),
+          a: ({ children, href }) =>
+            !href || href.startsWith("/") ? (
+              <span className="text-sky-500 dark:text-sky-400">{children}</span>
+            ) : (
+              <a
+                href={href}
+                rel="noreferrer"
+                target="_blank"
+                className="text-sky-500 transition hover:text-sky-600 dark:text-sky-400 dark:hover:text-sky-300"
+              >
+                {children}
+              </a>
+            ),
           h1: ({ children }) => (
             <h1 className="m-0 text-[13px] leading-[1.4rem] font-medium text-current">
               <ChatInlineChildren>{children}</ChatInlineChildren>
