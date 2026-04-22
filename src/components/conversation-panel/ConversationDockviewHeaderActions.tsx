@@ -34,6 +34,7 @@ export function ConversationDockviewHeaderActions({
     handleOpenTarget,
     handlePush,
     openCommitDialog,
+    showGitActions,
   } = useConversationHeaderState(binding);
 
   return (
@@ -51,6 +52,7 @@ export function ConversationDockviewHeaderActions({
           onSelectOpenTarget={handleOpenTarget}
           openTargets={openTargets}
           preferredAppId={resolvedPreferredAppId}
+          showGitActions={showGitActions}
         />
       </div>
 

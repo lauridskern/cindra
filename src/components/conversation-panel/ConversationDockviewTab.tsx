@@ -24,9 +24,11 @@ export function ConversationDockviewTab({
     branchQuery,
     branchSearchInputRef,
     canCreateBranch,
+    conversationTitle,
     filteredBranches,
     isBranchMenuOpen,
     isGitActionPending,
+    isManagedChat,
     repoName,
     setBranchQuery,
     handleBranchCreate,
@@ -37,7 +39,11 @@ export function ConversationDockviewTab({
   return (
     <div className="chat-pane-dockview-tab flex h-full min-w-0 items-center pl-3">
       <div className="relative z-20 flex min-w-0 shrink items-center overflow-hidden text-xs font-medium tracking-tight">
-        {repoName ? (
+        {isManagedChat ? (
+          <span className="pointer-events-none truncate text-xs font-medium tracking-tight text-neutral-800 dark:text-neutral-100">
+            {conversationTitle}
+          </span>
+        ) : repoName ? (
           <Breadcrumb className="min-w-0">
             <BreadcrumbList className="min-w-0 flex-nowrap">
               <BreadcrumbItem className="min-w-0">

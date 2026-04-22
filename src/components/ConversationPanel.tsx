@@ -32,24 +32,22 @@ export function ConversationPanel({
     activeWorkspaceLabel,
     activeWorkspaceConfigured,
     activeWorkspaceConfigurationError,
+    followupRequest,
     hasCurrentWorkspace,
-    isOpeningProject,
     messages,
     requestTimingsById,
-    runtimeStatus,
     uiError,
     workspacePath,
   } = useConversationSession(binding);
 
   if (!hasCurrentWorkspace) {
-    return (
-      <LandingScreen
-        isOpeningProject={isOpeningProject}
-        runtimeStatus={runtimeStatus}
-        uiError={uiError}
-      />
-    );
+    return <LandingScreen />;
   }
+
+  const showNewChatScreen =
+    messages.length === 0 &&
+    activeRequestIds.length === 0 &&
+    followupRequest == null;
 
   return (
     <section className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-white/80 shadow-xl shadow-neutral-950/5 backdrop-blur-xl dark:bg-neutral-900/80 dark:shadow-black/20">
@@ -65,23 +63,29 @@ export function ConversationPanel({
         />
       ) : null}
 
-      <ConversationPanelAlerts
-        activeWorkspaceConfigurationError={activeWorkspaceConfigurationError}
-        activeWorkspaceConfigured={activeWorkspaceConfigured}
-        uiError={uiError}
-      />
+      {showNewChatScreen ? (
+        <LandingScreen binding={binding} embedded />
+      ) : (
+        <>
+          <ConversationPanelAlerts
+            activeWorkspaceConfigurationError={activeWorkspaceConfigurationError}
+            activeWorkspaceConfigured={activeWorkspaceConfigured}
+            uiError={uiError}
+          />
 
-      <section className="min-h-0 flex-1 overflow-hidden select-text px-6">
-        <ChatThread
-          messages={messages}
-          activeRequestIds={activeRequestIds}
-          requestTimingsById={requestTimingsById}
-          workspaceLabel={activeWorkspaceLabel}
-          workspacePath={workspacePath}
-        />
-      </section>
+          <section className="min-h-0 flex-1 overflow-hidden select-text px-6">
+            <ChatThread
+              messages={messages}
+              activeRequestIds={activeRequestIds}
+              requestTimingsById={requestTimingsById}
+              workspaceLabel={activeWorkspaceLabel}
+              workspacePath={workspacePath}
+            />
+          </section>
 
-      <PromptComposer binding={binding} />
+          <PromptComposer binding={binding} />
+        </>
+      )}
     </section>
   );
 }

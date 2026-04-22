@@ -36,6 +36,7 @@ interface ConversationHeaderActionsProps {
   onSelectOpenTarget: (appId: AppTargetId) => Promise<void>;
   openTargets: ReadonlyArray<AppTarget>;
   preferredAppId: AppTargetId;
+  showGitActions?: boolean;
 }
 
 export function ConversationHeaderActions({
@@ -50,6 +51,7 @@ export function ConversationHeaderActions({
   onSelectOpenTarget,
   openTargets,
   preferredAppId,
+  showGitActions = true,
 }: ConversationHeaderActionsProps) {
   const isCloseChatEnabled = canCloseChat?.() ?? false;
   const preferredApp =
@@ -118,57 +120,59 @@ export function ConversationHeaderActions({
         </DropdownMenu>
       </ButtonGroup>
 
-      <ButtonGroup aria-label="Git actions">
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={isGitBusy}
-          onClick={onOpenCommitDialog}
-        >
-          <GitCommitHorizontalIcon data-icon="inline-start" />
-          Commit
-        </Button>
-        <DropdownMenu>
-          <DropdownMenuTrigger
-            render={
-              <Button
-                variant="outline"
-                size="icon-sm"
-                aria-label="More git actions"
-                disabled={isGitBusy}
-              />
-            }
+      {showGitActions ? (
+        <ButtonGroup aria-label="Git actions">
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={isGitBusy}
+            onClick={onOpenCommitDialog}
           >
-            <ChevronDownIcon />
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-48">
-            <DropdownMenuGroup>
-              <DropdownMenuLabel>Git actions</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={onOpenCommitDialog}
-                disabled={isGitBusy}
-              >
-                <GitCommitHorizontalIcon />
-                Commit
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => {
-                  void onPush();
-                }}
-                disabled={isGitBusy}
-              >
-                <UploadIcon />
-                Push
-              </DropdownMenuItem>
-              <DropdownMenuItem disabled>
-                <GitPullRequestCreateIcon />
-                Create PR
-              </DropdownMenuItem>
-            </DropdownMenuGroup>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </ButtonGroup>
+            <GitCommitHorizontalIcon data-icon="inline-start" />
+            Commit
+          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <Button
+                  variant="outline"
+                  size="icon-sm"
+                  aria-label="More git actions"
+                  disabled={isGitBusy}
+                />
+              }
+            >
+              <ChevronDownIcon />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuGroup>
+                <DropdownMenuLabel>Git actions</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={onOpenCommitDialog}
+                  disabled={isGitBusy}
+                >
+                  <GitCommitHorizontalIcon />
+                  Commit
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => {
+                    void onPush();
+                  }}
+                  disabled={isGitBusy}
+                >
+                  <UploadIcon />
+                  Push
+                </DropdownMenuItem>
+                <DropdownMenuItem disabled>
+                  <GitPullRequestCreateIcon />
+                  Create PR
+                </DropdownMenuItem>
+              </DropdownMenuGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </ButtonGroup>
+      ) : null}
 
       <DropdownMenu>
         <DropdownMenuTrigger

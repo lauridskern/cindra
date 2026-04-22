@@ -210,6 +210,7 @@ export function useConversationSession(binding?: ChatBinding | null) {
         runtimeStatus: meta.runtimeStatus,
         todos: currentView?.todos ?? EMPTY_TODOS,
         uiError: state.uiError,
+        workspaceKind: currentWorkspace?.kind ?? "project",
         workspacePath: currentWorkspacePath,
       };
     }),

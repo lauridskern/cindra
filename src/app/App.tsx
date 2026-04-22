@@ -12,7 +12,7 @@ import {
 } from "../components/ui/resizable";
 import { SidebarProvider, useSidebar } from "../components/ui/sidebar";
 import { TooltipProvider } from "../components/ui/tooltip";
-import { useHasCurrentWorkspace, useSessionActions } from "../hooks/useSession";
+import { useSessionActions } from "../hooks/useSession";
 import { SessionProvider } from "./SessionProvider";
 
 const DEFAULT_SIDEBAR_WIDTH = 320;
@@ -71,7 +71,6 @@ function AppSidebarToggle({
 
 function AppShell() {
   useSystemThemeClass();
-  const hasCurrentWorkspace = useHasCurrentWorkspace();
   const { startNewChat } = useSessionActions();
   const [isDesktopSidebarVisible, setIsDesktopSidebarVisible] = useState(true);
   const sidebarPanelRef = useRef<PanelImperativeHandle | null>(null);
@@ -105,11 +104,10 @@ function AppShell() {
               variant="ghost"
               size="icon"
               aria-label="New chat"
-              className="absolute left-26 top-1.5 z-20 disabled:pointer-events-none disabled:opacity-35"
+              className="absolute left-26 top-1.5 z-20"
               onClick={() => {
                 void startNewChat();
               }}
-              disabled={!hasCurrentWorkspace}
             >
               <PenSquare strokeWidth={2} className="size-3.5" />
               <span className="sr-only">New chat</span>

@@ -20,14 +20,12 @@ import {
   useBoardSelectionKey,
   useSessionActions,
   useSessionStore,
-  useWorkspaceMeta,
 } from "@/hooks/useSession";
 import * as desktopClient from "@/services/desktop/client";
 import type { ChatBinding } from "@/services/desktop/contracts";
 import {
   areChatBindingsEqual,
   ensureConversationViewLoaded,
-  getUiActiveWorkspacePath,
   sessionStore,
 } from "@/app/sessionStore";
 
@@ -80,13 +78,7 @@ export function WorkspaceBoard() {
   const selection = useBoardSelection();
   const selectionKey = useBoardSelectionKey();
   const { selectConversation } = useSessionActions();
-  const isOpeningProject = useSessionStore((state) => state.isOpeningProject);
   const setSelection = useSessionStore((state) => state.setBoardSelection);
-  const uiError = useSessionStore((state) => state.uiError);
-  const activeWorkspacePath = useSessionStore((state) =>
-    getUiActiveWorkspacePath(state),
-  );
-  const { runtimeStatus } = useWorkspaceMeta(activeWorkspacePath);
   const [layoutResetNonce, setLayoutResetNonce] = useState(0);
   const outerApiRef = useRef<DockviewApi | null>(null);
   const disposablesRef = useRef<Array<{ dispose(): void }>>([]);
@@ -555,13 +547,7 @@ export function WorkspaceBoard() {
   );
 
   if (selection.kind === "empty") {
-    return (
-      <LandingScreen
-        isOpeningProject={isOpeningProject}
-        runtimeStatus={runtimeStatus}
-        uiError={uiError}
-      />
-    );
+    return <LandingScreen />;
   }
 
   if (selection.kind === "workspace-draft") {
@@ -572,11 +558,7 @@ export function WorkspaceBoard() {
     return import.meta.env.DEV ? (
       <DemoConversationPanel />
     ) : (
-      <LandingScreen
-        isOpeningProject={isOpeningProject}
-        runtimeStatus={runtimeStatus}
-        uiError={uiError}
-      />
+      <LandingScreen />
     );
   }
 

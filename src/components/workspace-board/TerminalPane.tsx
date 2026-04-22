@@ -14,12 +14,21 @@ import {
 
 const DEFAULT_COLS = 80;
 const DEFAULT_ROWS = 24;
+const INITIAL_RESIZE_OBSERVER_DELAY_MS = 300;
+const TERMINAL_STABLE_FRAME_COUNT = 6;
+const TERMINAL_STABLE_FRAME_ATTEMPTS = 30;
+const FONT_READY_TIMEOUT_MS = 500;
 
 type TerminalStatus =
   | { kind: "connecting"; message: string }
   | { kind: "exited"; message: string }
   | { kind: "error"; message: string }
   | null;
+
+interface TerminalGridSize {
+  cols: number;
+  rows: number;
+}
 
 export function TerminalPane({
   params,
@@ -70,29 +79,78 @@ export function TerminalPane({
     let disposed = false;
     let terminal: WTerm | null = null;
     let cleanupListeners: Array<() => void> = [];
+    let delayedResizeObserverId: number | null = null;
+    let resizeObserver: ResizeObserver | null = null;
+    let resizeFrameId: number | null = null;
+    let syncedBackendSize: TerminalGridSize | null = null;
 
-    const syncResize = async () => {
-      if (!openedRef.current || terminal == null) {
+    const syncTerminalSize = async (
+      nextSize: TerminalGridSize,
+      options?: { syncBackend?: boolean },
+    ) => {
+      if (terminal == null) {
         return;
       }
 
-      const { cols, rows } = normalizeTerminalSize(terminal.cols, terminal.rows);
+      const currentSize = normalizeTerminalSize(terminal.cols, terminal.rows);
+      if (
+        currentSize.cols !== nextSize.cols ||
+        currentSize.rows !== nextSize.rows
+      ) {
+        terminal.resize(nextSize.cols, nextSize.rows);
+      }
+
+      if (!options?.syncBackend || !openedRef.current) {
+        return;
+      }
+
+      if (
+        syncedBackendSize != null &&
+        syncedBackendSize.cols === nextSize.cols &&
+        syncedBackendSize.rows === nextSize.rows
+      ) {
+        return;
+      }
+
+      syncedBackendSize = nextSize;
+
       try {
         await desktopClient.resizeTerminal({
           terminalId,
-          cols,
-          rows,
+          cols: nextSize.cols,
+          rows: nextSize.rows,
         });
       } catch {
         // Ignore best-effort resize failures during mount or teardown races.
       }
     };
 
+    const scheduleObservedResize = () => {
+      if (resizeFrameId != null) {
+        return;
+      }
+
+      resizeFrameId = window.requestAnimationFrame(() => {
+        resizeFrameId = null;
+
+        if (disposed || terminal == null) {
+          return;
+        }
+
+        const nextSize = measureTerminalGridSize(terminal);
+        if (nextSize == null) {
+          return;
+        }
+
+        void syncTerminalSize(nextSize, { syncBackend: true });
+      });
+    };
+
     const setup = async () => {
       terminal = new WTerm(container, {
         cols: DEFAULT_COLS,
         rows: DEFAULT_ROWS,
-        autoResize: true,
+        autoResize: false,
         cursorBlink: true,
         onData(data) {
           if (!openedRef.current) {
@@ -103,9 +161,6 @@ export function TerminalPane({
             terminalId,
             data,
           });
-        },
-        onResize() {
-          void syncResize();
         },
       });
       terminalRef.current = terminal;
@@ -134,7 +189,17 @@ export function TerminalPane({
         }),
       ]);
 
-      const initialSize = await waitForInitialTerminalSize(terminal);
+      if (disposed) {
+        cleanupListeners.forEach((cleanup) => {
+          cleanup();
+        });
+        cleanupListeners = [];
+        return;
+      }
+
+      const initialSize = await waitForStableTerminalSize(terminal);
+      await syncTerminalSize(initialSize);
+
       const session = await desktopClient.openTerminal({
         terminalId,
         workspacePath: params.workspacePath,
@@ -143,18 +208,31 @@ export function TerminalPane({
       });
 
       if (disposed) {
+        cleanupListeners.forEach((cleanup) => {
+          cleanup();
+        });
+        cleanupListeners = [];
+        void desktopClient.closeTerminal({ terminalId });
         return;
       }
 
       openedRef.current = true;
       setStatus(null);
 
-      if (
-        session.cols !== initialSize.cols ||
-        session.rows !== initialSize.rows
-      ) {
-        terminal.resize(session.cols, session.rows);
-      }
+      const resolvedSize = normalizeTerminalSize(session.cols, session.rows);
+      syncedBackendSize = resolvedSize;
+      await syncTerminalSize(resolvedSize);
+
+      delayedResizeObserverId = window.setTimeout(() => {
+        if (disposed) {
+          return;
+        }
+
+        resizeObserver = new ResizeObserver(() => {
+          scheduleObservedResize();
+        });
+        resizeObserver.observe(container);
+      }, INITIAL_RESIZE_OBSERVER_DELAY_MS);
 
       terminal.focus();
     };
@@ -175,6 +253,14 @@ export function TerminalPane({
     return () => {
       disposed = true;
       openedRef.current = false;
+
+      if (delayedResizeObserverId != null) {
+        window.clearTimeout(delayedResizeObserverId);
+      }
+      if (resizeFrameId != null) {
+        window.cancelAnimationFrame(resizeFrameId);
+      }
+      resizeObserver?.disconnect();
 
       for (const cleanup of cleanupListeners) {
         cleanup();
@@ -250,22 +336,58 @@ function applyTerminalAppearance(element: HTMLElement, isDarkTheme: boolean) {
   element.style.removeProperty("padding");
 }
 
-async function waitForInitialTerminalSize(terminal: WTerm) {
-  let stableSize = normalizeTerminalSize(terminal.cols, terminal.rows);
+async function waitForStableTerminalSize(terminal: WTerm) {
+  await waitForFontsReady();
 
-  for (let attempt = 0; attempt < 3; attempt += 1) {
+  let stableFrames = 0;
+  let stableSize = measureTerminalGridSize(terminal);
+
+  for (
+    let attempt = 0;
+    attempt < TERMINAL_STABLE_FRAME_ATTEMPTS;
+    attempt += 1
+  ) {
     await nextFrame();
-    const measuredSize = normalizeTerminalSize(terminal.cols, terminal.rows);
+    const measuredSize = measureTerminalGridSize(terminal);
+    if (measuredSize == null) {
+      continue;
+    }
+
     if (
+      stableSize != null &&
       measuredSize.cols === stableSize.cols &&
       measuredSize.rows === stableSize.rows
     ) {
-      return measuredSize;
+      stableFrames += 1;
+      if (stableFrames >= TERMINAL_STABLE_FRAME_COUNT) {
+        return measuredSize;
+      }
+      continue;
     }
+
     stableSize = measuredSize;
+    stableFrames = 0;
   }
 
-  return stableSize;
+  return stableSize ?? normalizeTerminalSize(DEFAULT_COLS, DEFAULT_ROWS);
+}
+
+async function waitForFontsReady() {
+  const fonts = document.fonts;
+  if (fonts == null) {
+    return;
+  }
+
+  try {
+    await Promise.race([
+      fonts.ready,
+      new Promise<void>((resolve) => {
+        window.setTimeout(resolve, FONT_READY_TIMEOUT_MS);
+      }),
+    ]);
+  } catch {
+    // Ignore font loading failures and continue with best-effort metrics.
+  }
 }
 
 function normalizeTerminalSize(cols: number, rows: number) {
@@ -273,6 +395,37 @@ function normalizeTerminalSize(cols: number, rows: number) {
     cols: Math.max(2, Math.floor(cols) || DEFAULT_COLS),
     rows: Math.max(1, Math.floor(rows) || DEFAULT_ROWS),
   };
+}
+
+function measureTerminalGridSize(terminal: WTerm): TerminalGridSize | null {
+  const element = terminal.element;
+  if (element.clientWidth === 0 || element.clientHeight === 0) {
+    return null;
+  }
+
+  const probeRow = document.createElement("div");
+  probeRow.className = "term-row";
+  probeRow.style.visibility = "hidden";
+  probeRow.style.position = "absolute";
+
+  const probeCell = document.createElement("span");
+  probeCell.textContent = "W";
+  probeRow.appendChild(probeCell);
+  element.appendChild(probeRow);
+
+  const charWidth = probeCell.getBoundingClientRect().width;
+  const rowHeight = probeRow.getBoundingClientRect().height;
+
+  probeRow.remove();
+
+  if (charWidth <= 0 || rowHeight <= 0) {
+    return null;
+  }
+
+  return normalizeTerminalSize(
+    Math.floor(element.clientWidth / charWidth),
+    Math.floor(element.clientHeight / rowHeight),
+  );
 }
 
 function nextFrame() {

@@ -3,13 +3,11 @@ import { Folder, PenSquare } from "lucide-react";
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "./ui/sidebar";
 
 interface ProjectSidebarActionsProps {
-  hasCurrentWorkspace: boolean;
   onOpenWorkspacePicker: () => void;
   onStartNewChat: () => void;
 }
 
 export function ProjectSidebarActions({
-  hasCurrentWorkspace,
   onOpenWorkspacePicker,
   onStartNewChat,
 }: ProjectSidebarActionsProps) {
@@ -19,7 +17,6 @@ export function ProjectSidebarActions({
         <SidebarMenuButton
           tooltip="New chat"
           onClick={onStartNewChat}
-          disabled={!hasCurrentWorkspace}
           className="font-medium [&_svg]:size-3.5"
         >
           <PenSquare strokeWidth={2} className="size-3.5 shrink-0" />

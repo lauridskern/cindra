@@ -277,14 +277,8 @@
 .terminal-pane-shell .wterm {
     --term-bg: transparent;
     --term-font-family:
-        "Geist Mono",
-        ui-monospace,
-        SFMono-Regular,
-        SF Mono,
-        Menlo,
-        Monaco,
-        Consolas,
-        monospace;
+        "Geist Mono", ui-monospace, SFMono-Regular, SF Mono, Menlo, Monaco,
+        Consolas, monospace;
     --term-font-size: 13px;
     background: transparent;
     padding: 0;
