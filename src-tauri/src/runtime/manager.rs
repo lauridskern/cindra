@@ -1,3 +1,4 @@
+use std::fs;
 use std::future::Future;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
@@ -5,7 +6,7 @@ use std::sync::Arc;
 
 use anyhow::Context;
 use forge_api::API;
-use forge_domain::{ConfigOperation, Effort, Model, ModelConfig, ProviderId};
+use forge_domain::{ConfigOperation, ConversationId, Effort, Model, ModelConfig, ProviderId};
 use tokio::sync::{Mutex, mpsc};
 use uuid::Uuid;
 
@@ -21,11 +22,11 @@ use crate::persistence::project_store::ProjectStore;
 
 use super::{
     ConversationSessionState, ForgeRuntime, MISSING_SESSION_MESSAGE, RuntimeFactory, RuntimeState,
-    WorkspaceSessionState, build_snapshot, canonicalize_workspace_path,
+    WorkspaceKind, WorkspaceSessionState, build_snapshot, canonicalize_workspace_path,
     configuration_error_message, create_conversation_record, create_message_id,
     derive_conversation_title_from_messages, format_error_chain, read_config,
     select_empty_draft_conversation_id, shared_runtime_state, user_prompt_text_for_display,
-    workspace_name,
+    resolved_workspace_display_name, workspace_name,
 };
 
 #[derive(Clone)]
@@ -266,6 +267,13 @@ impl RuntimeManager {
         self.with_recorded_ui_error(async {
             let workspace_path = canonicalize_workspace_path(PathBuf::from(workspace_path))?;
             self.prepare_workspace(&workspace_path).await?;
+            let (workspace_kind, registered_display_name) =
+                self.resolve_workspace_registration(&workspace_path)?;
+            let workspace_name = resolved_workspace_display_name(
+                workspace_kind,
+                Path::new(&workspace_path),
+                registered_display_name.as_deref(),
+            );
 
             let mut state = self.state.lock().await;
             state.active_workspace_path = Some(workspace_path.clone());
@@ -274,11 +282,56 @@ impl RuntimeManager {
                 .workspaces
                 .entry(workspace_path.clone())
                 .or_insert_with(|| WorkspaceSessionState {
-                    workspace_name: workspace_name(Path::new(&workspace_path)),
+                    kind: workspace_kind,
+                    workspace_name: workspace_name.clone(),
                     ..WorkspaceSessionState::default()
                 });
+            workspace.kind = workspace_kind;
+            workspace.workspace_name = workspace_name;
             workspace.selected_conversation_id = None;
             drop(state);
+
+            self.emit_current_snapshot().await
+        })
+        .await
+    }
+
+    pub async fn create_managed_chat(&self) -> anyhow::Result<SessionSnapshotDto> {
+        self.with_recorded_ui_error(async {
+            let workspace_path = self.projects.create_managed_chat_workspace()?;
+            self.start_new_chat(workspace_path.to_string_lossy().into_owned())
+                .await
+        })
+        .await
+    }
+
+    pub async fn rename_workspace(
+        &self,
+        workspace_path: String,
+        display_name: Option<String>,
+    ) -> anyhow::Result<SessionSnapshotDto> {
+        self.with_recorded_ui_error(async {
+            let workspace_path = canonicalize_workspace_path(PathBuf::from(workspace_path))?;
+            self.projects.set_workspace_display_name(
+                Path::new(&workspace_path),
+                display_name.as_deref(),
+            )?;
+            let (workspace_kind, registered_display_name) =
+                self.resolve_workspace_registration(&workspace_path)?;
+            let workspace_name = resolved_workspace_display_name(
+                workspace_kind,
+                Path::new(&workspace_path),
+                registered_display_name.as_deref(),
+            );
+
+            {
+                let mut state = self.state.lock().await;
+                if let Some(workspace) = state.workspaces.get_mut(&workspace_path) {
+                    workspace.kind = workspace_kind;
+                    workspace.workspace_name = workspace_name;
+                }
+                state.ui_error = None;
+            }
 
             self.emit_current_snapshot().await
         })
@@ -333,9 +386,21 @@ impl RuntimeManager {
                 .await?;
 
             let request_id = Uuid::new_v4().to_string();
+            let (registered_kind, registered_display_name) =
+                self.resolve_workspace_registration(&workspace_path)?;
 
             {
                 let mut state = self.state.lock().await;
+                let workspace_kind = state
+                    .workspaces
+                    .get(&workspace_path)
+                    .map(|workspace| workspace.kind)
+                    .unwrap_or(registered_kind);
+                let workspace_name = resolved_workspace_display_name(
+                    workspace_kind,
+                    Path::new(&workspace_path),
+                    registered_display_name.as_deref(),
+                );
                 let is_running = state
                     .conversations
                     .get(&conversation_id)
@@ -378,9 +443,12 @@ impl RuntimeManager {
                     .workspaces
                     .entry(workspace_path.clone())
                     .or_insert_with(|| WorkspaceSessionState {
-                        workspace_name: workspace_name(Path::new(&workspace_path)),
+                        kind: workspace_kind,
+                        workspace_name: workspace_name.clone(),
                         ..WorkspaceSessionState::default()
                     });
+                workspace.kind = workspace_kind;
+                workspace.workspace_name = workspace_name;
                 workspace.selected_conversation_id = Some(conversation_id.clone());
                 state.active_workspace_path = Some(workspace_path.clone());
                 state
@@ -422,6 +490,161 @@ impl RuntimeManager {
                     state
                         .pending_followups_by_conversation
                         .remove(&conversation_id);
+                }
+                state.ui_error = None;
+            }
+
+            self.emit_current_snapshot().await
+        })
+        .await
+    }
+
+    pub async fn archive_conversation(
+        &self,
+        workspace_path: String,
+        conversation_id: String,
+    ) -> anyhow::Result<SessionSnapshotDto> {
+        self.with_recorded_ui_error(async {
+            let workspace_path = canonicalize_workspace_path(PathBuf::from(workspace_path))?;
+            self.prepare_workspace(&workspace_path).await?;
+
+            let should_delete_persisted = {
+                let state = self.state.lock().await;
+                let is_running = state
+                    .conversations
+                    .get(&conversation_id)
+                    .map(|conversation| !conversation.active_request_ids.is_empty())
+                    .unwrap_or(false);
+                if is_running {
+                    anyhow::bail!("Cannot archive a running chat.");
+                }
+
+                state
+                    .workspaces
+                    .get(&workspace_path)
+                    .map(|workspace| {
+                        workspace
+                            .persisted_conversations
+                            .iter()
+                            .any(|conversation| conversation.conversation_id == conversation_id)
+                    })
+                    .unwrap_or(false)
+            };
+
+            if should_delete_persisted {
+                let runtime = self.ensure_workspace_runtime(&workspace_path).await?;
+                let conversation_id = ConversationId::parse(&conversation_id)?;
+                runtime.api.delete_conversation(&conversation_id).await?;
+                self.refresh_workspace_conversations(&workspace_path).await?;
+            }
+
+            self.projects.delete_conversation_layout(&conversation_id)?;
+
+            {
+                let mut state = self.state.lock().await;
+                state.conversations.remove(&conversation_id);
+                state
+                    .pending_followups_by_conversation
+                    .remove(&conversation_id);
+
+                if let Some(workspace) = state.workspaces.get_mut(&workspace_path) {
+                    workspace
+                        .persisted_conversations
+                        .retain(|conversation| conversation.conversation_id != conversation_id);
+                    if workspace.selected_conversation_id.as_deref() == Some(conversation_id.as_str())
+                    {
+                        workspace.selected_conversation_id = None;
+                    }
+                }
+                state.ui_error = None;
+            }
+
+            self.emit_current_snapshot().await
+        })
+        .await
+    }
+
+    pub async fn archive_workspace(
+        &self,
+        workspace_path: String,
+    ) -> anyhow::Result<SessionSnapshotDto> {
+        self.with_recorded_ui_error(async {
+            let workspace_path = canonicalize_workspace_path(PathBuf::from(workspace_path))?;
+            let workspace_kind = self
+                .projects
+                .get_workspace_kind(Path::new(&workspace_path))?
+                .unwrap_or(crate::persistence::project_store::RegisteredWorkspaceKind::Project);
+
+            let conversation_ids = {
+                let state = self.state.lock().await;
+                let conversation_ids = state
+                    .workspaces
+                    .get(&workspace_path)
+                    .into_iter()
+                    .flat_map(|workspace| {
+                        workspace
+                            .persisted_conversations
+                            .iter()
+                            .map(|conversation| conversation.conversation_id.clone())
+                    })
+                    .chain(
+                        state
+                            .conversations
+                            .iter()
+                            .filter(|(_, conversation)| {
+                                conversation.workspace_path == workspace_path.as_str()
+                            })
+                            .map(|(conversation_id, _)| conversation_id.clone()),
+                    )
+                    .collect::<Vec<_>>();
+
+                let has_running_conversation = conversation_ids.iter().any(|conversation_id| {
+                    state
+                        .conversations
+                        .get(conversation_id)
+                        .map(|conversation| !conversation.active_request_ids.is_empty())
+                        .unwrap_or(false)
+                });
+                if has_running_conversation {
+                    anyhow::bail!("Cannot archive a workspace with a running chat.");
+                }
+
+                conversation_ids
+            };
+
+            self.projects.archive_workspace(Path::new(&workspace_path))?;
+            for conversation_id in &conversation_ids {
+                self.projects.delete_conversation_layout(conversation_id)?;
+            }
+
+            if matches!(
+                workspace_kind,
+                crate::persistence::project_store::RegisteredWorkspaceKind::ManagedChat
+            ) {
+                match fs::remove_dir_all(&workspace_path) {
+                    Ok(()) => {}
+                    Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+                    Err(error) => return Err(error.into()),
+                }
+            }
+
+            {
+                let mut state = self.state.lock().await;
+                for conversation_id in &conversation_ids {
+                    state.conversations.remove(conversation_id);
+                    state
+                        .pending_followups_by_conversation
+                        .remove(conversation_id);
+                }
+
+                state.workspaces.remove(&workspace_path);
+                state.workspace_order.retain(|path| path != &workspace_path);
+                if state.active_workspace_path.as_deref() == Some(workspace_path.as_str()) {
+                    state.active_workspace_path = state
+                        .workspace_order
+                        .iter()
+                        .find(|path| state.workspaces.contains_key(*path))
+                        .cloned();
                 }
                 state.ui_error = None;
             }
@@ -501,6 +724,37 @@ impl RuntimeManager {
             }))
     }
 
+    pub async fn rename_saved_workspace(
+        &self,
+        workspace_id: String,
+        name: String,
+    ) -> anyhow::Result<SessionSnapshotDto> {
+        self.with_recorded_ui_error(async {
+            self.projects.rename_saved_workspace(&workspace_id, &name)?;
+            {
+                let mut state = self.state.lock().await;
+                state.ui_error = None;
+            }
+            self.emit_current_snapshot().await
+        })
+        .await
+    }
+
+    pub async fn delete_saved_workspace(
+        &self,
+        workspace_id: String,
+    ) -> anyhow::Result<SessionSnapshotDto> {
+        self.with_recorded_ui_error(async {
+            self.projects.delete_saved_workspace(&workspace_id)?;
+            {
+                let mut state = self.state.lock().await;
+                state.ui_error = None;
+            }
+            self.emit_current_snapshot().await
+        })
+        .await
+    }
+
     pub async fn cancel_pending_followups(&self) {
         self.followups.cancel_all().await;
         let mut state = self.state.lock().await;
@@ -561,7 +815,15 @@ impl RuntimeManager {
         &self,
         workspace_path: &str,
     ) -> anyhow::Result<ForgeRuntime> {
-        self.projects.add_project(Path::new(workspace_path))?;
+        match self.projects.get_workspace_kind(Path::new(workspace_path))? {
+            Some(crate::persistence::project_store::RegisteredWorkspaceKind::ManagedChat) => {
+                self.projects
+                    .touch_managed_chat_workspace(Path::new(workspace_path))?;
+            }
+            _ => {
+                self.projects.add_project(Path::new(workspace_path))?;
+            }
+        }
         let runtime = self.ensure_workspace_runtime(workspace_path).await?;
         self.refresh_workspace_conversations(workspace_path).await?;
         Ok(runtime)
@@ -578,16 +840,32 @@ impl RuntimeManager {
     }
 
     async fn select_workspace_conversation(&self, workspace_path: &str, conversation_id: &str) {
+        let (registered_kind, registered_display_name) = self
+            .resolve_workspace_registration(workspace_path)
+            .unwrap_or((WorkspaceKind::Project, None));
         let mut state = self.state.lock().await;
+        let workspace_kind = state
+            .workspaces
+            .get(workspace_path)
+            .map(|workspace| workspace.kind)
+            .unwrap_or(registered_kind);
+        let workspace_name = resolved_workspace_display_name(
+            workspace_kind,
+            Path::new(workspace_path),
+            registered_display_name.as_deref(),
+        );
         state.active_workspace_path = Some(workspace_path.to_string());
         state.ui_error = None;
         let workspace = state
             .workspaces
             .entry(workspace_path.to_string())
             .or_insert_with(|| WorkspaceSessionState {
-                workspace_name: workspace_name(Path::new(workspace_path)),
+                kind: workspace_kind,
+                workspace_name: workspace_name.clone(),
                 ..WorkspaceSessionState::default()
             });
+        workspace.kind = workspace_kind;
+        workspace.workspace_name = workspace_name;
         workspace.selected_conversation_id = Some(conversation_id.to_string());
     }
 

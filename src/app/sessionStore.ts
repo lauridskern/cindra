@@ -185,7 +185,7 @@ function movePromptDraftEntry(
   return nextDrafts;
 }
 
-function deriveSelectionFromSnapshot(
+export function getSelectionFromSnapshot(
   snapshot: SessionSnapshot,
 ): WorkspaceBoardSelection {
   if (
@@ -422,11 +422,30 @@ function createSessionStoreState(set: SessionStoreSetter): SessionStoreState {
           conversationViewsByKey: nextConversationViewsByKey,
           requestTimingsByConversationId: nextRequestTimingsByConversationId,
           savedWorkspaces: snapshot.savedWorkspaces,
-          selection:
-            current.selection.kind === "saved-workspace" ||
-            current.selection.kind === "demo-chat"
-              ? current.selection
-              : deriveSelectionFromSnapshot(snapshot),
+          selection: (() => {
+            if (current.selection.kind === "demo-chat") {
+              return current.selection;
+            }
+
+            if (current.selection.kind === "saved-workspace") {
+              const savedWorkspaceSelection = current.selection;
+              const matchingSavedWorkspace = snapshot.savedWorkspaces.find(
+                (workspace) => workspace.id === savedWorkspaceSelection.workspace.id,
+              );
+              return matchingSavedWorkspace == null
+                ? getSelectionFromSnapshot(snapshot)
+                : {
+                    ...savedWorkspaceSelection,
+                    workspace: {
+                      ...savedWorkspaceSelection.workspace,
+                      name: matchingSavedWorkspace.name,
+                      updatedAt: matchingSavedWorkspace.updatedAt,
+                    },
+                  };
+            }
+
+            return getSelectionFromSnapshot(snapshot);
+          })(),
           uiError: snapshot.uiError,
           workspaces: snapshot.workspaces,
           workspacesByPath: buildWorkspacesByPath(snapshot.workspaces),

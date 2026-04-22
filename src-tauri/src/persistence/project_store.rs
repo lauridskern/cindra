@@ -5,12 +5,33 @@ use std::sync::Mutex;
 use anyhow::Context;
 use diesel::connection::SimpleConnection;
 use diesel::prelude::*;
-use diesel::sql_types::{BigInt, Text};
+use diesel::sql_types::{BigInt, Nullable, Text};
 use diesel::{QueryableByName, RunQueryDsl, SqliteConnection, sql_query};
+use uuid::Uuid;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RegisteredWorkspaceKind {
+    Project,
+    ManagedChat,
+}
+
+#[derive(Debug, Clone)]
+pub struct RegisteredWorkspace {
+    pub kind: RegisteredWorkspaceKind,
+    pub path: PathBuf,
+    pub display_name: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct RegisteredWorkspaceMetadata {
+    pub kind: RegisteredWorkspaceKind,
+    pub display_name: Option<String>,
+}
 
 #[derive(Debug)]
 pub struct ProjectStore {
     db_path: PathBuf,
+    managed_chats_root: PathBuf,
     connection_lock: Mutex<()>,
 }
 
@@ -37,9 +58,10 @@ pub struct SavedWorkspaceRecord {
 }
 
 impl ProjectStore {
-    pub fn new(db_path: PathBuf) -> anyhow::Result<Self> {
+    pub fn new(db_path: PathBuf, managed_chats_root: PathBuf) -> anyhow::Result<Self> {
         let store = Self {
             db_path,
+            managed_chats_root,
             connection_lock: Mutex::new(()),
         };
         store.init()?;
@@ -62,12 +84,52 @@ impl ProjectStore {
         })
     }
 
-    pub fn list_projects(&self) -> anyhow::Result<Vec<PathBuf>> {
+    pub fn create_managed_chat_workspace(&self) -> anyhow::Result<PathBuf> {
+        fs::create_dir_all(&self.managed_chats_root).with_context(|| {
+            format!(
+                "Failed to create managed chat workspace directory at {}",
+                self.managed_chats_root.display()
+            )
+        })?;
+
+        let managed_chat_path =
+            self.managed_chats_root
+                .join(format!("chat_{}", Uuid::new_v4().simple()));
+        fs::create_dir_all(&managed_chat_path).with_context(|| {
+            format!(
+                "Failed to create managed chat workspace at {}",
+                managed_chat_path.display()
+            )
+        })?;
+
+        let canonical = canonicalize_project_path(&managed_chat_path)?;
         self.with_connection(|connection| {
-            let rows: Vec<ProjectPathRow> = sql_query(
+            sql_query(
                 "
-                SELECT path
-                FROM opened_projects
+                INSERT INTO managed_chat_workspaces (path, created_at, last_opened_at)
+                VALUES (?1, unixepoch(), unixepoch())
+                ",
+            )
+            .bind::<Text, _>(&canonical)
+            .execute(connection)?;
+            Ok(())
+        })?;
+
+        Ok(PathBuf::from(canonical))
+    }
+
+    pub fn list_workspaces(&self) -> anyhow::Result<Vec<RegisteredWorkspace>> {
+        self.with_connection(|connection| {
+            let rows: Vec<RegisteredWorkspaceRow> = sql_query(
+                "
+                SELECT path, kind, display_name
+                FROM (
+                  SELECT path, 'project' AS kind, display_name, last_opened_at
+                  FROM opened_projects
+                  UNION ALL
+                  SELECT path, 'managed_chat' AS kind, display_name, last_opened_at
+                  FROM managed_chat_workspaces
+                )
                 ORDER BY last_opened_at DESC, path ASC
                 ",
             )
@@ -75,9 +137,146 @@ impl ProjectStore {
 
             Ok(rows
                 .into_iter()
-                .map(|row| PathBuf::from(row.path))
-                .filter(|path| path.exists())
+                .map(|row| RegisteredWorkspace {
+                    kind: parse_workspace_kind(&row.kind),
+                    display_name: normalize_display_name(row.display_name.as_deref()),
+                    path: PathBuf::from(row.path),
+                })
+                .filter(|workspace| workspace.path.exists())
                 .collect())
+        })
+    }
+
+    pub fn get_workspace_registration(
+        &self,
+        path: &Path,
+    ) -> anyhow::Result<Option<RegisteredWorkspaceMetadata>> {
+        let canonical = canonicalize_project_path(path)?;
+        self.with_connection(|connection| {
+            let rows: Vec<RegisteredWorkspaceRegistrationRow> = sql_query(
+                "
+                SELECT kind, display_name
+                FROM (
+                  SELECT 'project' AS kind, display_name
+                  FROM opened_projects
+                  WHERE path = ?1
+                  UNION ALL
+                  SELECT 'managed_chat' AS kind, display_name
+                  FROM managed_chat_workspaces
+                  WHERE path = ?1
+                )
+                LIMIT 1
+                ",
+            )
+            .bind::<Text, _>(canonical)
+            .load(connection)?;
+
+            Ok(rows.into_iter().next().map(|row| RegisteredWorkspaceMetadata {
+                kind: parse_workspace_kind(&row.kind),
+                display_name: normalize_display_name(row.display_name.as_deref()),
+            }))
+        })
+    }
+
+    pub fn get_workspace_kind(
+        &self,
+        path: &Path,
+    ) -> anyhow::Result<Option<RegisteredWorkspaceKind>> {
+        Ok(self
+            .get_workspace_registration(path)?
+            .map(|registration| registration.kind))
+    }
+
+    pub fn set_workspace_display_name(
+        &self,
+        path: &Path,
+        display_name: Option<&str>,
+    ) -> anyhow::Result<()> {
+        let canonical = canonicalize_project_path(path)?;
+        let display_name = normalize_display_name(display_name);
+        self.with_connection(|connection| {
+            let mut updated_rows = 0usize;
+            updated_rows += sql_query(
+                "
+                UPDATE opened_projects
+                SET display_name = ?2
+                WHERE path = ?1
+                ",
+            )
+            .bind::<Text, _>(&canonical)
+            .bind::<Nullable<Text>, _>(display_name.clone())
+            .execute(connection)?;
+
+            updated_rows += sql_query(
+                "
+                UPDATE managed_chat_workspaces
+                SET display_name = ?2
+                WHERE path = ?1
+                ",
+            )
+            .bind::<Text, _>(&canonical)
+            .bind::<Nullable<Text>, _>(display_name)
+            .execute(connection)?;
+
+            if updated_rows == 0 {
+                anyhow::bail!("Workspace is not registered.");
+            }
+
+            Ok(())
+        })
+    }
+
+    pub fn touch_managed_chat_workspace(&self, path: &Path) -> anyhow::Result<()> {
+        let canonical = canonicalize_project_path(path)?;
+        self.with_connection(|connection| {
+            sql_query(
+                "
+                UPDATE managed_chat_workspaces
+                SET last_opened_at = unixepoch()
+                WHERE path = ?1
+                ",
+            )
+            .bind::<Text, _>(canonical)
+            .execute(connection)?;
+            Ok(())
+        })
+    }
+
+    pub fn archive_workspace(&self, path: &Path) -> anyhow::Result<()> {
+        let canonical = canonicalize_project_path(path)?;
+        self.with_connection(|connection| {
+            sql_query(
+                "
+                DELETE FROM opened_projects
+                WHERE path = ?1
+                ",
+            )
+            .bind::<Text, _>(&canonical)
+            .execute(connection)?;
+
+            sql_query(
+                "
+                DELETE FROM managed_chat_workspaces
+                WHERE path = ?1
+                ",
+            )
+            .bind::<Text, _>(&canonical)
+            .execute(connection)?;
+            Ok(())
+        })
+    }
+
+    pub fn delete_conversation_layout(&self, conversation_id: &str) -> anyhow::Result<()> {
+        self.with_connection(|connection| {
+            sql_query(
+                "
+                DELETE FROM conversation_layouts
+                WHERE conversation_id = ?1
+                ",
+            )
+            .bind::<Text, _>(conversation_id)
+            .execute(connection)?;
+            Ok(())
         })
     }
 
@@ -212,6 +411,49 @@ impl ProjectStore {
         })
     }
 
+    pub fn rename_saved_workspace(
+        &self,
+        workspace_id: &str,
+        name: &str,
+    ) -> anyhow::Result<SavedWorkspaceRecord> {
+        let trimmed_name = name.trim();
+        if trimmed_name.is_empty() {
+            anyhow::bail!("Workspace name cannot be empty.");
+        }
+
+        self.with_connection(|connection| {
+            connection.transaction(|connection| {
+                sql_query(
+                    "
+                    UPDATE saved_workspaces
+                    SET name = ?2,
+                        updated_at = unixepoch()
+                    WHERE id = ?1
+                    ",
+                )
+                .bind::<Text, _>(workspace_id)
+                .bind::<Text, _>(trimmed_name)
+                .execute(connection)?;
+
+                load_saved_workspace_record(connection, workspace_id)
+            })
+        })
+    }
+
+    pub fn delete_saved_workspace(&self, workspace_id: &str) -> anyhow::Result<()> {
+        self.with_connection(|connection| {
+            sql_query(
+                "
+                DELETE FROM saved_workspaces
+                WHERE id = ?1
+                ",
+            )
+            .bind::<Text, _>(workspace_id)
+            .execute(connection)?;
+            Ok(())
+        })
+    }
+
     fn init(&self) -> anyhow::Result<()> {
         if let Some(parent) = self.db_path.parent() {
             fs::create_dir_all(parent).with_context(|| {
@@ -227,6 +469,12 @@ impl ProjectStore {
                 "
                 CREATE TABLE IF NOT EXISTS opened_projects (
                   path TEXT PRIMARY KEY,
+                  last_opened_at INTEGER NOT NULL
+                );
+
+                CREATE TABLE IF NOT EXISTS managed_chat_workspaces (
+                  path TEXT PRIMARY KEY,
+                  created_at INTEGER NOT NULL,
                   last_opened_at INTEGER NOT NULL
                 );
 
@@ -251,6 +499,8 @@ impl ProjectStore {
                 );
                 ",
             )?;
+            ensure_column_exists(connection, "opened_projects", "display_name", "TEXT")?;
+            ensure_column_exists(connection, "managed_chat_workspaces", "display_name", "TEXT")?;
             Ok(())
         })
     }
@@ -287,9 +537,21 @@ impl ProjectStore {
 }
 
 #[derive(QueryableByName)]
-struct ProjectPathRow {
+struct RegisteredWorkspaceRow {
     #[diesel(sql_type = Text)]
     path: String,
+    #[diesel(sql_type = Text)]
+    kind: String,
+    #[diesel(sql_type = Nullable<Text>)]
+    display_name: Option<String>,
+}
+
+#[derive(QueryableByName)]
+struct RegisteredWorkspaceRegistrationRow {
+    #[diesel(sql_type = Text)]
+    kind: String,
+    #[diesel(sql_type = Nullable<Text>)]
+    display_name: Option<String>,
 }
 
 #[derive(QueryableByName)]
@@ -298,12 +560,50 @@ struct ConversationLayoutRow {
     layout_json: String,
 }
 
+#[derive(QueryableByName)]
+struct TableColumnRow {
+    #[diesel(sql_type = Text)]
+    name: String,
+}
+
 fn canonicalize_project_path(path: &Path) -> anyhow::Result<String> {
     Ok(path
         .canonicalize()
         .with_context(|| format!("Failed to canonicalize project path {}", path.display()))?
         .to_string_lossy()
         .into_owned())
+}
+
+fn parse_workspace_kind(value: &str) -> RegisteredWorkspaceKind {
+    match value {
+        "managed_chat" => RegisteredWorkspaceKind::ManagedChat,
+        _ => RegisteredWorkspaceKind::Project,
+    }
+}
+
+fn normalize_display_name(value: Option<&str>) -> Option<String> {
+    value
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned)
+}
+
+fn ensure_column_exists(
+    connection: &mut SqliteConnection,
+    table: &str,
+    column: &str,
+    definition: &str,
+) -> anyhow::Result<()> {
+    let rows: Vec<TableColumnRow> =
+        sql_query(format!("SELECT name FROM pragma_table_info('{table}')")).load(connection)?;
+    if rows.iter().any(|existing| existing.name == column) {
+        return Ok(());
+    }
+
+    connection.batch_execute(&format!(
+        "ALTER TABLE {table} ADD COLUMN {column} {definition};"
+    ))?;
+    Ok(())
 }
 
 fn load_saved_workspace_record(

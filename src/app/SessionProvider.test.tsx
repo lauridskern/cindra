@@ -11,11 +11,36 @@ import type {
 let ensureConversationViewCallCount = 0;
 let getPromptSettingsCallCount = 0;
 let getRuntimeStatusCallCount = 0;
+let createManagedChatCallCount = 0;
+let openWorkspaceCallCount = 0;
+let renameWorkspaceCallCount = 0;
+let renameSavedWorkspaceCallCount = 0;
 let selectConversationCallCount = 0;
+let createManagedChatImpl: () => Promise<SessionSnapshot>;
+let openWorkspaceImpl: (workspacePath: string) => Promise<SessionSnapshot>;
+let renameWorkspaceImpl: (
+  workspacePath: string,
+  displayName: string | null,
+) => Promise<SessionSnapshot>;
+let renameSavedWorkspaceImpl: (
+  workspaceId: string,
+  name: string,
+) => Promise<SessionSnapshot>;
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+
+  const promise = new Promise<T>((nextResolve) => {
+    resolve = nextResolve;
+  });
+
+  return { promise, resolve };
+}
 
 function createSnapshot(
   workspacePath: string,
   conversationId: string,
+  overrides: Partial<SessionSnapshot> = {},
 ): SessionSnapshot {
   return {
     activeConversationId: conversationId,
@@ -50,11 +75,13 @@ function createSnapshot(
             updatedAt: "2026-04-21T00:00:00.000Z",
           },
         ],
+        kind: "project",
         selectedConversationId: conversationId,
         workspaceName: "Agent UI",
         workspacePath,
       },
     ],
+    ...overrides,
   };
 }
 
@@ -93,6 +120,22 @@ mock.module("../services/desktop/client", () => ({
     getRuntimeStatusCallCount += 1;
     return runtimeStatusFixture;
   },
+  renameWorkspace: async (workspacePath: string, displayName: string | null) => {
+    renameWorkspaceCallCount += 1;
+    return await renameWorkspaceImpl(workspacePath, displayName);
+  },
+  renameSavedWorkspace: async (workspaceId: string, name: string) => {
+    renameSavedWorkspaceCallCount += 1;
+    return await renameSavedWorkspaceImpl(workspaceId, name);
+  },
+  createManagedChat: async () => {
+    createManagedChatCallCount += 1;
+    return await createManagedChatImpl();
+  },
+  openWorkspace: async (workspacePath: string) => {
+    openWorkspaceCallCount += 1;
+    return await openWorkspaceImpl(workspacePath);
+  },
   selectConversation: async (workspacePath: string, conversationId: string) => {
     selectConversationCallCount += 1;
     return createSnapshot(workspacePath, conversationId);
@@ -108,7 +151,59 @@ describe("SessionProvider", () => {
     ensureConversationViewCallCount = 0;
     getPromptSettingsCallCount = 0;
     getRuntimeStatusCallCount = 0;
+    createManagedChatCallCount = 0;
+    openWorkspaceCallCount = 0;
+    renameWorkspaceCallCount = 0;
+    renameSavedWorkspaceCallCount = 0;
     selectConversationCallCount = 0;
+    createManagedChatImpl = async () =>
+      createSnapshot("/workspace/managed-chat", "chat-1", {
+        activeConversationId: null,
+        conversationViews: [],
+        workspaces: [
+          {
+            configurationError: null,
+            configured: true,
+            conversations: [],
+            kind: "managed_chat",
+            selectedConversationId: null,
+            workspaceName: "New chat",
+            workspacePath: "/workspace/managed-chat",
+          },
+        ],
+      });
+    openWorkspaceImpl = async (workspacePath: string) =>
+      createSnapshot(workspacePath, "chat-1");
+    renameWorkspaceImpl = async (
+      workspacePath: string,
+      displayName: string | null,
+    ) =>
+      createSnapshot(workspacePath, "chat-1", {
+        workspaces: [
+          {
+            configurationError: null,
+            configured: true,
+            conversations: [
+              {
+                conversationId: "chat-1",
+                hasPendingFollowup: false,
+                isDraft: false,
+                isRunning: false,
+                title: "Selected chat",
+                updatedAt: "2026-04-21T00:00:00.000Z",
+              },
+            ],
+            kind: "project",
+            selectedConversationId: "chat-1",
+            workspaceName: displayName ?? "agent-ui",
+            workspacePath,
+          },
+        ],
+      });
+    renameSavedWorkspaceImpl = async (workspaceId: string, name: string) =>
+      createSnapshot("/workspace/agent-ui", "chat-1", {
+        savedWorkspaces: [{ id: workspaceId, name, updatedAt: 2n }],
+      });
     resetSessionStore();
   });
 
@@ -161,6 +256,295 @@ describe("SessionProvider", () => {
         workspacePath: "/workspace/other",
       },
       kind: "single-chat",
+    });
+  });
+
+  test("opening a project keeps the current selection until the snapshot resolves", async () => {
+    sessionStore.getState().setBoardSelection({
+      activeChat: {
+        conversationId: "chat-1",
+        workspacePath: "/workspace/agent-ui",
+      },
+      kind: "saved-workspace",
+      workspace: {
+        id: "saved-1",
+        layoutJson: "{\"grid\":true}",
+        name: "Workspace",
+        updatedAt: 1n,
+      },
+    });
+
+    const workspaceRequest = deferred<SessionSnapshot>();
+    openWorkspaceImpl = async () => await workspaceRequest.promise;
+
+    let capturedActions:
+      | import("./SessionContext").SessionActionsContextValue
+      | null = null;
+
+    function CaptureActions() {
+      capturedActions = useContext(SessionActionsContext);
+      return null;
+    }
+
+    renderToStaticMarkup(
+      <SessionProvider>
+        <CaptureActions />
+      </SessionProvider>,
+    );
+
+    if (capturedActions == null) {
+      throw new Error("Expected session actions to be available");
+    }
+
+    const actions =
+      capturedActions as import("./SessionContext").SessionActionsContextValue;
+    const openProjectPromise = actions.openProject("/workspace/other");
+
+    expect(openWorkspaceCallCount).toBe(1);
+    expect(sessionStore.getState().selection).toEqual({
+      activeChat: {
+        conversationId: "chat-1",
+        workspacePath: "/workspace/agent-ui",
+      },
+      kind: "saved-workspace",
+      workspace: {
+        id: "saved-1",
+        layoutJson: "{\"grid\":true}",
+        name: "Workspace",
+        updatedAt: 1n,
+      },
+    });
+
+    workspaceRequest.resolve(createSnapshot("/workspace/other", "chat-7"));
+    await openProjectPromise;
+
+    expect(sessionStore.getState().selection).toEqual({
+      chat: {
+        conversationId: "chat-7",
+        workspacePath: "/workspace/other",
+      },
+      kind: "single-chat",
+    });
+  });
+
+  test("starting a sidebar chat without a project creates a managed chat workspace", async () => {
+    let capturedActions:
+      | import("./SessionContext").SessionActionsContextValue
+      | null = null;
+
+    function CaptureActions() {
+      capturedActions = useContext(SessionActionsContext);
+      return null;
+    }
+
+    renderToStaticMarkup(
+      <SessionProvider>
+        <CaptureActions />
+      </SessionProvider>,
+    );
+
+    if (capturedActions == null) {
+      throw new Error("Expected session actions to be available");
+    }
+
+    const actions =
+      capturedActions as import("./SessionContext").SessionActionsContextValue;
+
+    await actions.startNewChat();
+
+    expect(createManagedChatCallCount).toBe(1);
+    expect(openWorkspaceCallCount).toBe(0);
+    expect(selectConversationCallCount).toBe(0);
+    expect(sessionStore.getState().selection).toEqual({
+      kind: "workspace-draft",
+      workspacePath: "/workspace/managed-chat",
+    });
+  });
+
+  test("starting a sidebar chat reuses an existing empty managed chat draft", async () => {
+    sessionStore.getState().applySessionSnapshot(
+      createSnapshot("/workspace/agent-ui", "chat-1", {
+        workspaces: [
+          {
+            configurationError: null,
+            configured: true,
+            conversations: [],
+            kind: "managed_chat",
+            selectedConversationId: null,
+            workspaceName: "New chat",
+            workspacePath: "/workspace/managed-chat",
+          },
+          {
+            configurationError: null,
+            configured: true,
+            conversations: [
+              {
+                conversationId: "chat-1",
+                hasPendingFollowup: false,
+                isDraft: false,
+                isRunning: false,
+                title: "Selected chat",
+                updatedAt: "2026-04-21T00:00:00.000Z",
+              },
+            ],
+            kind: "project",
+            selectedConversationId: "chat-1",
+            workspaceName: "Agent UI",
+            workspacePath: "/workspace/agent-ui",
+          },
+        ],
+      }),
+    );
+    openWorkspaceImpl = async () =>
+      createSnapshot("/workspace/managed-chat", "unused", {
+        activeConversationId: null,
+        activeWorkspacePath: "/workspace/managed-chat",
+        conversationViews: [],
+        workspaces: [
+          {
+            configurationError: null,
+            configured: true,
+            conversations: [],
+            kind: "managed_chat",
+            selectedConversationId: null,
+            workspaceName: "New chat",
+            workspacePath: "/workspace/managed-chat",
+          },
+        ],
+      });
+
+    let capturedActions:
+      | import("./SessionContext").SessionActionsContextValue
+      | null = null;
+
+    function CaptureActions() {
+      capturedActions = useContext(SessionActionsContext);
+      return null;
+    }
+
+    renderToStaticMarkup(
+      <SessionProvider>
+        <CaptureActions />
+      </SessionProvider>,
+    );
+
+    if (capturedActions == null) {
+      throw new Error("Expected session actions to be available");
+    }
+
+    const actions =
+      capturedActions as import("./SessionContext").SessionActionsContextValue;
+
+    await actions.startNewChat();
+
+    expect(createManagedChatCallCount).toBe(0);
+    expect(openWorkspaceCallCount).toBe(1);
+    expect(sessionStore.getState().selection).toEqual({
+      kind: "workspace-draft",
+      workspacePath: "/workspace/managed-chat",
+    });
+  });
+
+  test("renaming a project updates the workspace label in session state", async () => {
+    sessionStore.getState().applySessionSnapshot(
+      createSnapshot("/workspace/agent-ui", "chat-1"),
+    );
+
+    let capturedActions:
+      | import("./SessionContext").SessionActionsContextValue
+      | null = null;
+
+    function CaptureActions() {
+      capturedActions = useContext(SessionActionsContext);
+      return null;
+    }
+
+    renderToStaticMarkup(
+      <SessionProvider>
+        <CaptureActions />
+      </SessionProvider>,
+    );
+
+    if (capturedActions == null) {
+      throw new Error("Expected session actions to be available");
+    }
+
+    const actions =
+      capturedActions as import("./SessionContext").SessionActionsContextValue;
+
+    await actions.renameWorkspace("/workspace/agent-ui", "Renamed UI");
+
+    expect(renameWorkspaceCallCount).toBe(1);
+    expect(sessionStore.getState().workspacesByPath["/workspace/agent-ui"]?.workspaceName).toBe(
+      "Renamed UI",
+    );
+    expect(sessionStore.getState().selection).toEqual({
+      chat: {
+        conversationId: "chat-1",
+        workspacePath: "/workspace/agent-ui",
+      },
+      kind: "single-chat",
+    });
+  });
+
+  test("renaming a saved workspace updates the saved workspace selection", async () => {
+    sessionStore.getState().setBoardSelection({
+      activeChat: {
+        conversationId: "chat-1",
+        workspacePath: "/workspace/agent-ui",
+      },
+      kind: "saved-workspace",
+      workspace: {
+        id: "saved-1",
+        layoutJson: "{\"grid\":true}",
+        name: "Workspace",
+        updatedAt: 1n,
+      },
+    });
+    sessionStore.getState().applySessionSnapshot(
+      createSnapshot("/workspace/agent-ui", "chat-1"),
+    );
+
+    let capturedActions:
+      | import("./SessionContext").SessionActionsContextValue
+      | null = null;
+
+    function CaptureActions() {
+      capturedActions = useContext(SessionActionsContext);
+      return null;
+    }
+
+    renderToStaticMarkup(
+      <SessionProvider>
+        <CaptureActions />
+      </SessionProvider>,
+    );
+
+    if (capturedActions == null) {
+      throw new Error("Expected session actions to be available");
+    }
+
+    const actions =
+      capturedActions as import("./SessionContext").SessionActionsContextValue;
+
+    await actions.renameSavedWorkspace("saved-1", "Renamed workspace");
+
+    expect(renameSavedWorkspaceCallCount).toBe(1);
+    expect(sessionStore.getState().savedWorkspaces).toEqual([
+      { id: "saved-1", name: "Renamed workspace", updatedAt: 2n },
+    ]);
+    expect(sessionStore.getState().selection).toEqual({
+      activeChat: {
+        conversationId: "chat-1",
+        workspacePath: "/workspace/agent-ui",
+      },
+      kind: "saved-workspace",
+      workspace: {
+        id: "saved-1",
+        layoutJson: "{\"grid\":true}",
+        name: "Renamed workspace",
+        updatedAt: 2n,
+      },
     });
   });
 });

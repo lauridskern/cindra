@@ -19,6 +19,17 @@ export interface SessionActionsContextValue {
     workspacePath: string,
     conversationId: string,
   ) => Promise<void>;
+  archiveConversation: (
+    workspacePath: string,
+    conversationId: string,
+  ) => Promise<void>;
+  archiveWorkspace: (workspacePath: string) => Promise<void>;
+  renameWorkspace: (
+    workspacePath: string,
+    displayName?: string | null,
+  ) => Promise<void>;
+  renameSavedWorkspace: (workspaceId: string, name: string) => Promise<void>;
+  deleteSavedWorkspace: (workspaceId: string) => Promise<void>;
   startNewChat: (workspacePath?: string) => Promise<SessionSnapshot | null>;
   checkoutBranch: (branchName: string) => Promise<void>;
   createBranch: (branchName: string) => Promise<void>;

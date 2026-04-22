@@ -3,40 +3,53 @@ use std::path::{Path, PathBuf};
 use anyhow::Context;
 use forge_api::API;
 
+use crate::persistence::project_store::RegisteredWorkspaceKind;
+
 use super::{
-    ForgeRuntime, PersistedConversationSummary, RuntimeManager, WorkspaceSessionState,
+    ForgeRuntime, PersistedConversationSummary, RuntimeManager, WorkspaceKind, WorkspaceSessionState,
     configuration_error_message, fallback_workspace_state, format_error_chain, read_config,
-    workspace_name,
+    resolved_workspace_display_name,
 };
 
 impl RuntimeManager {
     pub(super) async fn ensure_known_workspaces_loaded(&self) -> anyhow::Result<()> {
-        let project_paths = self.projects.list_projects()?;
-        let project_keys = project_paths
+        let registered_workspaces = self.projects.list_workspaces()?;
+        let workspace_keys = registered_workspaces
             .iter()
-            .map(|path| path.to_string_lossy().into_owned())
+            .map(|workspace| workspace.path.to_string_lossy().into_owned())
             .collect::<Vec<_>>();
 
         let missing = {
             let mut state = self.state.lock().await;
-            state.workspace_order = project_keys.clone();
-            project_paths
+            state.workspace_order = workspace_keys.clone();
+            registered_workspaces
                 .into_iter()
-                .filter(|path| {
+                .filter(|workspace| {
                     !state
                         .workspaces
-                        .contains_key(path.to_string_lossy().as_ref())
+                        .contains_key(workspace.path.to_string_lossy().as_ref())
                 })
                 .collect::<Vec<_>>()
         };
 
-        for path in missing {
-            let workspace_path = path.to_string_lossy().into_owned();
+        for workspace in missing {
+            let workspace_path = workspace.path.to_string_lossy().into_owned();
+            let workspace_kind = map_workspace_kind(workspace.kind);
             let workspace_state = self
-                .load_workspace_state(path.clone(), None)
+                .load_workspace_state(
+                    workspace.path.clone(),
+                    workspace_kind,
+                    workspace.display_name.clone(),
+                    None,
+                )
                 .await
                 .unwrap_or_else(|error| {
-                    fallback_workspace_state(&path, format_error_chain(&error))
+                    fallback_workspace_state(
+                        &workspace.path,
+                        workspace_kind,
+                        workspace.display_name.as_deref(),
+                        format_error_chain(&error),
+                    )
                 });
 
             let mut state = self.state.lock().await;
@@ -78,16 +91,30 @@ impl RuntimeManager {
         let configured = runtime.config.session.is_some();
         let configuration_error =
             configuration_error_message(configured, runtime.configuration_error.clone());
+        let (registered_kind, registered_display_name) =
+            self.resolve_workspace_registration(workspace_path)?;
 
         let mut state = self.state.lock().await;
+        let workspace_kind = state
+            .workspaces
+            .get(workspace_path)
+            .map(|workspace| workspace.kind)
+            .unwrap_or(registered_kind);
+        let workspace_name = resolved_workspace_display_name(
+            workspace_kind,
+            Path::new(workspace_path),
+            registered_display_name.as_deref(),
+        );
         let workspace = state
             .workspaces
             .entry(workspace_path.to_string())
             .or_insert_with(|| WorkspaceSessionState {
-                workspace_name: workspace_name(Path::new(workspace_path)),
+                kind: workspace_kind,
+                workspace_name: workspace_name.clone(),
                 ..WorkspaceSessionState::default()
             });
-        workspace.workspace_name = workspace_name(Path::new(workspace_path));
+        workspace.kind = workspace_kind;
+        workspace.workspace_name = workspace_name;
         workspace.configured = configured;
         workspace.configuration_error = configuration_error;
         workspace.runtime = Some(runtime.clone());
@@ -118,14 +145,28 @@ impl RuntimeManager {
             configuration_error_message(configured, runtime.configuration_error.clone());
 
         let mut state = self.state.lock().await;
+        let (registered_kind, registered_display_name) =
+            self.resolve_workspace_registration(workspace_path)?;
+        let workspace_kind = state
+            .workspaces
+            .get(workspace_path)
+            .map(|workspace| workspace.kind)
+            .unwrap_or(registered_kind);
+        let workspace_name = resolved_workspace_display_name(
+            workspace_kind,
+            Path::new(workspace_path),
+            registered_display_name.as_deref(),
+        );
         let workspace = state
             .workspaces
             .entry(workspace_path.to_string())
             .or_insert_with(|| WorkspaceSessionState {
-                workspace_name: workspace_name(Path::new(workspace_path)),
+                kind: workspace_kind,
+                workspace_name: workspace_name.clone(),
                 ..WorkspaceSessionState::default()
             });
-        workspace.workspace_name = workspace_name(Path::new(workspace_path));
+        workspace.kind = workspace_kind;
+        workspace.workspace_name = workspace_name;
         workspace.configured = configured;
         workspace.configuration_error = configuration_error;
         workspace.persisted_conversations = persisted_conversations.clone();
@@ -148,6 +189,8 @@ impl RuntimeManager {
     async fn load_workspace_state(
         &self,
         workspace_path: PathBuf,
+        kind: WorkspaceKind,
+        display_name: Option<String>,
         resident_runtime: Option<ForgeRuntime>,
     ) -> anyhow::Result<WorkspaceSessionState> {
         let runtime = if let Some(runtime) = resident_runtime.clone() {
@@ -166,7 +209,12 @@ impl RuntimeManager {
 
         Ok(WorkspaceSessionState {
             runtime: resident_runtime,
-            workspace_name: workspace_name(&workspace_path),
+            kind,
+            workspace_name: resolved_workspace_display_name(
+                kind,
+                &workspace_path,
+                display_name.as_deref(),
+            ),
             configured,
             configuration_error,
             selected_conversation_id: None,
@@ -176,6 +224,21 @@ impl RuntimeManager {
                 .collect(),
         })
     }
+
+    pub(super) fn resolve_workspace_registration(
+        &self,
+        workspace_path: &str,
+    ) -> anyhow::Result<(WorkspaceKind, Option<String>)> {
+        let registration = self
+            .projects
+            .get_workspace_registration(Path::new(workspace_path))?;
+        let workspace_kind = registration
+            .as_ref()
+            .map(|registered| map_workspace_kind(registered.kind))
+            .unwrap_or(WorkspaceKind::Project);
+        let display_name = registration.and_then(|registered| registered.display_name);
+        Ok((workspace_kind, display_name))
+    }
 }
 
 pub(crate) fn canonicalize_workspace_path(path: PathBuf) -> anyhow::Result<String> {
@@ -184,4 +247,11 @@ pub(crate) fn canonicalize_workspace_path(path: PathBuf) -> anyhow::Result<Strin
         .with_context(|| format!("Failed to open workspace {}", path.display()))?
         .to_string_lossy()
         .into_owned())
+}
+
+fn map_workspace_kind(kind: RegisteredWorkspaceKind) -> WorkspaceKind {
+    match kind {
+        RegisteredWorkspaceKind::Project => WorkspaceKind::Project,
+        RegisteredWorkspaceKind::ManagedChat => WorkspaceKind::ManagedChat,
+    }
 }

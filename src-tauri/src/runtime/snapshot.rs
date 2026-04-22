@@ -5,14 +5,15 @@ use forge_domain::Conversation;
 
 use crate::dto::{
     ConversationSessionSummaryDto, ConversationViewSnapshotDto, SavedWorkspaceSummaryDto,
-    SessionSnapshotDto, WorkspaceSessionDto,
+    SessionSnapshotDto, WorkspaceKindDto, WorkspaceSessionDto,
 };
 use crate::persistence::project_store::SavedWorkspaceSummaryRecord;
 
 use super::{
-    ConversationSessionState, PersistedConversationSummary, RuntimeState, WorkspaceSessionState,
-    configuration_error_message, derive_conversation_title_from_messages, map_session_todos,
-    read_config, session_messages_from_conversation, workspace_name,
+    ConversationSessionState, PersistedConversationSummary, RuntimeState, WorkspaceKind,
+    WorkspaceSessionState, configuration_error_message, derive_conversation_title_from_messages,
+    map_session_todos, read_config, resolved_workspace_display_name,
+    session_messages_from_conversation,
 };
 
 pub(crate) fn build_snapshot(
@@ -113,6 +114,8 @@ pub(crate) fn hydrate_conversation_state(
 
 pub(crate) fn fallback_workspace_state(
     workspace_path: &Path,
+    kind: WorkspaceKind,
+    display_name: Option<&str>,
     error: String,
 ) -> WorkspaceSessionState {
     let (config, configuration_error) = read_config();
@@ -122,7 +125,8 @@ pub(crate) fn fallback_workspace_state(
 
     WorkspaceSessionState {
         runtime: None,
-        workspace_name: workspace_name(workspace_path),
+        kind,
+        workspace_name: resolved_workspace_display_name(kind, workspace_path, display_name),
         configured,
         configuration_error,
         selected_conversation_id: None,
@@ -207,6 +211,10 @@ fn build_workspace_snapshot(
     conversations.splice(0..0, local_only);
 
     WorkspaceSessionDto {
+        kind: match workspace.kind {
+            WorkspaceKind::Project => WorkspaceKindDto::Project,
+            WorkspaceKind::ManagedChat => WorkspaceKindDto::ManagedChat,
+        },
         workspace_path: workspace_path.to_string(),
         workspace_name: workspace.workspace_name.clone(),
         configured: workspace.configured,
