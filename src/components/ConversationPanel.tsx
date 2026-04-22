@@ -1,9 +1,9 @@
 import { ChatThread } from "@/components/chat/ChatThread";
 import { ConversationPanelAlerts } from "@/components/conversation-panel/ConversationPanelAlerts";
 import { ConversationPanelHeader } from "@/components/conversation-panel/ConversationPanelHeader";
+import { ConversationSurface } from "@/components/conversation-panel/ConversationSurface";
 import { LandingScreen } from "@/components/LandingScreen";
 import { PromptComposer } from "@/components/PromptComposer";
-import { PaneSurface } from "@/components/ui/pane-surface";
 import { useConversationSession } from "@/hooks/useSession";
 import type { ChatBinding } from "@/services/desktop/contracts";
 
@@ -51,7 +51,7 @@ export function ConversationPanel({
     followupRequest == null;
 
   return (
-    <PaneSurface className="flex-1 text-neutral-950 dark:text-neutral-100">
+    <ConversationSurface>
       {showHeader ? (
         <ConversationPanelHeader
           binding={binding}
@@ -87,6 +87,6 @@ export function ConversationPanel({
           <PromptComposer binding={binding} />
         </>
       )}
-    </PaneSurface>
+    </ConversationSurface>
   );
 }

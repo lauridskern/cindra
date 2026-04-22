@@ -10,6 +10,7 @@ import {
 import type { PromptSettings } from "@/services/desktop/contracts";
 import { ChatThread } from "@/components/chat/ChatThread";
 import { FollowupComposer } from "@/components/FollowupComposer";
+import { ConversationSurface } from "@/components/conversation-panel/ConversationSurface";
 import { PromptInputCard } from "@/components/PromptInputCard";
 import { SessionTodoDock } from "@/components/conversation-panel/SessionTodoDock";
 import { Button } from "@/components/ui/button";
@@ -440,7 +441,7 @@ export function DemoConversationPanel() {
   }
 
   return (
-    <section className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-white/80 shadow-xl shadow-neutral-950/5 backdrop-blur-xl dark:bg-neutral-900/80 dark:shadow-black/20">
+    <ConversationSurface>
       <header className="flex h-9.5 items-center justify-between gap-3 border-b border-black/5 px-3 pr-1.5 dark:border-white/5">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
@@ -525,6 +526,6 @@ export function DemoConversationPanel() {
           </p>
         ) : null}
       </div>
-    </section>
+    </ConversationSurface>
   );
 }

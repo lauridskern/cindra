@@ -3,15 +3,12 @@ import { ChevronDownIcon, GitBranchIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 
 interface BranchSwitcherMenuProps {
   branchName: string;
@@ -43,10 +40,12 @@ export function BranchSwitcherMenu({
   triggerClassName,
 }: BranchSwitcherMenuProps) {
   const trimmedQuery = branchQuery.trim();
+  const itemClassName =
+    "flex min-h-7 w-full items-center gap-2 rounded-md px-2 py-1 text-left text-xs/relaxed outline-hidden transition-colors select-none hover:bg-foreground/10 focus-visible:bg-foreground/10 disabled:pointer-events-none disabled:opacity-50 [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-3.5";
 
   return (
-    <DropdownMenu open={isOpen} onOpenChange={onOpenChange}>
-      <DropdownMenuTrigger
+    <Popover open={isOpen} onOpenChange={onOpenChange}>
+      <PopoverTrigger
         render={
           <Button
             variant="ghost"
@@ -62,8 +61,12 @@ export function BranchSwitcherMenu({
       >
         <span className="truncate">{branchName}</span>
         <ChevronDownIcon strokeWidth={2} className="size-3" />
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-64">
+      </PopoverTrigger>
+      <PopoverContent
+        align="start"
+        className="w-64"
+        initialFocus={searchInputRef}
+      >
         <div className="p-1">
           <Input
             ref={searchInputRef}
@@ -87,11 +90,13 @@ export function BranchSwitcherMenu({
             placeholder="Search branches"
           />
         </div>
-        <DropdownMenuSeparator />
-        <DropdownMenuGroup>
+        <div className="-mx-1 my-1 h-px bg-border/50" />
+        <div className="flex flex-col gap-1">
           {canCreateBranch ? (
             <>
-              <DropdownMenuItem
+              <button
+                type="button"
+                className={itemClassName}
                 onClick={() => {
                   void onCreateBranch();
                 }}
@@ -99,14 +104,16 @@ export function BranchSwitcherMenu({
               >
                 <GitBranchIcon />
                 Create branch "{trimmedQuery}"
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
+              </button>
+              <div className="-mx-1 my-1 h-px bg-border/50" />
             </>
           ) : null}
           {branches.length > 0 ? (
             branches.map((candidate) => (
-              <DropdownMenuItem
+              <button
+                type="button"
                 key={candidate}
+                className={itemClassName}
                 disabled={candidate === branchName || isBusy}
                 onClick={() => {
                   void onSelectBranch(candidate);
@@ -114,16 +121,19 @@ export function BranchSwitcherMenu({
               >
                 <GitBranchIcon />
                 {candidate}
-              </DropdownMenuItem>
+              </button>
             ))
           ) : (
-            <DropdownMenuItem disabled>
+            <div
+              aria-disabled="true"
+              className={cn(itemClassName, "cursor-default opacity-50")}
+            >
               <GitBranchIcon />
               No branches found
-            </DropdownMenuItem>
+            </div>
           )}
-        </DropdownMenuGroup>
-      </DropdownMenuContent>
-    </DropdownMenu>
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }

@@ -6,7 +6,7 @@ use forge_api::API;
 use crate::persistence::project_store::RegisteredWorkspaceKind;
 
 use super::{
-    ForgeRuntime, PersistedConversationSummary, RuntimeManager, WorkspaceKind,
+    ForgeRuntime, PersistedConversationSummary, RuntimeManager, RuntimeState, WorkspaceKind,
     WorkspaceSessionState, configuration_error_message, fallback_workspace_state,
     format_error_chain, read_config, resolved_workspace_display_name,
 };
@@ -91,30 +91,15 @@ impl RuntimeManager {
         let configured = runtime.config.session.is_some();
         let configuration_error =
             configuration_error_message(configured, runtime.configuration_error.clone());
-        let (registered_kind, registered_display_name) =
-            self.resolve_workspace_registration(workspace_path)?;
+        let (workspace_kind, workspace_name) = self.resolve_workspace_identity(workspace_path)?;
 
         let mut state = self.state.lock().await;
-        let workspace_kind = state
-            .workspaces
-            .get(workspace_path)
-            .map(|workspace| workspace.kind)
-            .unwrap_or(registered_kind);
-        let workspace_name = resolved_workspace_display_name(
+        let workspace = sync_workspace_session_state(
+            &mut state,
+            workspace_path,
             workspace_kind,
-            Path::new(workspace_path),
-            registered_display_name.as_deref(),
+            &workspace_name,
         );
-        let workspace = state
-            .workspaces
-            .entry(workspace_path.to_string())
-            .or_insert_with(|| WorkspaceSessionState {
-                kind: workspace_kind,
-                workspace_name: workspace_name.clone(),
-                ..WorkspaceSessionState::default()
-            });
-        workspace.kind = workspace_kind;
-        workspace.workspace_name = workspace_name;
         workspace.configured = configured;
         workspace.configuration_error = configuration_error;
         workspace.runtime = Some(runtime.clone());
@@ -143,30 +128,15 @@ impl RuntimeManager {
         let configured = runtime.config.session.is_some();
         let configuration_error =
             configuration_error_message(configured, runtime.configuration_error.clone());
+        let (workspace_kind, workspace_name) = self.resolve_workspace_identity(workspace_path)?;
 
         let mut state = self.state.lock().await;
-        let (registered_kind, registered_display_name) =
-            self.resolve_workspace_registration(workspace_path)?;
-        let workspace_kind = state
-            .workspaces
-            .get(workspace_path)
-            .map(|workspace| workspace.kind)
-            .unwrap_or(registered_kind);
-        let workspace_name = resolved_workspace_display_name(
+        let workspace = sync_workspace_session_state(
+            &mut state,
+            workspace_path,
             workspace_kind,
-            Path::new(workspace_path),
-            registered_display_name.as_deref(),
+            &workspace_name,
         );
-        let workspace = state
-            .workspaces
-            .entry(workspace_path.to_string())
-            .or_insert_with(|| WorkspaceSessionState {
-                kind: workspace_kind,
-                workspace_name: workspace_name.clone(),
-                ..WorkspaceSessionState::default()
-            });
-        workspace.kind = workspace_kind;
-        workspace.workspace_name = workspace_name;
         workspace.configured = configured;
         workspace.configuration_error = configuration_error;
         workspace.persisted_conversations = persisted_conversations.clone();
@@ -239,6 +209,19 @@ impl RuntimeManager {
         let display_name = registration.and_then(|registered| registered.display_name);
         Ok((workspace_kind, display_name))
     }
+
+    pub(super) fn resolve_workspace_identity(
+        &self,
+        workspace_path: &str,
+    ) -> anyhow::Result<(WorkspaceKind, String)> {
+        let (workspace_kind, display_name) = self.resolve_workspace_registration(workspace_path)?;
+        let workspace_name = resolved_workspace_display_name(
+            workspace_kind,
+            Path::new(workspace_path),
+            display_name.as_deref(),
+        );
+        Ok((workspace_kind, workspace_name))
+    }
 }
 
 pub(crate) fn canonicalize_workspace_path(path: PathBuf) -> anyhow::Result<String> {
@@ -254,4 +237,32 @@ fn map_workspace_kind(kind: RegisteredWorkspaceKind) -> WorkspaceKind {
         RegisteredWorkspaceKind::Project => WorkspaceKind::Project,
         RegisteredWorkspaceKind::ManagedChat => WorkspaceKind::ManagedChat,
     }
+}
+
+pub(super) fn sync_workspace_session_state<'a>(
+    state: &'a mut RuntimeState,
+    workspace_path: &str,
+    workspace_kind: WorkspaceKind,
+    workspace_name: &str,
+) -> &'a mut WorkspaceSessionState {
+    let workspace = state
+        .workspaces
+        .entry(workspace_path.to_string())
+        .or_insert_with(|| WorkspaceSessionState {
+            kind: workspace_kind,
+            workspace_name: workspace_name.to_string(),
+            ..WorkspaceSessionState::default()
+        });
+    update_workspace_identity(workspace, workspace_kind, workspace_name);
+    workspace
+}
+
+pub(super) fn update_workspace_identity(
+    workspace: &mut WorkspaceSessionState,
+    workspace_kind: WorkspaceKind,
+    workspace_name: &str,
+) {
+    workspace.kind = workspace_kind;
+    workspace.workspace_name.clear();
+    workspace.workspace_name.push_str(workspace_name);
 }

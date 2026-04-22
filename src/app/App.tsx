@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { PanelImperativeHandle } from "react-resizable-panels";
-import { PanelLeftIcon, PenSquare } from "lucide-react";
+import { LoaderCircle, PanelLeftIcon, PenSquare } from "lucide-react";
 
 import { ProjectSidebar } from "../components/ProjectSidebar";
 import { WorkspaceBoard } from "../components/workspace-board/WorkspaceBoard";
@@ -12,7 +12,7 @@ import {
 } from "../components/ui/resizable";
 import { SidebarProvider, useSidebar } from "../components/ui/sidebar";
 import { TooltipProvider } from "../components/ui/tooltip";
-import { useSessionActions } from "../hooks/useSession";
+import { useSessionActions, useSessionStore } from "../hooks/useSession";
 import { SessionProvider } from "./SessionProvider";
 
 const DEFAULT_SIDEBAR_WIDTH = 320;
@@ -72,6 +72,7 @@ function AppSidebarToggle({
 function AppShell() {
   useSystemThemeClass();
   const { startNewChat } = useSessionActions();
+  const isSessionBootstrapped = useSessionStore((state) => state.isBootstrapped);
   const [isDesktopSidebarVisible, setIsDesktopSidebarVisible] = useState(true);
   const sidebarPanelRef = useRef<PanelImperativeHandle | null>(null);
 
@@ -88,6 +89,18 @@ function AppShell() {
 
     panel.collapse();
   }, [isDesktopSidebarVisible]);
+
+  if (!isSessionBootstrapped) {
+    return (
+      <main className="app-shell relative flex h-screen w-full items-center justify-center overflow-hidden bg-transparent">
+        <LoaderCircle
+          aria-hidden="true"
+          className="size-5 animate-spin text-muted-foreground/70"
+          strokeWidth={2}
+        />
+      </main>
+    );
+  }
 
   return (
     <TooltipProvider>

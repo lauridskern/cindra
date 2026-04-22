@@ -9,9 +9,13 @@ import type { SessionSnapshot } from '../services/desktop/contracts'
 
 interface UseSessionBootstrapOptions {
   setSessionSnapshot: (snapshot: SessionSnapshot) => void
+  onReady?: () => void
 }
 
-export function useSessionBootstrap({ setSessionSnapshot }: UseSessionBootstrapOptions) {
+export function useSessionBootstrap({
+  setSessionSnapshot,
+  onReady,
+}: UseSessionBootstrapOptions) {
   const mountedRef = useRef<boolean>(true)
   const receivedSessionUpdateRef = useRef<boolean>(false)
   const handleSessionUpdate = useEffectEvent((payload: SessionSnapshot) => {
@@ -75,6 +79,8 @@ export function useSessionBootstrap({ setSessionSnapshot }: UseSessionBootstrapO
         if (isMounted() === false) {
           return
         }
+
+        onReady?.()
       }
     })()
 
@@ -82,5 +88,5 @@ export function useSessionBootstrap({ setSessionSnapshot }: UseSessionBootstrapO
       mountedRef.current = false
       stopListening?.()
     }
-  }, [setSessionSnapshot])
+  }, [onReady, setSessionSnapshot])
 }

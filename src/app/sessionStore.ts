@@ -36,6 +36,7 @@ export interface SessionStoreState {
   activeWorkspacePath: string | null;
   conversationSummariesByKey: Record<string, ConversationSessionSummary>;
   conversationViewsByKey: Record<string, ConversationViewSnapshot>;
+  isBootstrapped: boolean;
   isOpeningProject: boolean;
   promptDraftsByKey: Record<string, PromptDraftEntry>;
   requestTimingsByConversationId: Record<
@@ -52,6 +53,7 @@ export interface SessionStoreState {
   clearPromptDraft: (key: string | null) => void;
   movePromptDraft: (fromKey: string | null, toKey: string | null) => void;
   setBoardSelection: (selection: WorkspaceBoardSelection) => void;
+  setIsBootstrapped: (value: boolean) => void;
   setIsOpeningProject: (value: boolean) => void;
   setPromptDraftPending: (key: string | null, isPending: boolean) => void;
   setPromptDraftPlanningMode: (
@@ -369,6 +371,7 @@ function createSessionStoreState(set: SessionStoreSetter): SessionStoreState {
     activeWorkspacePath: null,
     conversationSummariesByKey: {},
     conversationViewsByKey: {},
+    isBootstrapped: false,
     isOpeningProject: false,
     promptDraftsByKey: {},
     requestTimingsByConversationId: {},
@@ -501,6 +504,11 @@ function createSessionStoreState(set: SessionStoreSetter): SessionStoreState {
     setBoardSelection: (selection) => {
       set((current) =>
         areSelectionsEqual(current.selection, selection) ? current : { selection },
+      );
+    },
+    setIsBootstrapped: (value) => {
+      set((current) =>
+        current.isBootstrapped === value ? current : { isBootstrapped: value },
       );
     },
     setIsOpeningProject: (value) => {
