@@ -21,12 +21,6 @@ export function groupContainsChatPanel(
   return group?.panels.some((panel) => panel.id === CHAT_PANE_ID) ?? false;
 }
 
-export function groupContainsTerminalPanel(
-  group: DockviewGroupPanel | null | undefined,
-): boolean {
-  return group?.panels.some((panel) => panel.id === TERMINAL_PANE_ID) ?? false;
-}
-
 export function applyChatTileLayoutConstraints(api: DockviewApi): void {
   api.groups.forEach((group) => {
     group.locked = false;

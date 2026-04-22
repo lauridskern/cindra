@@ -82,6 +82,7 @@ function createSnapshot(
             updatedAt: "2026-04-21T00:00:00.000Z",
           },
         ],
+        kind: "project",
         selectedConversationId: "chat-1",
         workspaceName: "Agent UI",
         workspacePath: "/workspace/agent-ui",
@@ -196,6 +197,42 @@ describe("sessionStore", () => {
     });
   });
 
+  test("applySessionSnapshot refreshes saved workspace metadata", () => {
+    sessionStore.getState().setBoardSelection({
+      activeChat: {
+        conversationId: "chat-2",
+        workspacePath: "/workspace/agent-ui",
+      },
+      kind: "saved-workspace",
+      workspace: {
+        id: "saved-1",
+        layoutJson: "{\"grid\":true}",
+        name: "Workspace",
+        updatedAt: 1n,
+      },
+    });
+
+    sessionStore.getState().applySessionSnapshot(
+      createSnapshot({
+        savedWorkspaces: [{ id: "saved-1", name: "Renamed workspace", updatedAt: 2n }],
+      }),
+    );
+
+    expect(sessionStore.getState().selection).toEqual({
+      activeChat: {
+        conversationId: "chat-2",
+        workspacePath: "/workspace/agent-ui",
+      },
+      kind: "saved-workspace",
+      workspace: {
+        id: "saved-1",
+        layoutJson: "{\"grid\":true}",
+        name: "Renamed workspace",
+        updatedAt: 2n,
+      },
+    });
+  });
+
   test("prompt drafts move and clear without leaving stale entries", () => {
     const sourceKey = "/workspace/agent-ui::chat-1";
     const destinationKey = "/workspace/agent-ui::chat-2";
@@ -293,6 +330,7 @@ describe("sessionStore", () => {
                 updatedAt: "2026-04-21T00:00:00.000Z",
               },
             ],
+            kind: "project",
             selectedConversationId: "chat-2",
             workspaceName: "Agent UI",
             workspacePath: "/workspace/agent-ui",

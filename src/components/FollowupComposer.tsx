@@ -5,12 +5,28 @@ import { useSessionActions } from '../hooks/useSession'
 
 interface FollowupComposerProps {
   followupRequest: FollowupRequest
+  onSubmit?: (input: {
+    cancelled: boolean
+    text?: string
+    selectedOptionIds?: string[]
+  }) => Promise<void> | void
 }
 
-export function FollowupComposer({ followupRequest }: FollowupComposerProps) {
+export function FollowupComposer({
+  followupRequest,
+  onSubmit,
+}: FollowupComposerProps) {
   const [followupText, setFollowupText] = useState('')
   const [selectedOptionIds, setSelectedOptionIds] = useState<string[]>([])
   const { submitFollowup } = useSessionActions()
+  const handleSubmit = (input: {
+    cancelled: boolean
+    text?: string
+    selectedOptionIds?: string[]
+  }) => {
+    const action = onSubmit ?? submitFollowup
+    void action(input)
+  }
 
   const canContinue =
     followupRequest.kind === 'text'
@@ -73,7 +89,7 @@ export function FollowupComposer({ followupRequest }: FollowupComposerProps) {
         <button
           type="button"
           className="appearance-none font-inherit transition duration-150 ease-out disabled:cursor-not-allowed disabled:opacity-45 rounded-full border border-neutral-200 bg-white/85 px-4 py-2.5 text-sm text-neutral-700 dark:border-white/10 dark:bg-neutral-900/80 dark:text-neutral-200"
-          onClick={() => void submitFollowup({ cancelled: true })}
+          onClick={() => handleSubmit({ cancelled: true })}
         >
           Cancel
         </button>
@@ -81,7 +97,7 @@ export function FollowupComposer({ followupRequest }: FollowupComposerProps) {
           type="button"
           className="appearance-none font-inherit transition duration-150 ease-out disabled:cursor-not-allowed disabled:opacity-45 rounded-full bg-neutral-950 px-4 py-2.5 text-sm font-semibold text-white dark:bg-neutral-100 dark:text-neutral-900"
           onClick={() =>
-            void submitFollowup({
+            handleSubmit({
               cancelled: false,
               text: followupText,
               selectedOptionIds,

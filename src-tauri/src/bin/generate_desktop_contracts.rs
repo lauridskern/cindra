@@ -12,7 +12,7 @@ use agent_ui_lib::dto::{
     StatusCategoryDto, TerminalCloseInput, TerminalErrorEventDto, TerminalExitEventDto,
     TerminalOpenInput, TerminalOutputEventDto, TerminalResizeInput, TerminalSessionDto,
     TerminalWriteInput, ToolCallDetailDto, ToolResultDetailDto, UpdatePromptSettingsInput,
-    UpdateSavedWorkspaceLayoutInput, WorkspaceSessionDto,
+    UpdateSavedWorkspaceLayoutInput, WorkspaceKindDto, WorkspaceSessionDto,
 };
 use anyhow::Context;
 use ts_rs::{Config, TS};
@@ -38,6 +38,7 @@ fn main() -> anyhow::Result<()> {
         export_decl::<ConversationSessionSummaryDto>(&config),
         export_decl::<ChatBindingDto>(&config),
         export_decl::<ConversationViewSnapshotDto>(&config),
+        export_decl::<WorkspaceKindDto>(&config),
         export_decl::<WorkspaceSessionDto>(&config),
         export_decl::<SavedWorkspaceSummaryDto>(&config),
         export_decl::<SavedWorkspaceDetailDto>(&config),

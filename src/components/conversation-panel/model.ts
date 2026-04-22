@@ -26,6 +26,7 @@ export interface AppTarget {
 }
 
 export type PendingHeaderAction =
+  | "switch-project"
   | "checkout"
   | "create-branch"
   | "commit"

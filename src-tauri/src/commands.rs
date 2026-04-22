@@ -150,6 +150,17 @@ pub(crate) async fn start_new_chat(
 }
 
 #[tauri::command]
+pub(crate) async fn create_managed_chat(
+    state: tauri::State<'_, DesktopState>,
+) -> Result<SessionSnapshotDto, String> {
+    state
+        .manager
+        .create_managed_chat()
+        .await
+        .map_err(map_command_error)
+}
+
+#[tauri::command]
 pub(crate) async fn respond_followup(
     response: FollowupResponseDto,
     state: tauri::State<'_, DesktopState>,
@@ -157,6 +168,44 @@ pub(crate) async fn respond_followup(
     state
         .manager
         .respond_followup(response)
+        .await
+        .map_err(map_command_error)
+}
+
+#[tauri::command]
+pub(crate) async fn archive_conversation(
+    workspace_path: String,
+    conversation_id: String,
+    state: tauri::State<'_, DesktopState>,
+) -> Result<SessionSnapshotDto, String> {
+    state
+        .manager
+        .archive_conversation(workspace_path, conversation_id)
+        .await
+        .map_err(map_command_error)
+}
+
+#[tauri::command]
+pub(crate) async fn archive_workspace(
+    workspace_path: String,
+    state: tauri::State<'_, DesktopState>,
+) -> Result<SessionSnapshotDto, String> {
+    state
+        .manager
+        .archive_workspace(workspace_path)
+        .await
+        .map_err(map_command_error)
+}
+
+#[tauri::command]
+pub(crate) async fn rename_workspace(
+    workspace_path: String,
+    display_name: Option<String>,
+    state: tauri::State<'_, DesktopState>,
+) -> Result<SessionSnapshotDto, String> {
+    state
+        .manager
+        .rename_workspace(workspace_path, display_name)
         .await
         .map_err(map_command_error)
 }
@@ -288,6 +337,31 @@ pub(crate) async fn get_saved_workspace(
     state
         .manager
         .get_saved_workspace(workspace_id)
+        .await
+        .map_err(map_command_error)
+}
+
+#[tauri::command]
+pub(crate) async fn rename_saved_workspace(
+    workspace_id: String,
+    name: String,
+    state: tauri::State<'_, DesktopState>,
+) -> Result<SessionSnapshotDto, String> {
+    state
+        .manager
+        .rename_saved_workspace(workspace_id, name)
+        .await
+        .map_err(map_command_error)
+}
+
+#[tauri::command]
+pub(crate) async fn delete_saved_workspace(
+    workspace_id: String,
+    state: tauri::State<'_, DesktopState>,
+) -> Result<SessionSnapshotDto, String> {
+    state
+        .manager
+        .delete_saved_workspace(workspace_id)
         .await
         .map_err(map_command_error)
 }

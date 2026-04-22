@@ -1,19 +1,29 @@
 import { useState, type FormEvent } from "react";
 import { FolderOpen, GitBranchPlus, LoaderCircle, Rocket } from "lucide-react";
 
-import { useSessionActions } from "../hooks/useSession";
+import { useConversationActions } from "../hooks/useConversationActions";
+import {
+  useConversationSession,
+  usePromptDraft,
+  useSessionActions,
+} from "../hooks/useSession";
 import * as desktopClient from "../services/desktop/client";
 import type {
+  ChatBinding,
+  FollowupRequest,
+  PromptSettings,
   QuickStartProjectInput,
-  RuntimeStatus,
 } from "../services/desktop/contracts";
 import { formatError } from "../utils/errors";
+import { FollowupComposer } from "./FollowupComposer";
+import { PromptInputCard } from "./PromptInputCard";
+import { ConversationSurface } from "./conversation-panel/ConversationSurface";
 import { Button } from "./ui/button";
 import {
   Card,
   CardAction,
   CardContent,
-  CardFooter,
+  CardDescription,
   CardHeader,
   CardTitle,
 } from "./ui/card";
@@ -31,8 +41,12 @@ import { Label } from "./ui/label";
 const REPOSITORY_NAME_PATTERN = /^[A-Za-z0-9._-]+$/;
 
 interface LandingScreenProps {
+  binding?: ChatBinding | null;
+  embedded?: boolean;
+}
+
+interface LandingScreenControllerProps {
   isOpeningProject: boolean;
-  runtimeStatus: RuntimeStatus | null;
   uiError: string | null;
 }
 
@@ -59,26 +73,65 @@ const initialQuickStartFormState: QuickStartFormState = {
 };
 
 export function LandingScreen({
-  isOpeningProject,
-  runtimeStatus,
-  uiError,
+  binding,
+  embedded = false,
 }: LandingScreenProps) {
+  const {
+    activeWorkspaceConfigurationError,
+    activeWorkspaceConfigured,
+    activeWorkspaceLabel,
+    hasCurrentWorkspace,
+    isOpeningProject,
+    uiError,
+    workspaceKind,
+  } = useConversationSession(binding);
+  const { submitPrompt, updatePromptSettings } = useConversationActions(binding);
+  const {
+    canCompose,
+    followupRequest,
+    isSendingPrompt,
+    promptSettings,
+    promptDraft,
+    setPromptDraft,
+  } = usePromptDraft(binding);
   const controller = useLandingScreenController({
     isOpeningProject,
     uiError,
   });
 
+  const content = (
+    <LandingScreenContent
+      activeWorkspaceConfigurationError={activeWorkspaceConfigurationError}
+      activeWorkspaceConfigured={activeWorkspaceConfigured}
+      canCompose={canCompose}
+      followupRequest={followupRequest}
+      hasCurrentWorkspace={hasCurrentWorkspace}
+      isBusy={controller.isBusy}
+      isOpeningProject={isOpeningProject}
+      isSendingPrompt={isSendingPrompt}
+      onOpenClone={controller.openCloneDialog}
+      onOpenFolder={() => void controller.handleOpenWorkspacePicker()}
+      onOpenQuickStart={controller.openQuickStartDialog}
+      promptDraft={promptDraft}
+      promptSettings={promptSettings}
+      setPromptDraft={setPromptDraft}
+      submitPrompt={submitPrompt}
+      updatePromptSettings={updatePromptSettings}
+      visibleError={controller.visibleError}
+      workspaceLabel={activeWorkspaceLabel}
+      workspaceKind={workspaceKind}
+    />
+  );
+
   return (
     <>
-      <LandingScreenActions
-        isBusy={controller.isBusy}
-        isOpeningProject={isOpeningProject}
-        runtimeStatus={runtimeStatus}
-        visibleError={controller.visibleError}
-        onOpenClone={controller.openCloneDialog}
-        onOpenFolder={() => void controller.handleOpenWorkspacePicker()}
-        onOpenQuickStart={controller.openQuickStartDialog}
-      />
+      {embedded ? (
+        content
+      ) : (
+        <ConversationSurface className="text-neutral-950 dark:text-neutral-100">
+          {content}
+        </ConversationSurface>
+      )}
 
       <CloneRepositoryDialog
         cloneForm={controller.cloneForm}
@@ -116,7 +169,7 @@ export function LandingScreen({
 function useLandingScreenController({
   isOpeningProject,
   uiError,
-}: Pick<LandingScreenProps, "isOpeningProject" | "uiError">) {
+}: LandingScreenControllerProps) {
   const { openProject, openWorkspacePicker } = useSessionActions();
   const [cloneDialogOpen, setCloneDialogOpen] = useState(false);
   const [quickStartDialogOpen, setQuickStartDialogOpen] = useState(false);
@@ -378,27 +431,67 @@ function useLandingScreenController({
   };
 }
 
-function LandingScreenActions({
+function LandingScreenContent({
+  activeWorkspaceConfigurationError,
+  activeWorkspaceConfigured,
+  canCompose,
+  followupRequest,
+  hasCurrentWorkspace,
   isBusy,
   isOpeningProject,
+  isSendingPrompt,
   onOpenClone,
   onOpenFolder,
   onOpenQuickStart,
-  runtimeStatus,
+  promptDraft,
+  promptSettings,
+  setPromptDraft,
+  submitPrompt,
+  updatePromptSettings,
   visibleError,
+  workspaceLabel,
+  workspaceKind,
 }: {
+  activeWorkspaceConfigurationError: string | null;
+  activeWorkspaceConfigured: boolean;
+  canCompose: boolean;
+  followupRequest: FollowupRequest | null;
+  hasCurrentWorkspace: boolean;
   isBusy: boolean;
   isOpeningProject: boolean;
+  isSendingPrompt: boolean;
   onOpenClone: () => void;
   onOpenFolder: () => void;
   onOpenQuickStart: () => void;
-  runtimeStatus: RuntimeStatus | null;
+  promptDraft: string;
+  promptSettings: PromptSettings | null;
+  setPromptDraft: (value: string) => void;
+  submitPrompt: () => Promise<void>;
+  updatePromptSettings: (input: {
+    providerId: string;
+    modelId: string;
+    reasoningEffort?: string | null;
+  }) => Promise<void>;
   visibleError: string | null;
+  workspaceLabel: string;
+  workspaceKind: "project" | "managed_chat";
 }) {
+  const heading = hasCurrentWorkspace
+    ? (workspaceKind === "managed_chat"
+        ? "Ask anything"
+        : `Ask anything about ${workspaceLabel}`)
+    : "Open a project to start a chat";
+
   return (
-    <section className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-3xl border border-white/60 bg-white/80 text-neutral-950 shadow-xl shadow-neutral-950/5 backdrop-blur-xl dark:border-white/10 dark:bg-neutral-900/80 dark:text-neutral-100 dark:shadow-black/20">
-      <div className="flex min-h-0 flex-1 overflow-auto px-6 py-8">
-        <div className="mx-auto flex w-full max-w-4xl flex-1 flex-col items-center justify-center gap-6">
+    <div className="flex min-h-0 flex-1 overflow-auto px-6 py-8">
+      <div className="mx-auto flex w-full max-w-4xl flex-1 flex-col items-center justify-center gap-6">
+        <div className="flex w-full max-w-3xl flex-col items-center text-center">
+          <h2 className="text-3xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-50">
+            {heading}
+          </h2>
+        </div>
+
+        <div className="w-full max-w-3xl">
           {visibleError ? (
             <p
               className="rounded-full border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700 dark:border-red-500/20 dark:bg-red-500/10 dark:text-red-300"
@@ -408,39 +501,68 @@ function LandingScreenActions({
             </p>
           ) : null}
 
-          {runtimeStatus?.configured === false ? (
+          {activeWorkspaceConfigured === false ? (
             <p
               className="rounded-full border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-700 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-300"
               role="alert"
             >
-              {runtimeStatus.configurationError ??
+              {activeWorkspaceConfigurationError ??
                 "No session is configured. Configure the terminal session first."}
             </p>
           ) : null}
+        </div>
 
-          <div className="grid w-full grid-cols-3 gap-4">
-            <LaunchCard
-              disabled={isBusy}
-              icon={FolderOpen}
-              label={isOpeningProject ? "Opening..." : "Open folder"}
-              onClick={onOpenFolder}
+        <div className="w-full max-w-3xl">
+          {followupRequest != null ? (
+            <FollowupComposer
+              key={followupRequest.followupId}
+              followupRequest={followupRequest}
             />
-            <LaunchCard
-              disabled={isBusy}
-              icon={GitBranchPlus}
-              label="Clone from Git"
-              onClick={onOpenClone}
+          ) : (
+            <PromptInputCard
+              canCompose={canCompose}
+              isSendingPrompt={isSendingPrompt}
+              placeholder={
+                workspaceKind === "managed_chat"
+                  ? "Ask anything…"
+                  : hasCurrentWorkspace
+                    ? "Ask about this workspace…"
+                  : "Open a project to start a chat…"
+              }
+              promptDraft={promptDraft}
+              promptSettings={promptSettings}
+              setPromptDraft={setPromptDraft}
+              submitPrompt={submitPrompt}
+              updatePromptSettings={updatePromptSettings}
             />
-            <LaunchCard
-              disabled={isBusy}
-              icon={Rocket}
-              label="Quick start"
-              onClick={onOpenQuickStart}
-            />
-          </div>
+          )}
+        </div>
+
+        <div className="grid w-full max-w-3xl gap-4 md:grid-cols-3">
+          <LaunchCard
+            description="Pick a local folder and open it as the active workspace."
+            disabled={isBusy}
+            icon={FolderOpen}
+            label={isOpeningProject ? "Opening..." : "Open folder"}
+            onClick={onOpenFolder}
+          />
+          <LaunchCard
+            description="Clone a repository and jump straight into a new chat."
+            disabled={isBusy}
+            icon={GitBranchPlus}
+            label="Clone from Git"
+            onClick={onOpenClone}
+          />
+          <LaunchCard
+            description="Create a fresh GitHub repo, clone it locally, and open it."
+            disabled={isBusy}
+            icon={Rocket}
+            label="Quick start"
+            onClick={onOpenQuickStart}
+          />
         </div>
       </div>
-    </section>
+    </div>
   );
 }
 
@@ -682,11 +804,13 @@ function QuickStartProjectDialog({
 }
 
 function LaunchCard({
+  description,
   disabled,
   icon: Icon,
   label,
   onClick,
 }: {
+  description: string;
   disabled: boolean;
   icon: typeof FolderOpen;
   label: string;
@@ -699,20 +823,17 @@ function LaunchCard({
       onClick={onClick}
       disabled={disabled}
     >
-      <Card className="h-full min-h-56 transition-colors hover:bg-muted/40">
+      <Card className="h-full min-h-40 border-0 bg-accent/60 transition-colors hover:bg-accent dark:bg-accent/80 dark:hover:bg-accent">
         <CardHeader>
           <CardAction className="justify-self-start">
             <div className="flex size-10 items-center justify-center rounded-md border border-input bg-input/20 text-muted-foreground dark:bg-input/30">
               <Icon strokeWidth={2} className="size-3.5" />
             </div>
           </CardAction>
-        </CardHeader>
-
-        <CardContent className="flex-1" />
-
-        <CardFooter className="pt-0">
           <CardTitle>{label}</CardTitle>
-        </CardFooter>
+          <CardDescription>{description}</CardDescription>
+        </CardHeader>
+        <CardContent className="flex-1" />
       </Card>
     </button>
   );

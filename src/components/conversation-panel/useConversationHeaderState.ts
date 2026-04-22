@@ -1,8 +1,12 @@
 import * as React from "react";
 
 import { useConversationActions } from "@/hooks/useConversationActions";
-import { useConversationSession } from "@/hooks/useSession";
-import type { ChatBinding } from "@/services/desktop/contracts";
+import {
+  useConversationSession,
+  useConversationSummary,
+  useSessionStore,
+} from "@/hooks/useSession";
+import type { ChatBinding, WorkspaceSession } from "@/services/desktop/contracts";
 
 import {
   appTargets,
@@ -27,14 +31,27 @@ export function useConversationHeaderState(binding?: ChatBinding | null) {
     React.useState<PendingHeaderAction | null>(null);
   const branchSearchInputRef = React.useRef<HTMLInputElement | null>(null);
 
-  const { activeWorkspaceLabel, runtimeStatus } = useConversationSession(binding);
+  const { activeWorkspaceLabel, runtimeStatus, workspaceKind, workspacePath } =
+    useConversationSession(binding);
+  const conversationSummary = useConversationSummary(binding);
   const {
     checkoutBranch,
     commitChanges,
     createBranch,
+    openProject,
     openInTarget,
     pushBranch,
+    startNewChat,
   } = useConversationActions(binding);
+  const workspaces = useSessionStore((state) => state.workspaces);
+  const projects = React.useMemo(
+    () =>
+      workspaces.filter(isProjectWorkspace).map((workspace) => ({
+        label: workspace.workspaceName,
+        workspacePath: workspace.workspacePath,
+      })),
+    [workspaces],
+  );
 
   const repoName = runtimeStatus?.gitRepoName ?? null;
   const branchName = runtimeStatus?.gitBranchName ?? null;
@@ -79,8 +96,37 @@ export function useConversationHeaderState(binding?: ChatBinding | null) {
     pendingHeaderAction === "push";
   const isCommitPending = pendingHeaderAction === "commit";
   const isOpenTargetPending = pendingHeaderAction === "open-target";
+  const isProjectChangePending = pendingHeaderAction === "switch-project";
+  const isManagedChat = workspaceKind === "managed_chat";
+  const showGitActions = !isManagedChat;
+  const conversationTitle =
+    conversationSummary?.title ?? (isManagedChat ? "New chat" : activeWorkspaceLabel);
+  const selectedProjectPath = isManagedChat ? null : workspacePath;
+  const currentProjectLabel =
+    selectedProjectPath == null ? "No project" : activeWorkspaceLabel;
 
-  useAutoFocusWhenOpen(isBranchMenuOpen, branchSearchInputRef);
+  async function handleProjectSelect(nextWorkspacePath: string | null) {
+    if (nextWorkspacePath === selectedProjectPath) {
+      return;
+    }
+
+    setPendingHeaderAction("switch-project");
+    try {
+      if (nextWorkspacePath == null) {
+        await startNewChat();
+        return;
+      }
+
+      if (isManagedChat) {
+        await startNewChat(nextWorkspacePath);
+        return;
+      }
+
+      await openProject(nextWorkspacePath);
+    } finally {
+      setPendingHeaderAction(null);
+    }
+  }
 
   function handleBranchMenuOpenChange(open: boolean) {
     setIsBranchMenuOpen(open);
@@ -180,15 +226,21 @@ export function useConversationHeaderState(binding?: ChatBinding | null) {
     branchSearchInputRef,
     canCreateBranch,
     commitMessage,
+    conversationTitle,
+    currentProjectLabel,
     filteredBranches,
     isBranchMenuOpen,
     isCommitDialogOpen,
     isCommitPending,
     isGitActionPending,
+    isManagedChat,
     isOpenTargetPending,
+    isProjectChangePending,
     openTargets,
+    projects,
     repoName,
     resolvedPreferredAppId,
+    selectedProjectPath,
     setBranchQuery,
     setCommitMessage,
     handleBranchCreate,
@@ -198,9 +250,15 @@ export function useConversationHeaderState(binding?: ChatBinding | null) {
     handleCommitDialogOpenChange,
     handleCommitSubmit,
     handleOpenTarget,
+    handleProjectSelect,
     handlePush,
     openCommitDialog,
+    showGitActions,
   };
+}
+
+function isProjectWorkspace(workspace: WorkspaceSession) {
+  return workspace.kind === "project";
 }
 
 function usePreferredOpenTarget(openTargets: ReadonlyArray<AppTarget>) {
@@ -245,25 +303,8 @@ function usePreferredOpenTarget(openTargets: ReadonlyArray<AppTarget>) {
     );
   }, [openTargets.length, resolvedPreferredAppId]);
 
-  return { preferredAppId, resolvedPreferredAppId, setPreferredAppId };
-}
-
-function useAutoFocusWhenOpen(
-  isOpen: boolean,
-  inputRef: React.RefObject<HTMLInputElement | null>,
-) {
-  React.useEffect(() => {
-    if (!isOpen) {
-      return;
-    }
-
-    const frame = window.requestAnimationFrame(() => {
-      inputRef.current?.focus();
-      inputRef.current?.select();
-    });
-
-    return () => {
-      window.cancelAnimationFrame(frame);
-    };
-  }, [inputRef, isOpen]);
+  return {
+    resolvedPreferredAppId,
+    setPreferredAppId,
+  };
 }

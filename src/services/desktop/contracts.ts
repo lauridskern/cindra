@@ -39,6 +39,7 @@ export type {
   ToolResultDetail,
   UpdatePromptSettingsInput,
   UpdateSavedWorkspaceLayoutInput,
+  WorkspaceKind,
   WorkspaceSession,
 } from "./contracts.generated";
 

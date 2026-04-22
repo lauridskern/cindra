@@ -127,9 +127,18 @@ pub struct ConversationViewSnapshotDto {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, TS)]
+#[serde(rename_all = "snake_case")]
+#[ts(rename = "WorkspaceKind")]
+pub enum WorkspaceKindDto {
+    Project,
+    ManagedChat,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, TS)]
 #[serde(rename_all = "camelCase")]
 #[ts(rename = "WorkspaceSession")]
 pub struct WorkspaceSessionDto {
+    pub kind: WorkspaceKindDto,
     pub workspace_path: String,
     pub workspace_name: String,
     pub configured: bool,

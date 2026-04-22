@@ -101,6 +101,10 @@ export function startNewChat(workspacePath: string): Promise<SessionSnapshot> {
   return invokeCommand("start_new_chat", { workspacePath });
 }
 
+export function createManagedChat(): Promise<SessionSnapshot> {
+  return invokeCommand("create_managed_chat");
+}
+
 export function sendPrompt(input: SendPromptInput): Promise<SessionSnapshot> {
   return invokeCommand("send_prompt", { input });
 }
@@ -115,6 +119,27 @@ export function respondFollowup(
   response: FollowupResponse,
 ): Promise<SessionSnapshot> {
   return invokeCommand("respond_followup", { response });
+}
+
+export function archiveConversation(
+  workspacePath: string,
+  conversationId: string,
+): Promise<SessionSnapshot> {
+  return invokeCommand("archive_conversation", { workspacePath, conversationId });
+}
+
+export function archiveWorkspace(workspacePath: string): Promise<SessionSnapshot> {
+  return invokeCommand("archive_workspace", { workspacePath });
+}
+
+export function renameWorkspace(
+  workspacePath: string,
+  displayName?: string | null,
+): Promise<SessionSnapshot> {
+  return invokeCommand("rename_workspace", {
+    workspacePath,
+    displayName: displayName ?? null,
+  });
 }
 
 export function cloneRepository(input: CloneRepositoryInput): Promise<string> {
@@ -186,6 +211,17 @@ export function getSavedWorkspace(
   workspaceId: string,
 ): Promise<SavedWorkspaceDetail | null> {
   return invokeCommand("get_saved_workspace", { workspaceId });
+}
+
+export function renameSavedWorkspace(
+  workspaceId: string,
+  name: string,
+): Promise<SessionSnapshot> {
+  return invokeCommand("rename_saved_workspace", { workspaceId, name });
+}
+
+export function deleteSavedWorkspace(workspaceId: string): Promise<SessionSnapshot> {
+  return invokeCommand("delete_saved_workspace", { workspaceId });
 }
 
 export function openTerminal(input: TerminalOpenInput): Promise<TerminalSession> {

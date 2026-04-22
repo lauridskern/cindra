@@ -35,6 +35,7 @@ export interface SessionStoreState {
   activeWorkspacePath: string | null;
   conversationSummariesByKey: Record<string, ConversationSessionSummary>;
   conversationViewsByKey: Record<string, ConversationViewSnapshot>;
+  isBootstrapped: boolean;
   isOpeningProject: boolean;
   promptDraftsByKey: Record<string, PromptDraftEntry>;
   requestTimingsByConversationId: Record<
@@ -51,6 +52,7 @@ export interface SessionStoreState {
   clearPromptDraft: (key: string | null) => void;
   movePromptDraft: (fromKey: string | null, toKey: string | null) => void;
   setBoardSelection: (selection: WorkspaceBoardSelection) => void;
+  setIsBootstrapped: (value: boolean) => void;
   setIsOpeningProject: (value: boolean) => void;
   setPromptDraftPending: (key: string | null, isPending: boolean) => void;
   setPromptDraftValue: (key: string | null, value: string) => void;
@@ -185,7 +187,7 @@ function movePromptDraftEntry(
   return nextDrafts;
 }
 
-function deriveSelectionFromSnapshot(
+export function getSelectionFromSnapshot(
   snapshot: SessionSnapshot,
 ): WorkspaceBoardSelection {
   if (
@@ -275,6 +277,8 @@ function areSelectionsEqual(
   switch (left.kind) {
     case "empty":
       return true;
+    case "demo-chat":
+      return true;
     case "single-chat": {
       const rightSelection = right as Extract<
         WorkspaceBoardSelection,
@@ -343,6 +347,7 @@ function createSessionStoreState(set: SessionStoreSetter): SessionStoreState {
     activeWorkspacePath: null,
     conversationSummariesByKey: {},
     conversationViewsByKey: {},
+    isBootstrapped: false,
     isOpeningProject: false,
     promptDraftsByKey: {},
     requestTimingsByConversationId: {},
@@ -420,10 +425,30 @@ function createSessionStoreState(set: SessionStoreSetter): SessionStoreState {
           conversationViewsByKey: nextConversationViewsByKey,
           requestTimingsByConversationId: nextRequestTimingsByConversationId,
           savedWorkspaces: snapshot.savedWorkspaces,
-          selection:
-            current.selection.kind === "saved-workspace"
-              ? current.selection
-              : deriveSelectionFromSnapshot(snapshot),
+          selection: (() => {
+            if (current.selection.kind === "demo-chat") {
+              return current.selection;
+            }
+
+            if (current.selection.kind === "saved-workspace") {
+              const savedWorkspaceSelection = current.selection;
+              const matchingSavedWorkspace = snapshot.savedWorkspaces.find(
+                (workspace) => workspace.id === savedWorkspaceSelection.workspace.id,
+              );
+              return matchingSavedWorkspace == null
+                ? getSelectionFromSnapshot(snapshot)
+                : {
+                    ...savedWorkspaceSelection,
+                    workspace: {
+                      ...savedWorkspaceSelection.workspace,
+                      name: matchingSavedWorkspace.name,
+                      updatedAt: matchingSavedWorkspace.updatedAt,
+                    },
+                  };
+            }
+
+            return getSelectionFromSnapshot(snapshot);
+          })(),
           uiError: snapshot.uiError,
           workspaces: snapshot.workspaces,
           workspacesByPath: buildWorkspacesByPath(snapshot.workspaces),
@@ -455,6 +480,11 @@ function createSessionStoreState(set: SessionStoreSetter): SessionStoreState {
     setBoardSelection: (selection) => {
       set((current) =>
         areSelectionsEqual(current.selection, selection) ? current : { selection },
+      );
+    },
+    setIsBootstrapped: (value) => {
+      set((current) =>
+        current.isBootstrapped === value ? current : { isBootstrapped: value },
       );
     },
     setIsOpeningProject: (value) => {
@@ -606,6 +636,7 @@ export function getUiActiveBinding(
       return state.selection.activeChat;
     case "single-chat":
       return state.selection.chat;
+    case "demo-chat":
     default:
       if (
         state.activeWorkspacePath != null &&
@@ -630,6 +661,8 @@ export function getUiActiveWorkspacePath(
   switch (state.selection.kind) {
     case "saved-workspace":
       return state.selection.activeChat?.workspacePath ?? state.activeWorkspacePath;
+    case "demo-chat":
+      return state.activeWorkspacePath;
     case "single-chat":
       return state.selection.chat.workspacePath;
     case "workspace-draft":
@@ -648,6 +681,8 @@ export function getUiActiveConversationId(
   switch (state.selection.kind) {
     case "saved-workspace":
       return state.selection.activeChat?.conversationId ?? null;
+    case "demo-chat":
+      return state.activeConversationId;
     case "single-chat":
       return state.selection.chat.conversationId;
     default:

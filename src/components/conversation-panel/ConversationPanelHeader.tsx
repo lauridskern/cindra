@@ -1,6 +1,4 @@
-import { useRef } from "react";
-import { ChevronRight, GitFork } from "lucide-react";
-import type { DockviewApi, DockviewGroupPanel } from "dockview-react";
+import { ChevronRight } from "lucide-react";
 import type { ChatBinding } from "@/services/desktop/contracts";
 
 import {
@@ -16,7 +14,7 @@ import { handleWindowDragStart } from "@/utils/window";
 import { BranchSwitcherMenu } from "./BranchSwitcherMenu";
 import { CommitChangesDialog } from "./CommitChangesDialog";
 import { ConversationHeaderActions } from "./ConversationHeaderActions";
-import { useDockviewGroupDragHandle } from "./useDockviewGroupDragHandle";
+import { ProjectSwitcherMenu } from "./ProjectSwitcherMenu";
 import { useConversationHeaderState } from "./useConversationHeaderState";
 
 interface ConversationPanelHeaderProps {
@@ -25,11 +23,6 @@ interface ConversationPanelHeaderProps {
   onCloseChat?: () => void;
   onOpenPreview?: () => void;
   onOpenTerminal?: () => void;
-  panelDragHandle?: {
-    containerApi: DockviewApi;
-    group: DockviewGroupPanel;
-  };
-  panelDragEnabled?: boolean;
   reserveTitlebarInset: boolean;
   windowDragEnabled: boolean;
 }
@@ -40,28 +33,29 @@ export function ConversationPanelHeader({
   onCloseChat,
   onOpenPreview,
   onOpenTerminal,
-  panelDragHandle,
-  panelDragEnabled = false,
   reserveTitlebarInset,
   windowDragEnabled,
 }: ConversationPanelHeaderProps) {
-  const panelDragHandleRef = useRef<HTMLDivElement | null>(null);
   const {
-    activeWorkspaceLabel,
     branchName,
     branchQuery,
     branchSearchInputRef,
     canCreateBranch,
     commitMessage,
+    conversationTitle,
+    currentProjectLabel,
     filteredBranches,
     isBranchMenuOpen,
     isCommitDialogOpen,
     isCommitPending,
     isGitActionPending,
+    isManagedChat,
     isOpenTargetPending,
+    isProjectChangePending,
     openTargets,
-    repoName,
+    projects,
     resolvedPreferredAppId,
+    selectedProjectPath,
     setBranchQuery,
     setCommitMessage,
     handleBranchCreate,
@@ -71,15 +65,15 @@ export function ConversationPanelHeader({
     handleCommitDialogOpenChange,
     handleCommitSubmit,
     handleOpenTarget,
+    handleProjectSelect,
     handlePush,
     openCommitDialog,
+    showGitActions,
   } = useConversationHeaderState(binding);
-
-  useDockviewGroupDragHandle({
-    dragHandle: panelDragHandle,
-    elementRef: panelDragHandleRef,
-    enabled: panelDragEnabled,
-  });
+  const windowDragClassName = cn(
+    "bg-transparent",
+    windowDragEnabled && "cursor-grab active:cursor-grabbing",
+  );
 
   return (
     <>
@@ -90,63 +84,61 @@ export function ConversationPanelHeader({
         )}
       >
         <div className="relative z-20 flex min-w-0 shrink items-center overflow-hidden text-xs font-medium tracking-tight">
-          {repoName ? (
-            <>
-              {reserveTitlebarInset ? (
-                <div className="mr-3 h-9 w-px shrink-0 bg-black/5 dark:bg-white/5" />
-              ) : null}
-              <Breadcrumb className="min-w-0">
-                <BreadcrumbList className="min-w-0 flex-nowrap">
+          {reserveTitlebarInset ? (
+            <div className="mr-3 h-9 w-px shrink-0 bg-black/5 dark:bg-white/5" />
+          ) : null}
+          <Breadcrumb className="min-w-0">
+            <BreadcrumbList className="min-w-0 flex-nowrap">
+              <BreadcrumbItem className="min-w-0">
+                <ProjectSwitcherMenu
+                  currentProjectLabel={currentProjectLabel}
+                  isBusy={isProjectChangePending}
+                  projects={projects}
+                  selectedProjectPath={selectedProjectPath}
+                  onSelectProject={handleProjectSelect}
+                />
+              </BreadcrumbItem>
+
+              {isManagedChat ? (
+                <>
+                  <BreadcrumbSeparator className="text-neutral-400 dark:text-neutral-500">
+                    <ChevronRight strokeWidth={2} className="size-2.5" />
+                  </BreadcrumbSeparator>
                   <BreadcrumbItem className="min-w-0">
-                    <BreadcrumbPage className="inline-flex min-w-0 items-center gap-1.5 text-xs font-medium text-neutral-800 dark:text-neutral-100">
-                      <GitFork
-                        strokeWidth={2}
-                        className="size-3 shrink-0 text-neutral-500 dark:text-neutral-500"
-                      />
-                      <span className="truncate">{repoName}</span>
+                    <BreadcrumbPage className="pointer-events-none inline-flex min-w-0 items-center text-xs font-medium text-neutral-500 dark:text-neutral-400">
+                      <span className="truncate">{conversationTitle}</span>
                     </BreadcrumbPage>
                   </BreadcrumbItem>
-
-                  {branchName ? (
-                    <>
-                      <BreadcrumbSeparator className="text-neutral-400 dark:text-neutral-500">
-                        <ChevronRight strokeWidth={2} className="size-2.5" />
-                      </BreadcrumbSeparator>
-                      <BreadcrumbItem>
-                        <BranchSwitcherMenu
-                          branchName={branchName}
-                          branchQuery={branchQuery}
-                          branches={filteredBranches}
-                          canCreateBranch={canCreateBranch}
-                          isBusy={isGitActionPending}
-                          isOpen={isBranchMenuOpen}
-                          searchInputRef={branchSearchInputRef}
-                          onBranchQueryChange={setBranchQuery}
-                          onCreateBranch={handleBranchCreate}
-                          onOpenChange={handleBranchMenuOpenChange}
-                          onSelectBranch={handleBranchSelect}
-                        />
-                      </BreadcrumbItem>
-                    </>
-                  ) : null}
-                </BreadcrumbList>
-              </Breadcrumb>
-            </>
-          ) : (
-            <span className="truncate text-xs font-medium tracking-tight text-neutral-500 dark:text-neutral-400">
-              {activeWorkspaceLabel}
-            </span>
-          )}
+                </>
+              ) : branchName ? (
+                <>
+                  <BreadcrumbSeparator className="text-neutral-400 dark:text-neutral-500">
+                    <ChevronRight strokeWidth={2} className="size-2.5" />
+                  </BreadcrumbSeparator>
+                  <BreadcrumbItem>
+                    <BranchSwitcherMenu
+                      branchName={branchName}
+                      branchQuery={branchQuery}
+                      branches={filteredBranches}
+                      canCreateBranch={canCreateBranch}
+                      isBusy={isGitActionPending}
+                      isOpen={isBranchMenuOpen}
+                      searchInputRef={branchSearchInputRef}
+                      onBranchQueryChange={setBranchQuery}
+                      onCreateBranch={handleBranchCreate}
+                      onOpenChange={handleBranchMenuOpenChange}
+                      onSelectBranch={handleBranchSelect}
+                    />
+                  </BreadcrumbItem>
+                </>
+              ) : null}
+            </BreadcrumbList>
+          </Breadcrumb>
         </div>
 
         <div
-          ref={panelDragHandleRef}
           role="presentation"
-          className={cn(
-            "h-full min-w-8 flex-1 bg-transparent",
-            (panelDragEnabled || windowDragEnabled) &&
-              "cursor-grab active:cursor-grabbing",
-          )}
+          className={cn("h-full min-w-8 flex-1", windowDragClassName)}
           onMouseDown={windowDragEnabled ? handleWindowDragStart : undefined}
         />
 
@@ -162,6 +154,7 @@ export function ConversationPanelHeader({
           onSelectOpenTarget={handleOpenTarget}
           openTargets={openTargets}
           preferredAppId={resolvedPreferredAppId}
+          showGitActions={showGitActions}
         />
       </header>
 

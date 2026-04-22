@@ -31,7 +31,9 @@ export type ChatBinding = { workspacePath: string, conversationId: string, };
 
 export type ConversationViewSnapshot = { workspacePath: string, conversationId: string, messages: Array<SessionMessage>, activeRequestIds: Array<string>, todos: Array<SessionTodo>, followup: FollowupRequest | null, };
 
-export type WorkspaceSession = { workspacePath: string, workspaceName: string, configured: boolean, configurationError: string | null, selectedConversationId: string | null, conversations: Array<ConversationSessionSummary>, };
+export type WorkspaceKind = "project" | "managed_chat";
+
+export type WorkspaceSession = { kind: WorkspaceKind, workspacePath: string, workspaceName: string, configured: boolean, configurationError: string | null, selectedConversationId: string | null, conversations: Array<ConversationSessionSummary>, };
 
 export type SavedWorkspaceSummary = { id: string, name: string, updatedAt: bigint, };
 

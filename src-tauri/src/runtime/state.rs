@@ -13,9 +13,17 @@ use crate::terminal::TerminalManager;
 
 use super::{ForgeRuntime, PersistedConversationSummary, RuntimeManager};
 
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub(crate) enum WorkspaceKind {
+    #[default]
+    Project,
+    ManagedChat,
+}
+
 #[derive(Clone, Default)]
 pub(crate) struct WorkspaceSessionState {
     pub(crate) runtime: Option<ForgeRuntime>,
+    pub(crate) kind: WorkspaceKind,
     pub(crate) workspace_name: String,
     pub(crate) configured: bool,
     pub(crate) configuration_error: Option<String>,

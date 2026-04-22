@@ -7,6 +7,7 @@ use crate::dto::{
     FileOperationDto, SessionMessageDto, ToolCallDetailDto, map_tool_call_detail,
     map_tool_result_detail, summarize_tool_result,
 };
+use crate::runtime::WorkspaceKind;
 
 const DISPLAY_PROMPT_TAGS: &[&str] = &["feedback", "task"];
 const HIDDEN_PROMPT_TAGS: &[&str] = &["system_date"];
@@ -191,6 +192,25 @@ pub(crate) fn workspace_name(path: &Path) -> String {
         .map(|value| value.to_string_lossy().into_owned())
         .filter(|value| !value.trim().is_empty())
         .unwrap_or_else(|| path.to_string_lossy().into_owned())
+}
+
+pub(crate) fn workspace_display_name(kind: WorkspaceKind, path: &Path) -> String {
+    match kind {
+        WorkspaceKind::Project => workspace_name(path),
+        WorkspaceKind::ManagedChat => "New chat".to_string(),
+    }
+}
+
+pub(crate) fn resolved_workspace_display_name(
+    kind: WorkspaceKind,
+    path: &Path,
+    display_name: Option<&str>,
+) -> String {
+    display_name
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned)
+        .unwrap_or_else(|| workspace_display_name(kind, path))
 }
 
 fn conversation_title(conversation: &Conversation) -> String {

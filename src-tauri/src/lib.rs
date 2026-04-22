@@ -18,13 +18,15 @@ use std::sync::Arc;
 
 use bridge::emitter::TauriEventEmitter;
 use commands::{
-    checkout_git_branch, clone_repository, commit_git_changes, create_git_branch,
-    create_saved_workspace, ensure_conversation_view, get_conversation_layout, get_prompt_settings,
-    get_runtime_status, get_saved_workspace, get_session_snapshot, open_in_target, open_workspace,
-    pick_directory, pick_workspace, push_git_branch, quick_start_project, respond_followup,
-    save_conversation_layout, select_conversation, send_prompt, start_new_chat, terminal_close,
-    terminal_open, terminal_resize, terminal_write, update_prompt_settings,
-    update_saved_workspace_layout,
+    archive_conversation, archive_workspace, checkout_git_branch, clone_repository,
+    commit_git_changes, create_git_branch, create_managed_chat, create_saved_workspace,
+    delete_saved_workspace, ensure_conversation_view, get_conversation_layout,
+    get_prompt_settings, get_runtime_status, get_saved_workspace, get_session_snapshot,
+    open_in_target, open_workspace, pick_directory, pick_workspace, push_git_branch,
+    quick_start_project, rename_workspace, respond_followup, save_conversation_layout,
+    rename_saved_workspace, select_conversation, send_prompt, start_new_chat,
+    terminal_close, terminal_open, terminal_resize, terminal_write,
+    update_prompt_settings, update_saved_workspace_layout,
 };
 use persistence::project_store::ProjectStore;
 use runtime::DesktopState;
@@ -49,7 +51,10 @@ pub fn run() {
                 .path()
                 .app_data_dir()
                 .map_err(|error| anyhow::anyhow!(error.to_string()))?;
-            let projects = Arc::new(ProjectStore::new(app_dir.join("projects.db"))?);
+            let projects = Arc::new(ProjectStore::new(
+                app_dir.join("projects.db"),
+                app_dir.join("managed-chats"),
+            )?);
             app.manage(DesktopState::new(emitter, projects));
             Ok(())
         })
@@ -71,9 +76,13 @@ pub fn run() {
             select_conversation,
             ensure_conversation_view,
             start_new_chat,
+            create_managed_chat,
             send_prompt,
             update_prompt_settings,
             respond_followup,
+            archive_conversation,
+            archive_workspace,
+            rename_workspace,
             clone_repository,
             quick_start_project,
             checkout_git_branch,
@@ -86,6 +95,8 @@ pub fn run() {
             create_saved_workspace,
             update_saved_workspace_layout,
             get_saved_workspace,
+            rename_saved_workspace,
+            delete_saved_workspace,
             terminal_open,
             terminal_write,
             terminal_resize,

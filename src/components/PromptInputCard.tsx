@@ -25,6 +25,7 @@ import { Textarea } from "@/components/ui/textarea";
 interface PromptInputCardProps {
   canCompose: boolean;
   isSendingPrompt: boolean;
+  placeholder?: string;
   promptSettings: PromptSettings | null;
   promptDraft: string;
   setPromptDraft: (value: string) => void;
@@ -39,6 +40,7 @@ interface PromptInputCardProps {
 export function PromptInputCard({
   canCompose,
   isSendingPrompt,
+  placeholder = "Ask about this workspace…",
   promptSettings,
   promptDraft,
   setPromptDraft,
@@ -114,7 +116,7 @@ export function PromptInputCard({
 
   return (
     <div className="mx-auto w-full max-w-3xl">
-      <Card className="gap-0 rounded-xl border-0 bg-accent p-3 ring-0">
+      <Card className="gap-0 rounded-xl border border-foreground/10 bg-accent p-3 ring-0">
         <CardHeader className="sr-only">
           <CardTitle>Prompt</CardTitle>
           <CardDescription>Ask about the current workspace.</CardDescription>
@@ -127,7 +129,7 @@ export function PromptInputCard({
             ref={textareaRef}
             id="prompt"
             className="max-h-80 overflow-y-auto rounded-none border-0 bg-transparent px-0 py-0 text-base leading-7 shadow-none outline-none ring-0 placeholder:text-muted-foreground/80 focus-visible:border-transparent focus-visible:ring-0 focus-visible:ring-offset-0 dark:bg-transparent"
-            placeholder="Ask about this workspace…"
+            placeholder={placeholder}
             value={promptDraft}
             onChange={(event) => setPromptDraft(event.target.value)}
             onKeyDown={(event) => {

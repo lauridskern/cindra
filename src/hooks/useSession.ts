@@ -156,6 +156,7 @@ export function useSidebarSession() {
       const activeConversationId = getUiActiveConversationId(state);
       return {
         activeConversationId,
+        isDemoChatSelected: state.selection.kind === "demo-chat",
         activeSavedWorkspaceId:
           state.selection.kind === "saved-workspace"
             ? state.selection.workspace.id
@@ -209,6 +210,7 @@ export function useConversationSession(binding?: ChatBinding | null) {
         runtimeStatus: meta.runtimeStatus,
         todos: currentView?.todos ?? EMPTY_TODOS,
         uiError: state.uiError,
+        workspaceKind: currentWorkspace?.kind ?? "project",
         workspacePath: currentWorkspacePath,
       };
     }),

@@ -304,6 +304,19 @@ fn build_shell_command(workspace_path: &str) -> (String, CommandBuilder) {
     let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/sh".to_string());
 
     let mut command = CommandBuilder::new(shell.clone());
+    #[cfg(not(windows))]
+    {
+        if PathBuf::from(&shell)
+            .file_name()
+            .and_then(|name| name.to_str())
+            == Some("zsh")
+        {
+            command.arg("-o");
+            command.arg("NO_PROMPT_SP");
+            command.arg("-o");
+            command.arg("NO_PROMPT_CR");
+        }
+    }
     command.cwd(workspace_path);
     command.env("TERM", "xterm-256color");
     command.env("COLORTERM", "truecolor");
