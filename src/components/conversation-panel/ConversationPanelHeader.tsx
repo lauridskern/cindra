@@ -90,22 +90,13 @@ export function ConversationPanelHeader({
           <Breadcrumb className="min-w-0">
             <BreadcrumbList className="min-w-0 flex-nowrap">
               <BreadcrumbItem className="min-w-0">
-                <div
-                  role="presentation"
-                  className={cn(
-                    "inline-flex min-w-0 items-center",
-                    windowDragClassName,
-                  )}
-                  onMouseDown={windowDragEnabled ? handleWindowDragStart : undefined}
-                >
-                  <ProjectSwitcherMenu
-                    currentProjectLabel={currentProjectLabel}
-                    isBusy={isProjectChangePending}
-                    projects={projects}
-                    selectedProjectPath={selectedProjectPath}
-                    onSelectProject={handleProjectSelect}
-                  />
-                </div>
+                <ProjectSwitcherMenu
+                  currentProjectLabel={currentProjectLabel}
+                  isBusy={isProjectChangePending}
+                  projects={projects}
+                  selectedProjectPath={selectedProjectPath}
+                  onSelectProject={handleProjectSelect}
+                />
               </BreadcrumbItem>
 
               {isManagedChat ? (

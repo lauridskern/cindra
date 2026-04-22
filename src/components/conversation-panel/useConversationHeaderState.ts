@@ -105,8 +105,6 @@ export function useConversationHeaderState(binding?: ChatBinding | null) {
   const currentProjectLabel =
     selectedProjectPath == null ? "No project" : activeWorkspaceLabel;
 
-  useAutoFocusWhenOpen(isBranchMenuOpen, branchSearchInputRef);
-
   async function handleProjectSelect(nextWorkspacePath: string | null) {
     if (nextWorkspacePath === selectedProjectPath) {
       return;
@@ -309,24 +307,4 @@ function usePreferredOpenTarget(openTargets: ReadonlyArray<AppTarget>) {
     resolvedPreferredAppId,
     setPreferredAppId,
   };
-}
-
-function useAutoFocusWhenOpen(
-  open: boolean,
-  inputRef: React.RefObject<HTMLInputElement | null>,
-) {
-  React.useEffect(() => {
-    if (!open) {
-      return;
-    }
-
-    const frame = window.requestAnimationFrame(() => {
-      inputRef.current?.focus();
-      inputRef.current?.select();
-    });
-
-    return () => {
-      window.cancelAnimationFrame(frame);
-    };
-  }, [open, inputRef]);
 }

@@ -43,10 +43,37 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   );
 
   const applySessionSnapshot = useCallback((snapshot: SessionSnapshot) => {
-    sessionStore.getState().applySessionSnapshot(snapshot);
+    const store = sessionStore.getState();
+    store.applySessionSnapshot(snapshot);
+    store.setIsBootstrapped(true);
   }, []);
 
-  useSessionBootstrap({ setSessionSnapshot: applySessionSnapshot });
+  const markSessionBootstrapped = useCallback(() => {
+    sessionStore.getState().setIsBootstrapped(true);
+  }, []);
+
+  const syncBoardSelectionFromSnapshot = useCallback(
+    (snapshot: SessionSnapshot) => {
+      sessionStore.getState().setBoardSelection(getSelectionFromSnapshot(snapshot));
+    },
+    [],
+  );
+
+  const runSnapshotCommand = useCallback(
+    async (command: () => Promise<SessionSnapshot>) => {
+      try {
+        return await command();
+      } catch {
+        return null;
+      }
+    },
+    [],
+  );
+
+  useSessionBootstrap({
+    setSessionSnapshot: applySessionSnapshot,
+    onReady: markSessionBootstrapped,
+  });
 
   useEffect(() => {
     if (activeWorkspacePath == null) {
@@ -84,22 +111,26 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const openWorkspaceByPath = useCallback(async (workspacePath: string) => {
     const store = sessionStore.getState();
     store.setIsOpeningProject(true);
+    try {
+      const snapshot = await runSnapshotCommand(() =>
+        desktopClient.openWorkspace(workspacePath),
+      );
+      if (snapshot == null) {
+        return;
+      }
 
-    const snapshot = await desktopClient.openWorkspace(workspacePath).catch(
-      () => null,
-    );
-    if (snapshot != null) {
-      store.applySessionSnapshot(snapshot);
-      store.setBoardSelection(getSelectionFromSnapshot(snapshot));
+      applySessionSnapshot(snapshot);
+      syncBoardSelectionFromSnapshot(snapshot);
       ensureWorkspaceMeta(workspacePath, { forceRuntimeStatus: true });
+    } finally {
+      sessionStore.getState().setIsOpeningProject(false);
     }
-
-    sessionStore.getState().setIsOpeningProject(false);
-  }, [ensureWorkspaceMeta]);
-
-  const applyArchiveSnapshot = useCallback((snapshot: SessionSnapshot) => {
-    sessionStore.getState().applySessionSnapshot(snapshot);
-  }, []);
+  }, [
+    applySessionSnapshot,
+    ensureWorkspaceMeta,
+    runSnapshotCommand,
+    syncBoardSelectionFromSnapshot,
+  ]);
 
   const actionState = useMemo(
     () => ({
@@ -158,14 +189,14 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         conversationId: string,
       ) => {
         const currentSelection = sessionStore.getState().selection;
-        const snapshot = await desktopClient
-          .archiveConversation(workspacePath, conversationId)
-          .catch(() => null);
+        const snapshot = await runSnapshotCommand(() =>
+          desktopClient.archiveConversation(workspacePath, conversationId),
+        );
         if (snapshot == null) {
           return;
         }
 
-        applyArchiveSnapshot(snapshot);
+        applySessionSnapshot(snapshot);
         const activeBinding =
           currentSelection.kind === "single-chat"
             ? currentSelection.chat
@@ -176,63 +207,63 @@ export function SessionProvider({ children }: { children: ReactNode }) {
           activeBinding?.workspacePath === workspacePath &&
           activeBinding.conversationId === conversationId
         ) {
-          sessionStore.getState().setBoardSelection(getSelectionFromSnapshot(snapshot));
+          syncBoardSelectionFromSnapshot(snapshot);
         }
       },
       archiveWorkspace: async (workspacePath: string) => {
         const currentWorkspacePath = getUiActiveWorkspacePath(
           sessionStore.getState(),
         );
-        const snapshot = await desktopClient
-          .archiveWorkspace(workspacePath)
-          .catch(() => null);
+        const snapshot = await runSnapshotCommand(() =>
+          desktopClient.archiveWorkspace(workspacePath),
+        );
         if (snapshot == null) {
           return;
         }
 
-        applyArchiveSnapshot(snapshot);
+        applySessionSnapshot(snapshot);
         if (currentWorkspacePath === workspacePath) {
-          sessionStore.getState().setBoardSelection(getSelectionFromSnapshot(snapshot));
+          syncBoardSelectionFromSnapshot(snapshot);
         }
       },
       renameWorkspace: async (
         workspacePath: string,
         displayName?: string | null,
       ) => {
-        const snapshot = await desktopClient
-          .renameWorkspace(workspacePath, displayName ?? null)
-          .catch(() => null);
+        const snapshot = await runSnapshotCommand(() =>
+          desktopClient.renameWorkspace(workspacePath, displayName ?? null),
+        );
         if (snapshot == null) {
           return;
         }
 
-        sessionStore.getState().applySessionSnapshot(snapshot);
+        applySessionSnapshot(snapshot);
       },
       renameSavedWorkspace: async (workspaceId: string, name: string) => {
-        const snapshot = await desktopClient
-          .renameSavedWorkspace(workspaceId, name)
-          .catch(() => null);
+        const snapshot = await runSnapshotCommand(() =>
+          desktopClient.renameSavedWorkspace(workspaceId, name),
+        );
         if (snapshot == null) {
           return;
         }
 
-        sessionStore.getState().applySessionSnapshot(snapshot);
+        applySessionSnapshot(snapshot);
       },
       deleteSavedWorkspace: async (workspaceId: string) => {
         const selection = sessionStore.getState().selection;
-        const snapshot = await desktopClient
-          .deleteSavedWorkspace(workspaceId)
-          .catch(() => null);
+        const snapshot = await runSnapshotCommand(() =>
+          desktopClient.deleteSavedWorkspace(workspaceId),
+        );
         if (snapshot == null) {
           return;
         }
 
-        applyArchiveSnapshot(snapshot);
+        applySessionSnapshot(snapshot);
         if (
           selection.kind === "saved-workspace" &&
           selection.workspace.id === workspaceId
         ) {
-          sessionStore.getState().setBoardSelection(getSelectionFromSnapshot(snapshot));
+          syncBoardSelectionFromSnapshot(snapshot);
         }
       },
       openSavedWorkspace: async (workspaceId: string) => {
@@ -274,14 +305,14 @@ export function SessionProvider({ children }: { children: ReactNode }) {
           return;
         }
 
-        const snapshot = await desktopClient
-          .selectConversation(
+        const snapshot = await runSnapshotCommand(() =>
+          desktopClient.selectConversation(
             initialBinding.workspacePath,
             initialBinding.conversationId,
-          )
-          .catch(() => null);
+          ),
+        );
         if (snapshot != null) {
-          sessionStore.getState().applySessionSnapshot(snapshot);
+          applySessionSnapshot(snapshot);
         }
       },
       openWorkspacePicker: async () => {
@@ -331,7 +362,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
             return;
           }
 
-          sessionStore.getState().applySessionSnapshot(snapshot);
+          applySessionSnapshot(snapshot);
           ensureWorkspaceMeta(workspacePath, { forceRuntimeStatus: true });
         } catch {
           return;
@@ -346,12 +377,14 @@ export function SessionProvider({ children }: { children: ReactNode }) {
             return null;
           }
 
-          const snapshot = await desktopClient.createManagedChat().catch(() => null);
+          const snapshot = await runSnapshotCommand(() =>
+            desktopClient.createManagedChat(),
+          );
           if (snapshot == null) {
             return null;
           }
 
-          sessionStore.getState().applySessionSnapshot(snapshot);
+          applySessionSnapshot(snapshot);
           if (
             snapshot.activeWorkspacePath != null &&
             snapshot.activeConversationId == null
@@ -368,14 +401,14 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         }
 
         const originPromptDraftKey = getWorkspaceDraftKey(targetWorkspacePath);
-        const snapshot = await desktopClient
-          .startNewChat(targetWorkspacePath)
-          .catch(() => null);
+        const snapshot = await runSnapshotCommand(() =>
+          desktopClient.startNewChat(targetWorkspacePath),
+        );
         if (snapshot == null) {
           return null;
         }
 
-        sessionStore.getState().applySessionSnapshot(snapshot);
+        applySessionSnapshot(snapshot);
         const nextPromptDraftKey = getPromptDraftKey(
           snapshot.activeWorkspacePath,
           snapshot.activeConversationId,
@@ -438,15 +471,15 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         let nextPromptDraftKey: string | null = promptDraftKey;
         sessionStore.getState().setPromptDraftPending(promptDraftKey, true);
 
-        const snapshot = await desktopClient
-          .sendPrompt({
+        const snapshot = await runSnapshotCommand(() =>
+          desktopClient.sendPrompt({
             conversationId,
             prompt,
             workspacePath,
-          })
-          .catch(() => null);
+          }),
+        );
         if (snapshot != null) {
-          sessionStore.getState().applySessionSnapshot(snapshot);
+          applySessionSnapshot(snapshot);
 
           nextPromptDraftKey = getPromptDraftKey(
             snapshot.activeWorkspacePath,
@@ -479,10 +512,12 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       },
     }),
     [
-      applyArchiveSnapshot,
+      applySessionSnapshot,
       ensureWorkspaceMeta,
       findReusableManagedChatDraft,
       openWorkspaceByPath,
+      runSnapshotCommand,
+      syncBoardSelectionFromSnapshot,
     ],
   );
 

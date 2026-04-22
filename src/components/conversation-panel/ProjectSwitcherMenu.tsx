@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuLabel,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuSeparator,
@@ -50,7 +49,7 @@ export function ProjectSwitcherMenu({
         <ChevronDownIcon strokeWidth={2} className="size-3" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-64">
-        <DropdownMenuLabel>Project</DropdownMenuLabel>
+        <div className="px-2 py-1.5 text-xs text-muted-foreground">Project</div>
         <DropdownMenuSeparator />
         <DropdownMenuRadioGroup
           value={selectedProjectPath ?? NO_PROJECT_VALUE}

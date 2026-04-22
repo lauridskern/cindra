@@ -17,6 +17,7 @@ import type {
 import { formatError } from "../utils/errors";
 import { FollowupComposer } from "./FollowupComposer";
 import { PromptInputCard } from "./PromptInputCard";
+import { ConversationSurface } from "./conversation-panel/ConversationSurface";
 import { Button } from "./ui/button";
 import {
   Card,
@@ -36,7 +37,6 @@ import {
 } from "./ui/dialog";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
-import { PaneSurface } from "./ui/pane-surface";
 
 const REPOSITORY_NAME_PATTERN = /^[A-Za-z0-9._-]+$/;
 
@@ -128,12 +128,9 @@ export function LandingScreen({
       {embedded ? (
         content
       ) : (
-        <PaneSurface
-          framed
-          className="flex-1 rounded-3xl text-neutral-950 dark:text-neutral-100"
-        >
+        <ConversationSurface className="text-neutral-950 dark:text-neutral-100">
           {content}
-        </PaneSurface>
+        </ConversationSurface>
       )}
 
       <CloneRepositoryDialog
