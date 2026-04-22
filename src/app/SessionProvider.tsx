@@ -451,6 +451,14 @@ export function SessionProvider({ children }: { children: ReactNode }) {
           text: input.text,
         });
       },
+      stopPrompt: async () => {
+        const activeBinding = getUiActiveBinding(sessionStore.getState());
+        if (activeBinding == null) {
+          return;
+        }
+
+        await desktopClient.stopPrompt(activeBinding).catch(() => null);
+      },
       submitPrompt: async () => {
         const workspacePath = getUiActiveWorkspacePath(sessionStore.getState());
         if (workspacePath == null) {
@@ -463,7 +471,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
           return;
         }
 
-        const prompt = getPromptDraftState(promptDraftKey).value.trim();
+        const draftState = getPromptDraftState(promptDraftKey);
+        const prompt = draftState.value.trim();
         if (prompt.length === 0) {
           return;
         }
@@ -473,6 +482,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
         const snapshot = await runSnapshotCommand(() =>
           desktopClient.sendPrompt({
+            agentId: draftState.isPlanningMode ? "muse" : "forge",
             conversationId,
             prompt,
             workspacePath,

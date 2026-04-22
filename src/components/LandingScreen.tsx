@@ -22,7 +22,6 @@ import { Button } from "./ui/button";
 import {
   Card,
   CardAction,
-  CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
@@ -77,6 +76,7 @@ export function LandingScreen({
   embedded = false,
 }: LandingScreenProps) {
   const {
+    activeRequestIds,
     activeWorkspaceConfigurationError,
     activeWorkspaceConfigured,
     activeWorkspaceLabel,
@@ -85,13 +85,16 @@ export function LandingScreen({
     uiError,
     workspaceKind,
   } = useConversationSession(binding);
-  const { submitPrompt, updatePromptSettings } = useConversationActions(binding);
+  const { stopPrompt, submitPrompt, updatePromptSettings } =
+    useConversationActions(binding);
   const {
     canCompose,
     followupRequest,
+    isPlanningMode,
     isSendingPrompt,
     promptSettings,
     promptDraft,
+    setPlanningMode,
     setPromptDraft,
   } = usePromptDraft(binding);
   const controller = useLandingScreenController({
@@ -108,13 +111,17 @@ export function LandingScreen({
       hasCurrentWorkspace={hasCurrentWorkspace}
       isBusy={controller.isBusy}
       isOpeningProject={isOpeningProject}
+      isRequestActive={activeRequestIds.length > 0}
       isSendingPrompt={isSendingPrompt}
       onOpenClone={controller.openCloneDialog}
       onOpenFolder={() => void controller.handleOpenWorkspacePicker()}
       onOpenQuickStart={controller.openQuickStartDialog}
       promptDraft={promptDraft}
       promptSettings={promptSettings}
+      isPlanningMode={isPlanningMode}
+      setPlanningMode={setPlanningMode}
       setPromptDraft={setPromptDraft}
+      stopPrompt={stopPrompt}
       submitPrompt={submitPrompt}
       updatePromptSettings={updatePromptSettings}
       visibleError={controller.visibleError}
@@ -439,13 +446,17 @@ function LandingScreenContent({
   hasCurrentWorkspace,
   isBusy,
   isOpeningProject,
+  isRequestActive,
   isSendingPrompt,
   onOpenClone,
   onOpenFolder,
   onOpenQuickStart,
   promptDraft,
   promptSettings,
+  isPlanningMode,
+  setPlanningMode,
   setPromptDraft,
+  stopPrompt,
   submitPrompt,
   updatePromptSettings,
   visibleError,
@@ -459,13 +470,17 @@ function LandingScreenContent({
   hasCurrentWorkspace: boolean;
   isBusy: boolean;
   isOpeningProject: boolean;
+  isRequestActive: boolean;
   isSendingPrompt: boolean;
   onOpenClone: () => void;
   onOpenFolder: () => void;
   onOpenQuickStart: () => void;
   promptDraft: string;
   promptSettings: PromptSettings | null;
+  isPlanningMode: boolean;
+  setPlanningMode: (value: boolean) => void;
   setPromptDraft: (value: string) => void;
+  stopPrompt: () => Promise<void>;
   submitPrompt: () => Promise<void>;
   updatePromptSettings: (input: {
     providerId: string;
@@ -521,6 +536,7 @@ function LandingScreenContent({
           ) : (
             <PromptInputCard
               canCompose={canCompose}
+              isRequestActive={isRequestActive}
               isSendingPrompt={isSendingPrompt}
               placeholder={
                 workspaceKind === "managed_chat"
@@ -529,16 +545,19 @@ function LandingScreenContent({
                     ? "Ask about this workspace…"
                   : "Open a project to start a chat…"
               }
+              isPlanningMode={isPlanningMode}
               promptDraft={promptDraft}
               promptSettings={promptSettings}
+              setPlanningMode={setPlanningMode}
               setPromptDraft={setPromptDraft}
+              stopPrompt={stopPrompt}
               submitPrompt={submitPrompt}
               updatePromptSettings={updatePromptSettings}
             />
           )}
         </div>
 
-        <div className="grid w-full max-w-3xl gap-4 md:grid-cols-3">
+        <div className="grid w-full max-w-3xl gap-3 md:grid-cols-3">
           <LaunchCard
             description="Pick a local folder and open it as the active workspace."
             disabled={isBusy}
@@ -819,21 +838,23 @@ function LaunchCard({
   return (
     <button
       type="button"
-      className="block h-full w-full appearance-none text-left disabled:cursor-not-allowed"
+      className="block w-full appearance-none text-left disabled:cursor-not-allowed"
       onClick={onClick}
       disabled={disabled}
     >
-      <Card className="h-full min-h-40 border-0 bg-accent/60 transition-colors hover:bg-accent dark:bg-accent/80 dark:hover:bg-accent">
-        <CardHeader>
+      <Card
+        size="sm"
+        className="h-full border-0 bg-accent/60 transition-colors hover:bg-accent dark:bg-accent/80 dark:hover:bg-accent"
+      >
+        <CardHeader className="gap-2">
           <CardAction className="justify-self-start">
-            <div className="flex size-10 items-center justify-center rounded-md border border-input bg-input/20 text-muted-foreground dark:bg-input/30">
-              <Icon strokeWidth={2} className="size-3.5" />
+            <div className="flex size-8 items-center justify-center rounded-md border border-input bg-input/20 text-muted-foreground dark:bg-input/30">
+              <Icon strokeWidth={2} className="size-4" />
             </div>
           </CardAction>
           <CardTitle>{label}</CardTitle>
           <CardDescription>{description}</CardDescription>
         </CardHeader>
-        <CardContent className="flex-1" />
       </Card>
     </button>
   );

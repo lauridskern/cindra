@@ -47,7 +47,7 @@ export type PromptSettings = { availableModels: Array<PromptModelOption>, select
 
 export type UpdatePromptSettingsInput = { workspacePath: string | null, providerId: string, modelId: string, reasoningEffort: string | null, };
 
-export type SendPromptInput = { workspacePath: string, prompt: string, conversationId: string | null, };
+export type SendPromptInput = { workspacePath: string, prompt: string, conversationId: string | null, agentId: string | null, };
 
 export type RuntimeStatus = { workspacePath: string | null, workspaceName: string | null, gitRepoName: string | null, gitBranchName: string | null, gitBranches: Array<string>, availableOpenTargets: Array<string>, configured: boolean, configurationError: string | null, };
 

@@ -13,14 +13,17 @@ interface PromptComposerProps {
 }
 
 export function PromptComposer({ binding }: PromptComposerProps) {
-  const { submitPrompt, updatePromptSettings } = useConversationActions(binding);
+  const { stopPrompt, submitPrompt, updatePromptSettings } =
+    useConversationActions(binding);
   const { activeRequestIds, todos } = useConversationSession(binding);
   const {
     canCompose,
     followupRequest,
+    isPlanningMode,
     isSendingPrompt,
     promptSettings,
     promptDraft,
+    setPlanningMode,
     setPromptDraft,
   } = usePromptDraft(binding);
 
@@ -38,10 +41,14 @@ export function PromptComposer({ binding }: PromptComposerProps) {
       ) : (
         <PromptInputCard
           canCompose={canCompose}
+          isRequestActive={activeRequestIds.length > 0}
           isSendingPrompt={isSendingPrompt}
+          isPlanningMode={isPlanningMode}
           promptSettings={promptSettings}
           promptDraft={promptDraft}
+          setPlanningMode={setPlanningMode}
           setPromptDraft={setPromptDraft}
+          stopPrompt={stopPrompt}
           submitPrompt={submitPrompt}
           updatePromptSettings={updatePromptSettings}
         />

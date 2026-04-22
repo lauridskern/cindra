@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::future::Future;
 use std::path::{Path, PathBuf};
@@ -8,15 +8,15 @@ use std::sync::Arc;
 use anyhow::Context;
 use forge_api::API;
 use forge_domain::{ConfigOperation, ConversationId, Effort, Model, ModelConfig, ProviderId};
-use tokio::sync::{Mutex, mpsc};
+use tokio::sync::{Mutex, mpsc, oneshot};
 use uuid::Uuid;
 
 use crate::bridge::emitter::UiEventEmitter;
 use crate::bridge::followup::FollowupBridge;
 use crate::dto::{
-    CreateSavedWorkspaceInput, FollowupRequestDto, FollowupResponseDto, PromptModelOptionDto,
-    PromptSettingsDto, RuntimeStatusDto, SaveConversationLayoutInput, SendPromptInput,
-    SessionMessageDto, SessionSnapshotDto, UpdatePromptSettingsInput,
+    ChatBindingDto, CreateSavedWorkspaceInput, FollowupRequestDto, FollowupResponseDto,
+    PromptModelOptionDto, PromptSettingsDto, RuntimeStatusDto, SaveConversationLayoutInput,
+    SendPromptInput, SessionMessageDto, SessionSnapshotDto, UpdatePromptSettingsInput,
     UpdateSavedWorkspaceLayoutInput,
 };
 use crate::persistence::project_store::ProjectStore;
@@ -38,6 +38,7 @@ pub struct RuntimeManager {
     pub(super) projects: Arc<ProjectStore>,
     pub(super) state: Arc<Mutex<RuntimeState>>,
     pub(super) factory: Arc<RuntimeFactory>,
+    pub(super) stop_request_senders: Arc<Mutex<HashMap<String, oneshot::Sender<()>>>>,
 }
 
 impl RuntimeManager {
@@ -52,6 +53,7 @@ impl RuntimeManager {
             projects,
             state: shared_runtime_state(),
             factory: Arc::new(RuntimeFactory::new(followups)),
+            stop_request_senders: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 
@@ -429,17 +431,53 @@ impl RuntimeManager {
             }
 
             let snapshot = self.emit_current_snapshot().await?;
+            let (stop_sender, stop_receiver) = oneshot::channel();
+            self.stop_request_senders
+                .lock()
+                .await
+                .insert(request_id.clone(), stop_sender);
 
             let manager = self.clone();
             tauri::async_runtime::spawn(async move {
                 manager
-                    .stream_chat(runtime, workspace_path, request_id, conversation_id, prompt)
+                    .stream_chat(
+                        runtime,
+                        workspace_path,
+                        request_id,
+                        conversation_id,
+                        prompt,
+                        input.agent_id,
+                        stop_receiver,
+                    )
                     .await;
             });
 
             Ok(snapshot)
         })
         .await
+    }
+
+    pub async fn stop_prompt(&self, input: ChatBindingDto) -> anyhow::Result<()> {
+        let workspace_path = canonicalize_workspace_path(PathBuf::from(input.workspace_path))?;
+
+        let active_request_ids = {
+            let state = self.state.lock().await;
+            let Some(conversation) = state.conversations.get(&input.conversation_id) else {
+                return Ok(());
+            };
+            if conversation.workspace_path != workspace_path {
+                return Ok(());
+            }
+            conversation.active_request_ids.clone()
+        };
+
+        for request_id in active_request_ids {
+            if let Some(sender) = self.take_stop_request_sender(&request_id).await {
+                let _ = sender.send(());
+            }
+        }
+
+        Ok(())
     }
 
     pub async fn respond_followup(
@@ -783,6 +821,13 @@ impl RuntimeManager {
         }
         let snapshot = self.snapshot().await?;
         self.emit_snapshot(snapshot)
+    }
+
+    pub(super) async fn take_stop_request_sender(
+        &self,
+        request_id: &str,
+    ) -> Option<oneshot::Sender<()>> {
+        self.stop_request_senders.lock().await.remove(request_id)
     }
 
     pub(super) async fn prepare_workspace(

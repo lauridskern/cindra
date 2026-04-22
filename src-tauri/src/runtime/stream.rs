@@ -1,6 +1,6 @@
-use forge_api::API;
-use forge_domain::{ChatRequest, ChatResponse, ConversationId, Event};
+use forge_domain::{AgentId, ChatRequest, ChatResponse, ConversationId, Event};
 use futures::StreamExt;
+use tokio::sync::oneshot;
 
 use crate::bridge::followup::{FollowupContext, with_followup_context};
 use crate::dto::{
@@ -26,10 +26,13 @@ impl RuntimeManager {
         request_id: String,
         conversation_id: String,
         prompt: String,
+        agent_id: Option<String>,
+        mut stop_receiver: oneshot::Receiver<()>,
     ) {
         let parsed_conversation_id = match ConversationId::parse(&conversation_id) {
             Ok(value) => value,
             Err(error) => {
+                self.take_stop_request_sender(&request_id).await;
                 self.record_stream_error(
                     &conversation_id,
                     &request_id,
@@ -46,17 +49,27 @@ impl RuntimeManager {
             conversation_id: conversation_id.clone(),
             request_id: request_id.clone(),
         };
+        let selected_agent_id = agent_id
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(AgentId::new)
+            .unwrap_or_default();
 
         let stream = match with_followup_context(context, async {
             runtime
                 .api
-                .chat(ChatRequest::new(Event::new(prompt), parsed_conversation_id))
+                .chat_with_agent(
+                    selected_agent_id,
+                    ChatRequest::new(Event::new(prompt), parsed_conversation_id),
+                )
                 .await
         })
         .await
         {
             Ok(stream) => stream,
             Err(error) => {
+                self.take_stop_request_sender(&request_id).await;
                 self.record_stream_error(&conversation_id, &request_id, format_error_chain(&error))
                     .await;
                 let _ = self
@@ -70,7 +83,28 @@ impl RuntimeManager {
         let mut saw_complete = false;
         let mut saw_interrupt = false;
 
-        while let Some(item) = stream.next().await {
+        loop {
+            let item = tokio::select! {
+                _ = &mut stop_receiver => {
+                    self.take_stop_request_sender(&request_id).await;
+                    self.record_local_interrupt(
+                        &conversation_id,
+                        &request_id,
+                        "Stopped by user.",
+                    )
+                    .await;
+                    let _ = self
+                        .finish_request(&workspace_path, &conversation_id, &request_id, false)
+                        .await;
+                    return;
+                }
+                item = stream.next() => item,
+            };
+
+            let Some(item) = item else {
+                break;
+            };
+
             match item {
                 Ok(response) => {
                     if let Some(output) = todo_result_output(&response) {
@@ -134,10 +168,13 @@ impl RuntimeManager {
                     let _ = self
                         .finish_request(&workspace_path, &conversation_id, &request_id, false)
                         .await;
+                    self.take_stop_request_sender(&request_id).await;
                     return;
                 }
             }
         }
+
+        self.take_stop_request_sender(&request_id).await;
 
         if !saw_complete {
             if !saw_interrupt {
@@ -318,6 +355,23 @@ impl RuntimeManager {
             .pending_followups_by_conversation
             .remove(conversation_id);
         state.ui_error = Some(message);
+    }
+
+    async fn record_local_interrupt(&self, conversation_id: &str, request_id: &str, reason: &str) {
+        let mut state = self.state.lock().await;
+        if let Some(conversation) = state.conversations.get_mut(conversation_id) {
+            let next_index = conversation.messages.len();
+            conversation.messages.push(SessionMessageDto::Status {
+                id: create_message_id("status", request_id, next_index),
+                request_id: request_id.to_string(),
+                title: "Interrupted".to_string(),
+                subtitle: Some(reason.to_string()),
+                category: StatusCategoryDto::Warning,
+            });
+            conversation.title = Some(derive_conversation_title_from_messages(
+                &conversation.messages,
+            ));
+        }
     }
 
     async fn finish_request(

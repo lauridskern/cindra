@@ -204,6 +204,7 @@ pub struct SendPromptInput {
     pub workspace_path: String,
     pub prompt: String,
     pub conversation_id: Option<String>,
+    pub agent_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, TS)]

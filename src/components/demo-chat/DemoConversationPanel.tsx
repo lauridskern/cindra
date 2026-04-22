@@ -345,6 +345,7 @@ export function DemoConversationPanel() {
   const [promptState, setPromptState] =
     useState<DemoPromptState>("interactive");
   const [promptDraft, setPromptDraft] = useState(DEFAULT_PROMPT_DRAFT);
+  const [isPlanningMode, setPlanningMode] = useState(false);
   const [promptSettings, setPromptSettings] =
     useState<PromptSettings>(DEMO_PROMPT_SETTINGS);
   const [demoNotice, setDemoNotice] = useState<string | null>(
@@ -410,6 +411,10 @@ export function DemoConversationPanel() {
         ? "Demo send was blocked because the draft is empty."
         : `Intercepted send for "${promptDraft.trim()}".`,
     );
+  }
+
+  async function handlePromptStop() {
+    setDemoNotice("Intercepted a local stop action.");
   }
 
   async function handleFollowupSubmit(input: {
@@ -502,10 +507,14 @@ export function DemoConversationPanel() {
         ) : (
           <PromptInputCard
             canCompose={promptState !== "disabled"}
+            isRequestActive={promptState === "sending"}
             isSendingPrompt={promptState === "sending"}
+            isPlanningMode={isPlanningMode}
             promptSettings={resolvedPromptSettings}
             promptDraft={promptDraft}
+            setPlanningMode={setPlanningMode}
             setPromptDraft={setPromptDraft}
+            stopPrompt={handlePromptStop}
             submitPrompt={handlePromptSubmit}
             updatePromptSettings={handlePromptSettingsUpdate}
           />

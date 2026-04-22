@@ -78,13 +78,22 @@ export function useConversationActions(binding?: ChatBinding | null) {
           text: input.text,
         });
       },
+      stopPrompt: async () => {
+        await desktopClient
+          .stopPrompt({
+            conversationId,
+            workspacePath,
+          })
+          .catch(() => null);
+      },
       submitPrompt: async () => {
         const promptDraftKey = getPromptDraftKey(workspacePath, conversationId);
         if (promptDraftKey == null) {
           return;
         }
 
-        const prompt = getPromptDraftState(promptDraftKey).value.trim();
+        const draftState = getPromptDraftState(promptDraftKey);
+        const prompt = draftState.value.trim();
         if (prompt.length === 0) {
           return;
         }
@@ -92,6 +101,7 @@ export function useConversationActions(binding?: ChatBinding | null) {
         sessionStore.getState().setPromptDraftPending(promptDraftKey, true);
         try {
           const snapshot = await desktopClient.sendPrompt({
+            agentId: draftState.isPlanningMode ? "muse" : "forge",
             conversationId,
             prompt,
             workspacePath,

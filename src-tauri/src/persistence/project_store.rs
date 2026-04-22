@@ -92,9 +92,9 @@ impl ProjectStore {
             )
         })?;
 
-        let managed_chat_path =
-            self.managed_chats_root
-                .join(format!("chat_{}", Uuid::new_v4().simple()));
+        let managed_chat_path = self
+            .managed_chats_root
+            .join(format!("chat_{}", Uuid::new_v4().simple()));
         fs::create_dir_all(&managed_chat_path).with_context(|| {
             format!(
                 "Failed to create managed chat workspace at {}",
@@ -171,10 +171,13 @@ impl ProjectStore {
             .bind::<Text, _>(canonical)
             .load(connection)?;
 
-            Ok(rows.into_iter().next().map(|row| RegisteredWorkspaceMetadata {
-                kind: parse_workspace_kind(&row.kind),
-                display_name: normalize_display_name(row.display_name.as_deref()),
-            }))
+            Ok(rows
+                .into_iter()
+                .next()
+                .map(|row| RegisteredWorkspaceMetadata {
+                    kind: parse_workspace_kind(&row.kind),
+                    display_name: normalize_display_name(row.display_name.as_deref()),
+                }))
         })
     }
 
@@ -500,7 +503,12 @@ impl ProjectStore {
                 ",
             )?;
             ensure_column_exists(connection, "opened_projects", "display_name", "TEXT")?;
-            ensure_column_exists(connection, "managed_chat_workspaces", "display_name", "TEXT")?;
+            ensure_column_exists(
+                connection,
+                "managed_chat_workspaces",
+                "display_name",
+                "TEXT",
+            )?;
             Ok(())
         })
     }

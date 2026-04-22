@@ -3,6 +3,7 @@ import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 
 import type {
   CheckoutGitBranchInput,
+  ChatBinding,
   CloneRepositoryInput,
   CommitGitChangesInput,
   CreateSavedWorkspaceInput,
@@ -107,6 +108,10 @@ export function createManagedChat(): Promise<SessionSnapshot> {
 
 export function sendPrompt(input: SendPromptInput): Promise<SessionSnapshot> {
   return invokeCommand("send_prompt", { input });
+}
+
+export function stopPrompt(input: ChatBinding): Promise<void> {
+  return invokeCommand("stop_prompt", { input });
 }
 
 export function updatePromptSettings(

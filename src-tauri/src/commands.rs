@@ -1,9 +1,9 @@
 use crate::dto::{
-    CheckoutGitBranchInput, CloneRepositoryInput, CommitGitChangesInput, CreateGitBranchInput,
-    CreateSavedWorkspaceInput, FollowupResponseDto, PromptSettingsDto, QuickStartProjectInput,
-    QuickStartVisibility, RuntimeStatusDto, SaveConversationLayoutInput, SendPromptInput,
-    SessionSnapshotDto, TerminalCloseInput, TerminalOpenInput, TerminalResizeInput,
-    TerminalSessionDto, TerminalWriteInput, UpdatePromptSettingsInput,
+    ChatBindingDto, CheckoutGitBranchInput, CloneRepositoryInput, CommitGitChangesInput,
+    CreateGitBranchInput, CreateSavedWorkspaceInput, FollowupResponseDto, PromptSettingsDto,
+    QuickStartProjectInput, QuickStartVisibility, RuntimeStatusDto, SaveConversationLayoutInput,
+    SendPromptInput, SessionSnapshotDto, TerminalCloseInput, TerminalOpenInput,
+    TerminalResizeInput, TerminalSessionDto, TerminalWriteInput, UpdatePromptSettingsInput,
     UpdateSavedWorkspaceLayoutInput,
 };
 use crate::runtime::{DesktopState, format_error_chain};
@@ -95,6 +95,18 @@ pub(crate) async fn send_prompt(
     state
         .manager
         .send_prompt(input)
+        .await
+        .map_err(map_command_error)
+}
+
+#[tauri::command]
+pub(crate) async fn stop_prompt(
+    input: ChatBindingDto,
+    state: tauri::State<'_, DesktopState>,
+) -> Result<(), String> {
+    state
+        .manager
+        .stop_prompt(input)
         .await
         .map_err(map_command_error)
 }
