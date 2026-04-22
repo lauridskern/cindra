@@ -18,9 +18,11 @@ export function PromptComposer({ binding }: PromptComposerProps) {
   const {
     canCompose,
     followupRequest,
+    isPlanningMode,
     isSendingPrompt,
     promptSettings,
     promptDraft,
+    setPlanningMode,
     setPromptDraft,
   } = usePromptDraft(binding);
 
@@ -39,8 +41,10 @@ export function PromptComposer({ binding }: PromptComposerProps) {
         <PromptInputCard
           canCompose={canCompose}
           isSendingPrompt={isSendingPrompt}
+          isPlanningMode={isPlanningMode}
           promptSettings={promptSettings}
           promptDraft={promptDraft}
+          setPlanningMode={setPlanningMode}
           setPromptDraft={setPromptDraft}
           submitPrompt={submitPrompt}
           updatePromptSettings={updatePromptSettings}

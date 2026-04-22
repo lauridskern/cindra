@@ -1,5 +1,4 @@
-use forge_api::API;
-use forge_domain::{ChatRequest, ChatResponse, ConversationId, Event};
+use forge_domain::{AgentId, ChatRequest, ChatResponse, ConversationId, Event};
 use futures::StreamExt;
 
 use crate::bridge::followup::{FollowupContext, with_followup_context};
@@ -26,6 +25,7 @@ impl RuntimeManager {
         request_id: String,
         conversation_id: String,
         prompt: String,
+        agent_id: Option<String>,
     ) {
         let parsed_conversation_id = match ConversationId::parse(&conversation_id) {
             Ok(value) => value,
@@ -46,11 +46,20 @@ impl RuntimeManager {
             conversation_id: conversation_id.clone(),
             request_id: request_id.clone(),
         };
+        let selected_agent_id = agent_id
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(AgentId::new)
+            .unwrap_or_default();
 
         let stream = match with_followup_context(context, async {
             runtime
                 .api
-                .chat(ChatRequest::new(Event::new(prompt), parsed_conversation_id))
+                .chat_with_agent(
+                    selected_agent_id,
+                    ChatRequest::new(Event::new(prompt), parsed_conversation_id),
+                )
                 .await
         })
         .await

@@ -344,6 +344,7 @@ export function DemoConversationPanel() {
   const [promptState, setPromptState] =
     useState<DemoPromptState>("interactive");
   const [promptDraft, setPromptDraft] = useState(DEFAULT_PROMPT_DRAFT);
+  const [isPlanningMode, setPlanningMode] = useState(false);
   const [promptSettings, setPromptSettings] =
     useState<PromptSettings>(DEMO_PROMPT_SETTINGS);
   const [demoNotice, setDemoNotice] = useState<string | null>(
@@ -502,8 +503,10 @@ export function DemoConversationPanel() {
           <PromptInputCard
             canCompose={promptState !== "disabled"}
             isSendingPrompt={promptState === "sending"}
+            isPlanningMode={isPlanningMode}
             promptSettings={resolvedPromptSettings}
             promptDraft={promptDraft}
+            setPlanningMode={setPlanningMode}
             setPromptDraft={setPromptDraft}
             submitPrompt={handlePromptSubmit}
             updatePromptSettings={handlePromptSettingsUpdate}

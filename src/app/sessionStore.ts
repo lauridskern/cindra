@@ -20,6 +20,7 @@ const GLOBAL_WORKSPACE_META_KEY = "__global__";
 
 interface PromptDraftEntry {
   isPending: boolean;
+  isPlanningMode: boolean;
   value: string;
 }
 
@@ -53,6 +54,10 @@ export interface SessionStoreState {
   setBoardSelection: (selection: WorkspaceBoardSelection) => void;
   setIsOpeningProject: (value: boolean) => void;
   setPromptDraftPending: (key: string | null, isPending: boolean) => void;
+  setPromptDraftPlanningMode: (
+    key: string | null,
+    isPlanningMode: boolean,
+  ) => void;
   setPromptDraftValue: (key: string | null, value: string) => void;
   setWorkspacePromptSettings: (
     workspacePath: string | null,
@@ -113,7 +118,9 @@ function writePromptDraftEntry(
 ): Record<string, PromptDraftEntry> {
   const current = drafts[key] ?? null;
   const nextEntry =
-    entry == null || (entry.value === "" && !entry.isPending) ? null : entry;
+    entry == null || (entry.value === "" && !entry.isPending && !entry.isPlanningMode)
+      ? null
+      : entry;
 
   if (nextEntry == null) {
     if (current == null) {
@@ -127,7 +134,8 @@ function writePromptDraftEntry(
 
   if (
     current?.value === nextEntry.value &&
-    current?.isPending === nextEntry.isPending
+    current?.isPending === nextEntry.isPending &&
+    current?.isPlanningMode === nextEntry.isPlanningMode
   ) {
     return drafts;
   }
@@ -145,6 +153,7 @@ function setPromptDraftEntryValue(
 ): Record<string, PromptDraftEntry> {
   const current = getConversationDraftEntry(drafts, key) ?? {
     isPending: false,
+    isPlanningMode: false,
     value: "",
   };
 
@@ -158,10 +167,25 @@ function setPromptDraftEntryPending(
 ): Record<string, PromptDraftEntry> {
   const current = getConversationDraftEntry(drafts, key) ?? {
     isPending: false,
+    isPlanningMode: false,
     value: "",
   };
 
   return writePromptDraftEntry(drafts, key, { ...current, isPending });
+}
+
+function setPromptDraftEntryPlanningMode(
+  drafts: Record<string, PromptDraftEntry>,
+  key: string,
+  isPlanningMode: boolean,
+): Record<string, PromptDraftEntry> {
+  const current = getConversationDraftEntry(drafts, key) ?? {
+    isPending: false,
+    isPlanningMode: false,
+    value: "",
+  };
+
+  return writePromptDraftEntry(drafts, key, { ...current, isPlanningMode });
 }
 
 function movePromptDraftEntry(
@@ -499,6 +523,19 @@ function createSessionStoreState(set: SessionStoreSetter): SessionStoreState {
         ),
       }));
     },
+    setPromptDraftPlanningMode: (key, isPlanningMode) => {
+      if (key == null) {
+        return;
+      }
+
+      set((current) => ({
+        promptDraftsByKey: setPromptDraftEntryPlanningMode(
+          current.promptDraftsByKey,
+          key,
+          isPlanningMode,
+        ),
+      }));
+    },
     setPromptDraftValue: (key, value) => {
       if (key == null) {
         return;
@@ -605,6 +642,7 @@ export function getPromptDraftState(promptDraftKey: string | null) {
   if (promptDraftKey == null) {
     return {
       isPending: false,
+      isPlanningMode: false,
       value: "",
     };
   }
@@ -612,6 +650,7 @@ export function getPromptDraftState(promptDraftKey: string | null) {
   return (
     sessionStore.getState().promptDraftsByKey[promptDraftKey] ?? {
       isPending: false,
+      isPlanningMode: false,
       value: "",
     }
   );

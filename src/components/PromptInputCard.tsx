@@ -1,5 +1,5 @@
 import { useLayoutEffect, useRef } from "react";
-import { ChevronDownIcon } from "lucide-react";
+import { ChevronDownIcon, MapIcon } from "lucide-react";
 
 import type { PromptSettings } from "@/services/desktop/contracts";
 import { Button } from "@/components/ui/button";
@@ -21,13 +21,16 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { cn } from "@/lib/utils";
 
 interface PromptInputCardProps {
   canCompose: boolean;
   isSendingPrompt: boolean;
+  isPlanningMode: boolean;
   placeholder?: string;
   promptSettings: PromptSettings | null;
   promptDraft: string;
+  setPlanningMode: (value: boolean) => void;
   setPromptDraft: (value: string) => void;
   submitPrompt: () => Promise<void>;
   updatePromptSettings: (input: {
@@ -40,9 +43,11 @@ interface PromptInputCardProps {
 export function PromptInputCard({
   canCompose,
   isSendingPrompt,
+  isPlanningMode,
   placeholder = "Ask about this workspace…",
   promptSettings,
   promptDraft,
+  setPlanningMode,
   setPromptDraft,
   submitPrompt,
   updatePromptSettings,
@@ -116,7 +121,13 @@ export function PromptInputCard({
 
   return (
     <div className="mx-auto w-full max-w-3xl">
-      <Card className="gap-0 rounded-xl border border-foreground/10 bg-accent p-3 ring-0">
+      <Card
+        className={cn(
+          "gap-0 rounded-xl border border-foreground/10 bg-accent p-3 transition-[box-shadow,border-color] ring-0",
+          isPlanningMode &&
+            "border-yellow-500/30 ring-2 ring-yellow-400/80 dark:border-yellow-400/25 dark:ring-yellow-500/70",
+        )}
+      >
         <CardHeader className="sr-only">
           <CardTitle>Prompt</CardTitle>
           <CardDescription>Ask about the current workspace.</CardDescription>
@@ -147,6 +158,27 @@ export function PromptInputCard({
         </CardContent>
         <CardFooter className="items-center justify-between p-0">
           <div className="flex items-center gap-0">
+            <Button
+              type="button"
+              variant={isPlanningMode ? "secondary" : "ghost"}
+              size={isPlanningMode ? "sm" : "icon-sm"}
+              className={cn(
+                "mr-1 text-muted-foreground hover:bg-transparent hover:text-foreground",
+                isPlanningMode &&
+                  "bg-yellow-400/15 text-yellow-900 hover:bg-yellow-400/20 hover:text-yellow-950 dark:bg-yellow-400/12 dark:text-yellow-100 dark:hover:bg-yellow-400/18",
+              )}
+              aria-label={
+                isPlanningMode
+                  ? "Disable planning mode"
+                  : "Enable planning mode"
+              }
+              aria-pressed={isPlanningMode}
+              disabled={!canCompose || isSendingPrompt}
+              onClick={() => setPlanningMode(!isPlanningMode)}
+            >
+              <MapIcon />
+              {isPlanningMode ? <span>Plan</span> : null}
+            </Button>
             <DropdownMenu>
               <DropdownMenuTrigger
                 render={

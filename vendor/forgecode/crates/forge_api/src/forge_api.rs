@@ -39,6 +39,18 @@ impl<A, F> ForgeAPI<A, F> {
     {
         ForgeApp::new(self.services.clone())
     }
+
+    pub async fn chat_with_agent(
+        &self,
+        agent_id: AgentId,
+        chat: ChatRequest,
+    ) -> anyhow::Result<MpscStream<Result<ChatResponse, anyhow::Error>>>
+    where
+        A: Services + EnvironmentInfra<Config = forge_config::ForgeConfig>,
+        F: EnvironmentInfra<Config = forge_config::ForgeConfig>,
+    {
+        self.app().chat(agent_id, chat).await
+    }
 }
 
 impl ForgeAPI<ForgeServices<ForgeRepo<ForgeInfra>>, ForgeRepo<ForgeInfra>> {

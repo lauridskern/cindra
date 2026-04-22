@@ -89,9 +89,11 @@ export function LandingScreen({
   const {
     canCompose,
     followupRequest,
+    isPlanningMode,
     isSendingPrompt,
     promptSettings,
     promptDraft,
+    setPlanningMode,
     setPromptDraft,
   } = usePromptDraft(binding);
   const controller = useLandingScreenController({
@@ -114,6 +116,8 @@ export function LandingScreen({
       onOpenQuickStart={controller.openQuickStartDialog}
       promptDraft={promptDraft}
       promptSettings={promptSettings}
+      isPlanningMode={isPlanningMode}
+      setPlanningMode={setPlanningMode}
       setPromptDraft={setPromptDraft}
       submitPrompt={submitPrompt}
       updatePromptSettings={updatePromptSettings}
@@ -448,6 +452,8 @@ function LandingScreenContent({
   onOpenQuickStart,
   promptDraft,
   promptSettings,
+  isPlanningMode,
+  setPlanningMode,
   setPromptDraft,
   submitPrompt,
   updatePromptSettings,
@@ -468,6 +474,8 @@ function LandingScreenContent({
   onOpenQuickStart: () => void;
   promptDraft: string;
   promptSettings: PromptSettings | null;
+  isPlanningMode: boolean;
+  setPlanningMode: (value: boolean) => void;
   setPromptDraft: (value: string) => void;
   submitPrompt: () => Promise<void>;
   updatePromptSettings: (input: {
@@ -532,8 +540,10 @@ function LandingScreenContent({
                     ? "Ask about this workspace…"
                   : "Open a project to start a chat…"
               }
+              isPlanningMode={isPlanningMode}
               promptDraft={promptDraft}
               promptSettings={promptSettings}
+              setPlanningMode={setPlanningMode}
               setPromptDraft={setPromptDraft}
               submitPrompt={submitPrompt}
               updatePromptSettings={updatePromptSettings}

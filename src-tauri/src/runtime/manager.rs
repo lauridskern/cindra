@@ -462,7 +462,14 @@ impl RuntimeManager {
             let manager = self.clone();
             tauri::async_runtime::spawn(async move {
                 manager
-                    .stream_chat(runtime, workspace_path, request_id, conversation_id, prompt)
+                    .stream_chat(
+                        runtime,
+                        workspace_path,
+                        request_id,
+                        conversation_id,
+                        prompt,
+                        input.agent_id,
+                    )
                     .await;
             });
 

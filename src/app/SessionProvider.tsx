@@ -430,7 +430,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
           return;
         }
 
-        const prompt = getPromptDraftState(promptDraftKey).value.trim();
+        const draftState = getPromptDraftState(promptDraftKey);
+        const prompt = draftState.value.trim();
         if (prompt.length === 0) {
           return;
         }
@@ -440,6 +441,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
         const snapshot = await desktopClient
           .sendPrompt({
+            agentId: draftState.isPlanningMode ? "muse" : "forge",
             conversationId,
             prompt,
             workspacePath,

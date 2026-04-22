@@ -234,6 +234,12 @@ export function usePromptDraft(binding?: ChatBinding | null) {
     },
     [promptDraftKey],
   );
+  const setPlanningMode = useCallback(
+    (value: boolean) => {
+      sessionStore.getState().setPromptDraftPlanningMode(promptDraftKey, value);
+    },
+    [promptDraftKey],
+  );
 
   const draftState = useSessionStore(
     useShallow((state) => {
@@ -266,6 +272,7 @@ export function usePromptDraft(binding?: ChatBinding | null) {
           (draftEntry?.isPending ?? false) === false &&
           !isConversationRunning,
         followupRequest,
+        isPlanningMode: draftEntry?.isPlanningMode ?? false,
         isSendingPrompt: draftEntry?.isPending ?? false,
         promptDraft: draftEntry?.value ?? "",
         promptSettings: meta.promptSettings,
@@ -276,8 +283,9 @@ export function usePromptDraft(binding?: ChatBinding | null) {
   return useMemo(
     () => ({
       ...draftState,
+      setPlanningMode,
       setPromptDraft,
     }),
-    [draftState, setPromptDraft],
+    [draftState, setPlanningMode, setPromptDraft],
   );
 }

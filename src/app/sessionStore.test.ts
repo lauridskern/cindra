@@ -238,14 +238,17 @@ describe("sessionStore", () => {
     const destinationKey = "/workspace/agent-ui::chat-2";
 
     sessionStore.getState().setPromptDraftValue(sourceKey, "ship it");
+    sessionStore.getState().setPromptDraftPlanningMode(sourceKey, true);
     sessionStore.getState().movePromptDraft(sourceKey, destinationKey);
 
     expect(getPromptDraftState(sourceKey)).toEqual({
       isPending: false,
+      isPlanningMode: false,
       value: "",
     });
     expect(getPromptDraftState(destinationKey)).toEqual({
       isPending: false,
+      isPlanningMode: true,
       value: "ship it",
     });
 
@@ -253,6 +256,15 @@ describe("sessionStore", () => {
 
     expect(getPromptDraftState(destinationKey)).toEqual({
       isPending: false,
+      isPlanningMode: true,
+      value: "",
+    });
+
+    sessionStore.getState().setPromptDraftPlanningMode(destinationKey, false);
+
+    expect(getPromptDraftState(destinationKey)).toEqual({
+      isPending: false,
+      isPlanningMode: false,
       value: "",
     });
     expect(sessionStore.getState().promptDraftsByKey[destinationKey]).toBeUndefined();
