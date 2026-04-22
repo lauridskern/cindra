@@ -3,6 +3,7 @@ import { ConversationPanelAlerts } from "@/components/conversation-panel/Convers
 import { ConversationPanelHeader } from "@/components/conversation-panel/ConversationPanelHeader";
 import { LandingScreen } from "@/components/LandingScreen";
 import { PromptComposer } from "@/components/PromptComposer";
+import { PaneSurface } from "@/components/ui/pane-surface";
 import { useConversationSession } from "@/hooks/useSession";
 import type { ChatBinding } from "@/services/desktop/contracts";
 
@@ -50,7 +51,7 @@ export function ConversationPanel({
     followupRequest == null;
 
   return (
-    <section className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-white/80 shadow-xl shadow-neutral-950/5 backdrop-blur-xl dark:bg-neutral-900/80 dark:shadow-black/20">
+    <PaneSurface className="flex-1 text-neutral-950 dark:text-neutral-100">
       {showHeader ? (
         <ConversationPanelHeader
           binding={binding}
@@ -86,6 +87,6 @@ export function ConversationPanel({
           <PromptComposer binding={binding} />
         </>
       )}
-    </section>
+    </PaneSurface>
   );
 }

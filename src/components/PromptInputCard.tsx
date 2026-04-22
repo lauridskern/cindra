@@ -1,8 +1,14 @@
 import { useLayoutEffect, useRef } from "react";
-import { ChevronDownIcon, MapIcon } from "lucide-react";
+import {
+  ArrowUpIcon,
+  ChevronDownIcon,
+  MapIcon,
+  SquareIcon,
+} from "lucide-react";
 
 import type { PromptSettings } from "@/services/desktop/contracts";
 import { Button } from "@/components/ui/button";
+import { ButtonGroup } from "@/components/ui/button-group";
 import {
   Card,
   CardContent,
@@ -19,12 +25,13 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Toggle } from "@/components/ui/toggle";
 import { cn } from "@/lib/utils";
 
 interface PromptInputCardProps {
   canCompose: boolean;
+  isRequestActive: boolean;
   isSendingPrompt: boolean;
   isPlanningMode: boolean;
   placeholder?: string;
@@ -32,6 +39,7 @@ interface PromptInputCardProps {
   promptDraft: string;
   setPlanningMode: (value: boolean) => void;
   setPromptDraft: (value: string) => void;
+  stopPrompt: () => Promise<void>;
   submitPrompt: () => Promise<void>;
   updatePromptSettings: (input: {
     providerId: string;
@@ -42,6 +50,7 @@ interface PromptInputCardProps {
 
 export function PromptInputCard({
   canCompose,
+  isRequestActive,
   isSendingPrompt,
   isPlanningMode,
   placeholder = "Ask about this workspace…",
@@ -49,10 +58,13 @@ export function PromptInputCard({
   promptDraft,
   setPlanningMode,
   setPromptDraft,
+  stopPrompt,
   submitPrompt,
   updatePromptSettings,
 }: PromptInputCardProps) {
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const isControlDisabled = isSendingPrompt || isRequestActive || !canCompose;
+  const isWorking = isRequestActive;
   const isSubmitDisabled =
     !canCompose || isSendingPrompt || promptDraft.trim().length === 0;
   const selectedModel =
@@ -119,27 +131,33 @@ export function PromptInputCard({
     void submitPrompt();
   }
 
+  function handlePrimaryAction() {
+    if (isWorking) {
+      void stopPrompt();
+      return;
+    }
+
+    handleSubmit();
+  }
+
   return (
     <div className="mx-auto w-full max-w-3xl">
       <Card
         className={cn(
-          "gap-0 rounded-xl border border-foreground/10 bg-accent p-3 transition-[box-shadow,border-color] ring-0",
+          "relative gap-0 rounded-2xl border border-foreground/5 bg-background/50 p-2 transition-[box-shadow,border-color] ring-0",
           isPlanningMode &&
-            "border-yellow-500/30 ring-2 ring-yellow-400/80 dark:border-yellow-400/25 dark:ring-yellow-500/70",
+            "border-yellow-500/80 ring-5 ring-yellow-500/10 dark:border-yellow-400/10 dark:ring-yellow-500/70 border-dashed",
         )}
       >
         <CardHeader className="sr-only">
           <CardTitle>Prompt</CardTitle>
           <CardDescription>Ask about the current workspace.</CardDescription>
         </CardHeader>
-        <CardContent className="p-0">
-          <Label className="sr-only" htmlFor="prompt">
-            Prompt
-          </Label>
+        <CardContent className="relative z-10 p-0">
           <Textarea
             ref={textareaRef}
             id="prompt"
-            className="max-h-80 overflow-y-auto rounded-none border-0 bg-transparent px-0 py-0 text-base leading-7 shadow-none outline-none ring-0 placeholder:text-muted-foreground/80 focus-visible:border-transparent focus-visible:ring-0 focus-visible:ring-offset-0 dark:bg-transparent"
+            className="m-1 max-h-80 overflow-y-auto rounded-none border-0 bg-transparent px-0 py-0 text-base leading-7 shadow-none outline-none ring-0 placeholder:text-muted-foreground/80 focus-visible:border-transparent focus-visible:ring-0 focus-visible:ring-offset-0 dark:bg-transparent"
             placeholder={placeholder}
             value={promptDraft}
             onChange={(event) => setPromptDraft(event.target.value)}
@@ -152,43 +170,22 @@ export function PromptInputCard({
                 handleSubmit();
               }
             }}
-            disabled={!canCompose || isSendingPrompt}
+            disabled={isControlDisabled}
             rows={3}
           />
         </CardContent>
-        <CardFooter className="items-center justify-between p-0">
-          <div className="flex items-center gap-0">
-            <Button
-              type="button"
-              variant={isPlanningMode ? "secondary" : "ghost"}
-              size={isPlanningMode ? "sm" : "icon-sm"}
-              className={cn(
-                "mr-1 text-muted-foreground hover:bg-transparent hover:text-foreground",
-                isPlanningMode &&
-                  "bg-yellow-400/15 text-yellow-900 hover:bg-yellow-400/20 hover:text-yellow-950 dark:bg-yellow-400/12 dark:text-yellow-100 dark:hover:bg-yellow-400/18",
-              )}
-              aria-label={
-                isPlanningMode
-                  ? "Disable planning mode"
-                  : "Enable planning mode"
-              }
-              aria-pressed={isPlanningMode}
-              disabled={!canCompose || isSendingPrompt}
-              onClick={() => setPlanningMode(!isPlanningMode)}
-            >
-              <MapIcon />
-              {isPlanningMode ? <span>Plan</span> : null}
-            </Button>
+        <CardFooter className="relative z-10 items-center justify-between p-0">
+          <ButtonGroup aria-label="Prompt controls" className="-mb-1.5">
             <DropdownMenu>
               <DropdownMenuTrigger
                 render={
                   <Button
                     type="button"
-                    variant="ghost"
+                    variant="outline"
                     size="sm"
                     className="text-muted-foreground hover:bg-transparent hover:text-foreground"
                     disabled={
-                      isSendingPrompt ||
+                      isControlDisabled ||
                       (promptSettings?.availableModels.length ?? 0) === 0
                     }
                   />
@@ -234,11 +231,11 @@ export function PromptInputCard({
                 render={
                   <Button
                     type="button"
-                    variant="ghost"
+                    variant="outline"
                     size="sm"
                     className="text-muted-foreground hover:bg-transparent hover:text-foreground"
                     disabled={
-                      isSendingPrompt || selectedReasoningEfforts.length === 0
+                      isControlDisabled || selectedReasoningEfforts.length === 0
                     }
                   />
                 }
@@ -265,15 +262,31 @@ export function PromptInputCard({
                 </DropdownMenuGroup>
               </DropdownMenuContent>
             </DropdownMenu>
-          </div>
+            <Toggle
+              variant="outline"
+              size="sm"
+              aria-label="Toggle planning mode"
+              pressed={isPlanningMode}
+              className={cn(
+                "text-muted-foreground hover:bg-transparent hover:text-foreground",
+                isPlanningMode && "text-foreground",
+              )}
+              disabled={isControlDisabled}
+              onPressedChange={setPlanningMode}
+            >
+              <MapIcon data-icon="inline-start" />
+              {isPlanningMode ? <span className="text-xs">Plan</span> : null}
+            </Toggle>
+          </ButtonGroup>
           <Button
             type="button"
-            size="lg"
-            aria-label="Send"
-            onClick={handleSubmit}
-            disabled={isSubmitDisabled}
+            size="icon-lg"
+            className="rounded-full"
+            aria-label={isWorking ? "Stop" : "Send"}
+            onClick={handlePrimaryAction}
+            disabled={isWorking ? false : isSubmitDisabled}
           >
-            {isSendingPrompt ? "Sending" : "Send"}
+            {isWorking ? <SquareIcon /> : <ArrowUpIcon />}
           </Button>
         </CardFooter>
       </Card>

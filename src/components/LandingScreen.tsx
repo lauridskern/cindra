@@ -77,6 +77,7 @@ export function LandingScreen({
   embedded = false,
 }: LandingScreenProps) {
   const {
+    activeRequestIds,
     activeWorkspaceConfigurationError,
     activeWorkspaceConfigured,
     activeWorkspaceLabel,
@@ -85,7 +86,8 @@ export function LandingScreen({
     uiError,
     workspaceKind,
   } = useConversationSession(binding);
-  const { submitPrompt, updatePromptSettings } = useConversationActions(binding);
+  const { stopPrompt, submitPrompt, updatePromptSettings } =
+    useConversationActions(binding);
   const {
     canCompose,
     followupRequest,
@@ -110,6 +112,7 @@ export function LandingScreen({
       hasCurrentWorkspace={hasCurrentWorkspace}
       isBusy={controller.isBusy}
       isOpeningProject={isOpeningProject}
+      isRequestActive={activeRequestIds.length > 0}
       isSendingPrompt={isSendingPrompt}
       onOpenClone={controller.openCloneDialog}
       onOpenFolder={() => void controller.handleOpenWorkspacePicker()}
@@ -119,6 +122,7 @@ export function LandingScreen({
       isPlanningMode={isPlanningMode}
       setPlanningMode={setPlanningMode}
       setPromptDraft={setPromptDraft}
+      stopPrompt={stopPrompt}
       submitPrompt={submitPrompt}
       updatePromptSettings={updatePromptSettings}
       visibleError={controller.visibleError}
@@ -446,6 +450,7 @@ function LandingScreenContent({
   hasCurrentWorkspace,
   isBusy,
   isOpeningProject,
+  isRequestActive,
   isSendingPrompt,
   onOpenClone,
   onOpenFolder,
@@ -455,6 +460,7 @@ function LandingScreenContent({
   isPlanningMode,
   setPlanningMode,
   setPromptDraft,
+  stopPrompt,
   submitPrompt,
   updatePromptSettings,
   visibleError,
@@ -468,6 +474,7 @@ function LandingScreenContent({
   hasCurrentWorkspace: boolean;
   isBusy: boolean;
   isOpeningProject: boolean;
+  isRequestActive: boolean;
   isSendingPrompt: boolean;
   onOpenClone: () => void;
   onOpenFolder: () => void;
@@ -477,6 +484,7 @@ function LandingScreenContent({
   isPlanningMode: boolean;
   setPlanningMode: (value: boolean) => void;
   setPromptDraft: (value: string) => void;
+  stopPrompt: () => Promise<void>;
   submitPrompt: () => Promise<void>;
   updatePromptSettings: (input: {
     providerId: string;
@@ -532,6 +540,7 @@ function LandingScreenContent({
           ) : (
             <PromptInputCard
               canCompose={canCompose}
+              isRequestActive={isRequestActive}
               isSendingPrompt={isSendingPrompt}
               placeholder={
                 workspaceKind === "managed_chat"
@@ -545,6 +554,7 @@ function LandingScreenContent({
               promptSettings={promptSettings}
               setPlanningMode={setPlanningMode}
               setPromptDraft={setPromptDraft}
+              stopPrompt={stopPrompt}
               submitPrompt={submitPrompt}
               updatePromptSettings={updatePromptSettings}
             />

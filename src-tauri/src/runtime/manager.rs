@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::fs;
 use std::future::Future;
 use std::path::{Path, PathBuf};
@@ -7,15 +8,15 @@ use std::sync::Arc;
 use anyhow::Context;
 use forge_api::API;
 use forge_domain::{ConfigOperation, ConversationId, Effort, Model, ModelConfig, ProviderId};
-use tokio::sync::{Mutex, mpsc};
+use tokio::sync::{Mutex, mpsc, oneshot};
 use uuid::Uuid;
 
 use crate::bridge::emitter::UiEventEmitter;
 use crate::bridge::followup::FollowupBridge;
 use crate::dto::{
-    CreateSavedWorkspaceInput, FollowupRequestDto, FollowupResponseDto, PromptModelOptionDto,
-    PromptSettingsDto, RuntimeStatusDto, SaveConversationLayoutInput, SendPromptInput,
-    SessionMessageDto, SessionSnapshotDto, UpdatePromptSettingsInput,
+    ChatBindingDto, CreateSavedWorkspaceInput, FollowupRequestDto, FollowupResponseDto,
+    PromptModelOptionDto, PromptSettingsDto, RuntimeStatusDto, SaveConversationLayoutInput,
+    SendPromptInput, SessionMessageDto, SessionSnapshotDto, UpdatePromptSettingsInput,
     UpdateSavedWorkspaceLayoutInput,
 };
 use crate::persistence::project_store::ProjectStore;
@@ -25,8 +26,8 @@ use super::{
     WorkspaceKind, WorkspaceSessionState, build_snapshot, canonicalize_workspace_path,
     configuration_error_message, create_conversation_record, create_message_id,
     derive_conversation_title_from_messages, format_error_chain, read_config,
-    select_empty_draft_conversation_id, shared_runtime_state, user_prompt_text_for_display,
-    resolved_workspace_display_name, workspace_name,
+    resolved_workspace_display_name, select_empty_draft_conversation_id, shared_runtime_state,
+    user_prompt_text_for_display, workspace_name,
 };
 
 #[derive(Clone)]
@@ -36,6 +37,7 @@ pub struct RuntimeManager {
     pub(super) projects: Arc<ProjectStore>,
     pub(super) state: Arc<Mutex<RuntimeState>>,
     pub(super) factory: Arc<RuntimeFactory>,
+    pub(super) stop_request_senders: Arc<Mutex<HashMap<String, oneshot::Sender<()>>>>,
 }
 
 impl RuntimeManager {
@@ -50,6 +52,7 @@ impl RuntimeManager {
             projects,
             state: shared_runtime_state(),
             factory: Arc::new(RuntimeFactory::new(followups)),
+            stop_request_senders: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 
@@ -312,10 +315,8 @@ impl RuntimeManager {
     ) -> anyhow::Result<SessionSnapshotDto> {
         self.with_recorded_ui_error(async {
             let workspace_path = canonicalize_workspace_path(PathBuf::from(workspace_path))?;
-            self.projects.set_workspace_display_name(
-                Path::new(&workspace_path),
-                display_name.as_deref(),
-            )?;
+            self.projects
+                .set_workspace_display_name(Path::new(&workspace_path), display_name.as_deref())?;
             let (workspace_kind, registered_display_name) =
                 self.resolve_workspace_registration(&workspace_path)?;
             let workspace_name = resolved_workspace_display_name(
@@ -458,6 +459,11 @@ impl RuntimeManager {
             }
 
             let snapshot = self.emit_current_snapshot().await?;
+            let (stop_sender, stop_receiver) = oneshot::channel();
+            self.stop_request_senders
+                .lock()
+                .await
+                .insert(request_id.clone(), stop_sender);
 
             let manager = self.clone();
             tauri::async_runtime::spawn(async move {
@@ -469,6 +475,7 @@ impl RuntimeManager {
                         conversation_id,
                         prompt,
                         input.agent_id,
+                        stop_receiver,
                     )
                     .await;
             });
@@ -476,6 +483,29 @@ impl RuntimeManager {
             Ok(snapshot)
         })
         .await
+    }
+
+    pub async fn stop_prompt(&self, input: ChatBindingDto) -> anyhow::Result<()> {
+        let workspace_path = canonicalize_workspace_path(PathBuf::from(input.workspace_path))?;
+
+        let active_request_ids = {
+            let state = self.state.lock().await;
+            let Some(conversation) = state.conversations.get(&input.conversation_id) else {
+                return Ok(());
+            };
+            if conversation.workspace_path != workspace_path {
+                return Ok(());
+            }
+            conversation.active_request_ids.clone()
+        };
+
+        for request_id in active_request_ids {
+            if let Some(sender) = self.take_stop_request_sender(&request_id).await {
+                let _ = sender.send(());
+            }
+        }
+
+        Ok(())
     }
 
     pub async fn respond_followup(
@@ -542,7 +572,8 @@ impl RuntimeManager {
                 let runtime = self.ensure_workspace_runtime(&workspace_path).await?;
                 let conversation_id = ConversationId::parse(&conversation_id)?;
                 runtime.api.delete_conversation(&conversation_id).await?;
-                self.refresh_workspace_conversations(&workspace_path).await?;
+                self.refresh_workspace_conversations(&workspace_path)
+                    .await?;
             }
 
             self.projects.delete_conversation_layout(&conversation_id)?;
@@ -558,7 +589,8 @@ impl RuntimeManager {
                     workspace
                         .persisted_conversations
                         .retain(|conversation| conversation.conversation_id != conversation_id);
-                    if workspace.selected_conversation_id.as_deref() == Some(conversation_id.as_str())
+                    if workspace.selected_conversation_id.as_deref()
+                        == Some(conversation_id.as_str())
                     {
                         workspace.selected_conversation_id = None;
                     }
@@ -619,7 +651,8 @@ impl RuntimeManager {
                 conversation_ids
             };
 
-            self.projects.archive_workspace(Path::new(&workspace_path))?;
+            self.projects
+                .archive_workspace(Path::new(&workspace_path))?;
             for conversation_id in &conversation_ids {
                 self.projects.delete_conversation_layout(conversation_id)?;
             }
@@ -818,11 +851,21 @@ impl RuntimeManager {
         self.emit_snapshot(snapshot)
     }
 
+    pub(super) async fn take_stop_request_sender(
+        &self,
+        request_id: &str,
+    ) -> Option<oneshot::Sender<()>> {
+        self.stop_request_senders.lock().await.remove(request_id)
+    }
+
     pub(super) async fn prepare_workspace(
         &self,
         workspace_path: &str,
     ) -> anyhow::Result<ForgeRuntime> {
-        match self.projects.get_workspace_kind(Path::new(workspace_path))? {
+        match self
+            .projects
+            .get_workspace_kind(Path::new(workspace_path))?
+        {
             Some(crate::persistence::project_store::RegisteredWorkspaceKind::ManagedChat) => {
                 self.projects
                     .touch_managed_chat_workspace(Path::new(workspace_path))?;

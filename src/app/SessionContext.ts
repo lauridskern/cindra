@@ -41,6 +41,7 @@ export interface SessionActionsContextValue {
     modelId: string;
     reasoningEffort?: string | null;
   }) => Promise<void>;
+  stopPrompt: () => Promise<void>;
   submitPrompt: () => Promise<void>;
   submitFollowup: (input: {
     cancelled: boolean;

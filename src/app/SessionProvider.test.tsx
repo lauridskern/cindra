@@ -16,6 +16,7 @@ let openWorkspaceCallCount = 0;
 let renameWorkspaceCallCount = 0;
 let renameSavedWorkspaceCallCount = 0;
 let selectConversationCallCount = 0;
+let stopPromptCallCount = 0;
 let createManagedChatImpl: () => Promise<SessionSnapshot>;
 let openWorkspaceImpl: (workspacePath: string) => Promise<SessionSnapshot>;
 let renameWorkspaceImpl: (
@@ -26,6 +27,9 @@ let renameSavedWorkspaceImpl: (
   workspaceId: string,
   name: string,
 ) => Promise<SessionSnapshot>;
+let lastStopPromptInput:
+  | import("../services/desktop/contracts").ChatBinding
+  | null = null;
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
@@ -140,6 +144,12 @@ mock.module("../services/desktop/client", () => ({
     selectConversationCallCount += 1;
     return createSnapshot(workspacePath, conversationId);
   },
+  stopPrompt: async (
+    input: import("../services/desktop/contracts").ChatBinding,
+  ) => {
+    stopPromptCallCount += 1;
+    lastStopPromptInput = input;
+  },
 }));
 
 const { SessionActionsContext } = await import("./SessionContext");
@@ -156,6 +166,8 @@ describe("SessionProvider", () => {
     renameWorkspaceCallCount = 0;
     renameSavedWorkspaceCallCount = 0;
     selectConversationCallCount = 0;
+    stopPromptCallCount = 0;
+    lastStopPromptInput = null;
     createManagedChatImpl = async () =>
       createSnapshot("/workspace/managed-chat", "chat-1", {
         activeConversationId: null,
@@ -256,6 +268,46 @@ describe("SessionProvider", () => {
         workspacePath: "/workspace/other",
       },
       kind: "single-chat",
+    });
+  });
+
+  test("stopPrompt targets the active binding", async () => {
+    sessionStore.getState().setBoardSelection({
+      chat: {
+        conversationId: "chat-7",
+        workspacePath: "/workspace/agent-ui",
+      },
+      kind: "single-chat",
+    });
+
+    let capturedActions:
+      | import("./SessionContext").SessionActionsContextValue
+      | null = null;
+
+    function CaptureActions() {
+      capturedActions = useContext(SessionActionsContext);
+      return null;
+    }
+
+    renderToStaticMarkup(
+      <SessionProvider>
+        <CaptureActions />
+      </SessionProvider>,
+    );
+
+    if (capturedActions == null) {
+      throw new Error("Expected session actions to be available");
+    }
+
+    const actions =
+      capturedActions as import("./SessionContext").SessionActionsContextValue;
+
+    await actions.stopPrompt();
+
+    expect(stopPromptCallCount).toBe(1);
+    expect(lastStopPromptInput).toEqual({
+      conversationId: "chat-7",
+      workspacePath: "/workspace/agent-ui",
     });
   });
 

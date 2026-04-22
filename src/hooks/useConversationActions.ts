@@ -78,6 +78,14 @@ export function useConversationActions(binding?: ChatBinding | null) {
           text: input.text,
         });
       },
+      stopPrompt: async () => {
+        await desktopClient
+          .stopPrompt({
+            conversationId,
+            workspacePath,
+          })
+          .catch(() => null);
+      },
       submitPrompt: async () => {
         const promptDraftKey = getPromptDraftKey(workspacePath, conversationId);
         if (promptDraftKey == null) {

@@ -6,9 +6,9 @@ use forge_api::API;
 use crate::persistence::project_store::RegisteredWorkspaceKind;
 
 use super::{
-    ForgeRuntime, PersistedConversationSummary, RuntimeManager, WorkspaceKind, WorkspaceSessionState,
-    configuration_error_message, fallback_workspace_state, format_error_chain, read_config,
-    resolved_workspace_display_name,
+    ForgeRuntime, PersistedConversationSummary, RuntimeManager, WorkspaceKind,
+    WorkspaceSessionState, configuration_error_message, fallback_workspace_state,
+    format_error_chain, read_config, resolved_workspace_display_name,
 };
 
 impl RuntimeManager {

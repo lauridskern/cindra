@@ -20,12 +20,11 @@ use bridge::emitter::TauriEventEmitter;
 use commands::{
     archive_conversation, archive_workspace, checkout_git_branch, clone_repository,
     commit_git_changes, create_git_branch, create_managed_chat, create_saved_workspace,
-    delete_saved_workspace, ensure_conversation_view, get_conversation_layout,
-    get_prompt_settings, get_runtime_status, get_saved_workspace, get_session_snapshot,
-    open_in_target, open_workspace, pick_directory, pick_workspace, push_git_branch,
-    quick_start_project, rename_workspace, respond_followup, save_conversation_layout,
-    rename_saved_workspace, select_conversation, send_prompt, start_new_chat,
-    terminal_close, terminal_open, terminal_resize, terminal_write,
+    delete_saved_workspace, ensure_conversation_view, get_conversation_layout, get_prompt_settings,
+    get_runtime_status, get_saved_workspace, get_session_snapshot, open_in_target, open_workspace,
+    pick_directory, pick_workspace, push_git_branch, quick_start_project, rename_saved_workspace,
+    rename_workspace, respond_followup, save_conversation_layout, select_conversation, send_prompt,
+    start_new_chat, stop_prompt, terminal_close, terminal_open, terminal_resize, terminal_write,
     update_prompt_settings, update_saved_workspace_layout,
 };
 use persistence::project_store::ProjectStore;
@@ -78,6 +77,7 @@ pub fn run() {
             start_new_chat,
             create_managed_chat,
             send_prompt,
+            stop_prompt,
             update_prompt_settings,
             respond_followup,
             archive_conversation,

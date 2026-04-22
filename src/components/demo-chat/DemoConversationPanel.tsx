@@ -412,6 +412,10 @@ export function DemoConversationPanel() {
     );
   }
 
+  async function handlePromptStop() {
+    setDemoNotice("Intercepted a local stop action.");
+  }
+
   async function handleFollowupSubmit(input: {
     cancelled: boolean;
     text?: string;
@@ -502,12 +506,14 @@ export function DemoConversationPanel() {
         ) : (
           <PromptInputCard
             canCompose={promptState !== "disabled"}
+            isRequestActive={promptState === "sending"}
             isSendingPrompt={promptState === "sending"}
             isPlanningMode={isPlanningMode}
             promptSettings={resolvedPromptSettings}
             promptDraft={promptDraft}
             setPlanningMode={setPlanningMode}
             setPromptDraft={setPromptDraft}
+            stopPrompt={handlePromptStop}
             submitPrompt={handlePromptSubmit}
             updatePromptSettings={handlePromptSettingsUpdate}
           />
