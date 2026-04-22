@@ -1,4 +1,10 @@
-import { useLayoutEffect, useRef } from "react";
+import {
+  useLayoutEffect,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type KeyboardEvent,
+} from "react";
 import {
   ArrowUpIcon,
   ChevronDownIcon,
@@ -25,6 +31,7 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Toggle } from "@/components/ui/toggle";
 import { cn } from "@/lib/utils";
@@ -63,6 +70,8 @@ export function PromptInputCard({
   updatePromptSettings,
 }: PromptInputCardProps) {
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const [isModelMenuOpen, setIsModelMenuOpen] = useState(false);
+  const [modelSearchQuery, setModelSearchQuery] = useState("");
   const isControlDisabled = isSendingPrompt || isRequestActive || !canCompose;
   const isWorking = isRequestActive;
   const isSubmitDisabled =
@@ -79,6 +88,23 @@ export function PromptInputCard({
     selectedReasoningEfforts.includes(promptSettings.selectedReasoningEffort)
       ? promptSettings.selectedReasoningEffort
       : null;
+  const normalizedModelSearchQuery = modelSearchQuery.trim().toLowerCase();
+  const visibleModels =
+    normalizedModelSearchQuery.length === 0
+      ? (promptSettings?.availableModels ?? [])
+      : (promptSettings?.availableModels.filter((model) => {
+          const searchableText = [
+            model.modelName,
+            model.modelId,
+            model.providerName,
+            model.providerId,
+          ]
+            .filter(Boolean)
+            .join(" ")
+            .toLowerCase();
+
+          return searchableText.includes(normalizedModelSearchQuery);
+        }) ?? []);
 
   useLayoutEffect(() => {
     const textarea = textareaRef.current;
@@ -109,6 +135,8 @@ export function PromptInputCard({
       modelId: nextModel.modelId,
       reasoningEffort: nextReasoning,
     });
+    setIsModelMenuOpen(false);
+    setModelSearchQuery("");
   }
 
   function handleReasoningChange(value: string) {
@@ -176,7 +204,15 @@ export function PromptInputCard({
         </CardContent>
         <CardFooter className="relative z-10 items-center justify-between p-0">
           <ButtonGroup aria-label="Prompt controls" className="-mb-1.5">
-            <DropdownMenu>
+            <DropdownMenu
+              open={isModelMenuOpen}
+              onOpenChange={(open) => {
+                setIsModelMenuOpen(open);
+                if (!open) {
+                  setModelSearchQuery("");
+                }
+              }}
+            >
               <DropdownMenuTrigger
                 render={
                   <Button
@@ -198,7 +234,21 @@ export function PromptInputCard({
                 </span>
                 <ChevronDownIcon />
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-72">
+              <DropdownMenuContent align="start" className="max-h-80 w-72 pt-0">
+                <div className="sticky z-10 top-0 bg-popover -mx-1 p-1.5">
+                  <Input
+                    value={modelSearchQuery}
+                    placeholder="Search models"
+                    className="h-8 bg-popover dark:bg-popover"
+                    autoFocus
+                    onChange={(event: ChangeEvent<HTMLInputElement>) => {
+                      setModelSearchQuery(event.target.value);
+                    }}
+                    onKeyDown={(event: KeyboardEvent<HTMLInputElement>) => {
+                      event.stopPropagation();
+                    }}
+                  />
+                </div>
                 <DropdownMenuGroup>
                   <DropdownMenuRadioGroup
                     value={
@@ -208,19 +258,25 @@ export function PromptInputCard({
                     }
                     onValueChange={handleModelChange}
                   >
-                    {promptSettings?.availableModels.map((option) => (
-                      <DropdownMenuRadioItem
-                        key={`${option.providerId}:${option.modelId}`}
-                        value={`${option.providerId}:${option.modelId}`}
-                      >
-                        <span className="truncate">
-                          {option.modelName ?? option.modelId}
-                        </span>
-                        <span className="ml-auto text-muted-foreground">
-                          {option.providerName}
-                        </span>
-                      </DropdownMenuRadioItem>
-                    )) ?? null}
+                    {visibleModels.length === 0 ? (
+                      <div className="px-2 py-1.5 text-xs text-muted-foreground">
+                        No models match your search.
+                      </div>
+                    ) : (
+                      visibleModels.map((option) => (
+                        <DropdownMenuRadioItem
+                          key={`${option.providerId}:${option.modelId}`}
+                          value={`${option.providerId}:${option.modelId}`}
+                        >
+                          <span className="truncate">
+                            {option.modelName ?? option.modelId}
+                          </span>
+                          <span className="ml-auto text-muted-foreground">
+                            {option.providerName}
+                          </span>
+                        </DropdownMenuRadioItem>
+                      ))
+                    )}
                   </DropdownMenuRadioGroup>
                 </DropdownMenuGroup>
               </DropdownMenuContent>
