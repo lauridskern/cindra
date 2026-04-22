@@ -4,20 +4,26 @@ use std::future::Future;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::sync::Arc;
+use std::time::Duration;
 
 use anyhow::Context;
 use forge_api::API;
-use forge_domain::{ConfigOperation, ConversationId, Effort, Model, ModelConfig, ProviderId};
+use forge_domain::{
+    AnyProvider, AuthContextRequest, AuthContextResponse, AuthMethod, ConfigOperation,
+    ConversationId, Effort, Model, ModelConfig, ProviderId,
+};
 use tokio::sync::{Mutex, mpsc, oneshot};
 use uuid::Uuid;
 
 use crate::bridge::emitter::UiEventEmitter;
 use crate::bridge::followup::FollowupBridge;
 use crate::dto::{
-    ChatBindingDto, CreateSavedWorkspaceInput, FollowupRequestDto, FollowupResponseDto,
-    PromptModelOptionDto, PromptSettingsDto, RuntimeStatusDto, SaveConversationLayoutInput,
-    SendPromptInput, SessionMessageDto, SessionSnapshotDto, UpdatePromptSettingsInput,
-    UpdateSavedWorkspaceLayoutInput,
+    ChatBindingDto, CompleteProviderAuthInput, CreateSavedWorkspaceInput, FollowupRequestDto,
+    FollowupResponseDto, PromptModelOptionDto, PromptSettingsDto, ProviderAuthMethodDto,
+    ProviderAuthMethodKindDto, ProviderAuthSessionDto, ProviderAuthSessionKindDto,
+    ProviderSummaryDto, ProviderUrlParamDto, RemoveProviderInput, RuntimeStatusDto,
+    SaveConversationLayoutInput, SendPromptInput, SessionMessageDto, SessionSnapshotDto,
+    StartProviderAuthInput, UpdatePromptSettingsInput, UpdateSavedWorkspaceLayoutInput,
 };
 use crate::persistence::project_store::ProjectStore;
 
@@ -32,12 +38,27 @@ use super::{
 };
 
 #[derive(Clone)]
+enum ProviderRuntimeScope {
+    Workspace(String),
+    Transient(PathBuf),
+}
+
+#[derive(Clone)]
+struct PendingProviderAuthSession {
+    auth_method_kind: ProviderAuthMethodKindDto,
+    provider_id: ProviderId,
+    request: AuthContextRequest,
+    runtime_scope: ProviderRuntimeScope,
+}
+
+#[derive(Clone)]
 pub struct RuntimeManager {
     pub(super) emitter: Arc<dyn UiEventEmitter>,
     pub(super) followups: Arc<FollowupBridge>,
     pub(super) projects: Arc<ProjectStore>,
     pub(super) state: Arc<Mutex<RuntimeState>>,
     pub(super) factory: Arc<RuntimeFactory>,
+    pending_provider_auth_sessions: Arc<Mutex<HashMap<String, PendingProviderAuthSession>>>,
     pub(super) stop_request_senders: Arc<Mutex<HashMap<String, oneshot::Sender<()>>>>,
 }
 
@@ -53,6 +74,7 @@ impl RuntimeManager {
             projects,
             state: shared_runtime_state(),
             factory: Arc::new(RuntimeFactory::new(followups)),
+            pending_provider_auth_sessions: Arc::new(Mutex::new(HashMap::new())),
             stop_request_senders: Arc::new(Mutex::new(HashMap::new())),
         }
     }
@@ -212,6 +234,148 @@ impl RuntimeManager {
             runtime.api.update_config(operations).await?;
             self.refresh_cached_runtime_config(&workspace_path).await;
             build_prompt_settings(&runtime).await
+        })
+        .await
+    }
+
+    pub async fn list_providers(
+        &self,
+        workspace_path: Option<String>,
+    ) -> anyhow::Result<Vec<ProviderSummaryDto>> {
+        self.with_recorded_ui_error(async {
+            let runtime_scope = self.resolve_provider_runtime_scope(workspace_path).await?;
+            let runtime = self.provider_runtime(&runtime_scope).await?;
+            let mut providers = runtime.api.get_providers().await?;
+            providers.sort_by(|left, right| {
+                right
+                    .is_configured()
+                    .cmp(&left.is_configured())
+                    .then_with(|| left.id().to_string().cmp(&right.id().to_string()))
+            });
+
+            Ok(providers.into_iter().map(map_provider_summary).collect())
+        })
+        .await
+    }
+
+    pub async fn start_provider_auth(
+        &self,
+        input: StartProviderAuthInput,
+    ) -> anyhow::Result<ProviderAuthSessionDto> {
+        self.with_recorded_ui_error(async {
+            let runtime_scope = self
+                .resolve_provider_runtime_scope(input.workspace_path.clone())
+                .await?;
+            let runtime = self.provider_runtime(&runtime_scope).await?;
+            let provider_id = ProviderId::from(input.provider_id.clone());
+            let provider = runtime.api.get_provider(&provider_id).await?;
+            let auth_method = resolve_provider_auth_method(&provider, &input.auth_method)?;
+            let request = runtime
+                .api
+                .init_provider_auth(provider_id.clone(), auth_method)
+                .await?;
+            let auth_session_id = Uuid::new_v4().to_string();
+
+            self.pending_provider_auth_sessions.lock().await.insert(
+                auth_session_id.clone(),
+                PendingProviderAuthSession {
+                    auth_method_kind: input.auth_method.clone(),
+                    provider_id,
+                    request: request.clone(),
+                    runtime_scope,
+                },
+            );
+
+            Ok(map_provider_auth_session(
+                auth_session_id,
+                &input.auth_method,
+                request,
+            ))
+        })
+        .await
+    }
+
+    pub async fn complete_provider_auth(
+        &self,
+        input: CompleteProviderAuthInput,
+    ) -> anyhow::Result<ProviderSummaryDto> {
+        self.with_recorded_ui_error(async {
+            let pending = self
+                .pending_provider_auth_sessions
+                .lock()
+                .await
+                .get(&input.auth_session_id)
+                .cloned()
+                .context("Provider setup expired. Start again.")?;
+
+            let runtime = self.provider_runtime(&pending.runtime_scope).await?;
+            let response = match pending.request.clone() {
+                AuthContextRequest::ApiKey(request) => {
+                    let api_key = match pending.auth_method_kind {
+                        ProviderAuthMethodKindDto::GoogleAdc => "google_adc_marker".to_string(),
+                        ProviderAuthMethodKindDto::ApiKey => input
+                            .api_key
+                            .clone()
+                            .filter(|value| !value.trim().is_empty())
+                            .context("Enter an API key.")?,
+                        _ => anyhow::bail!("Unexpected auth method for API key setup."),
+                    };
+                    AuthContextResponse::api_key(
+                        request,
+                        api_key,
+                        input
+                            .url_parameters
+                            .iter()
+                            .map(|parameter| (parameter.name.clone(), parameter.value.clone()))
+                            .collect::<HashMap<_, _>>(),
+                    )
+                }
+                AuthContextRequest::DeviceCode(request) => {
+                    AuthContextResponse::device_code(request)
+                }
+                AuthContextRequest::Code(request) => AuthContextResponse::code(
+                    request,
+                    input
+                        .authorization_code
+                        .clone()
+                        .filter(|value| !value.trim().is_empty())
+                        .context("Paste the authorization code to finish setup.")?,
+                ),
+            };
+
+            runtime
+                .api
+                .complete_provider_auth(
+                    pending.provider_id.clone(),
+                    response,
+                    Duration::from_secs(180),
+                )
+                .await?;
+
+            self.pending_provider_auth_sessions
+                .lock()
+                .await
+                .remove(&input.auth_session_id);
+
+            let provider = runtime.api.get_provider(&pending.provider_id).await?;
+            Ok(map_provider_summary(provider))
+        })
+        .await
+    }
+
+    pub async fn remove_provider(
+        &self,
+        input: RemoveProviderInput,
+    ) -> anyhow::Result<ProviderSummaryDto> {
+        self.with_recorded_ui_error(async {
+            let runtime_scope = self
+                .resolve_provider_runtime_scope(input.workspace_path.clone())
+                .await?;
+            let runtime = self.provider_runtime(&runtime_scope).await?;
+            let provider_id = ProviderId::from(input.provider_id);
+            runtime.api.remove_provider(&provider_id).await?;
+            let provider = runtime.api.get_provider(&provider_id).await?;
+            Ok(map_provider_summary(provider))
         })
         .await
     }
@@ -851,6 +1015,44 @@ impl RuntimeManager {
         Ok(runtime)
     }
 
+    async fn resolve_provider_runtime_scope(
+        &self,
+        workspace_path: Option<String>,
+    ) -> anyhow::Result<ProviderRuntimeScope> {
+        self.ensure_known_workspaces_loaded().await?;
+
+        let requested_workspace_path = if let Some(workspace_path) = workspace_path {
+            Some(canonicalize_workspace_path(PathBuf::from(workspace_path))?)
+        } else {
+            self.state.lock().await.active_workspace_path.clone()
+        };
+
+        if let Some(workspace_path) = requested_workspace_path {
+            return Ok(ProviderRuntimeScope::Workspace(workspace_path));
+        }
+
+        Ok(ProviderRuntimeScope::Transient(
+            std::env::current_dir().context("Failed to resolve the current directory.")?,
+        ))
+    }
+
+    async fn provider_runtime(
+        &self,
+        runtime_scope: &ProviderRuntimeScope,
+    ) -> anyhow::Result<ForgeRuntime> {
+        match runtime_scope {
+            ProviderRuntimeScope::Workspace(workspace_path) => {
+                self.ensure_workspace_runtime(workspace_path).await
+            }
+            ProviderRuntimeScope::Transient(cwd) => {
+                let (config, configuration_error) = read_config();
+                self.factory
+                    .build_runtime(cwd.clone(), config, configuration_error)
+                    .await
+            }
+        }
+    }
+
     async fn activate_workspace(&self, workspace_path: &str) -> Option<String> {
         let mut state = self.state.lock().await;
         state.active_workspace_path = Some(workspace_path.to_string());
@@ -970,10 +1172,25 @@ async fn build_prompt_settings(runtime: &ForgeRuntime) -> anyhow::Result<PromptS
 
     let selected_provider_id = current_config
         .as_ref()
-        .map(|config| config.provider.as_ref().to_string());
+        .map(|config| config.provider.as_ref().to_string())
+        .filter(|provider_id| {
+            available_models
+                .iter()
+                .any(|model| &model.provider_id == provider_id)
+        });
     let selected_model_id = current_config
         .as_ref()
-        .map(|config| config.model.to_string());
+        .map(|config| config.model.to_string())
+        .filter(|model_id| {
+            selected_provider_id
+                .as_ref()
+                .and_then(|provider_id| {
+                    available_models.iter().find(|model| {
+                        &model.provider_id == provider_id && &model.model_id == model_id
+                    })
+                })
+                .is_some()
+        });
     let selected_reasoning_effort =
         current_effort
             .map(|effort| effort.to_string())
@@ -1028,4 +1245,126 @@ fn reasoning_efforts_for_model(provider_id: &ProviderId, model: &Model) -> Vec<S
         .iter()
         .map(|effort| (*effort).to_string())
         .collect()
+}
+
+fn map_provider_summary(provider: AnyProvider) -> ProviderSummaryDto {
+    ProviderSummaryDto {
+        id: provider.id().as_ref().to_string(),
+        name: provider.id().to_string(),
+        configured: provider.is_configured(),
+        auth_methods: provider
+            .auth_methods()
+            .iter()
+            .map(map_provider_auth_method)
+            .collect(),
+    }
+}
+
+fn map_provider_auth_method(method: &AuthMethod) -> ProviderAuthMethodDto {
+    let kind = map_provider_auth_method_kind(method);
+    ProviderAuthMethodDto {
+        label: provider_auth_method_label(&kind).to_string(),
+        kind,
+    }
+}
+
+fn map_provider_auth_method_kind(method: &AuthMethod) -> ProviderAuthMethodKindDto {
+    match method {
+        AuthMethod::ApiKey => ProviderAuthMethodKindDto::ApiKey,
+        AuthMethod::OAuthDevice(_) => ProviderAuthMethodKindDto::OAuthDevice,
+        AuthMethod::OAuthCode(_) => ProviderAuthMethodKindDto::OAuthCode,
+        AuthMethod::GoogleAdc => ProviderAuthMethodKindDto::GoogleAdc,
+        AuthMethod::CodexDevice(_) => ProviderAuthMethodKindDto::CodexDevice,
+    }
+}
+
+fn provider_auth_method_label(kind: &ProviderAuthMethodKindDto) -> &'static str {
+    match kind {
+        ProviderAuthMethodKindDto::ApiKey => "API key",
+        ProviderAuthMethodKindDto::OAuthDevice => "OAuth device",
+        ProviderAuthMethodKindDto::OAuthCode => "OAuth",
+        ProviderAuthMethodKindDto::GoogleAdc => "Google ADC",
+        ProviderAuthMethodKindDto::CodexDevice => "OpenAI device",
+    }
+}
+
+fn resolve_provider_auth_method(
+    provider: &AnyProvider,
+    requested_kind: &ProviderAuthMethodKindDto,
+) -> anyhow::Result<AuthMethod> {
+    provider
+        .auth_methods()
+        .iter()
+        .find(|candidate| map_provider_auth_method_kind(candidate) == *requested_kind)
+        .cloned()
+        .with_context(|| {
+            format!(
+                "Provider '{}' does not support {} authentication.",
+                provider.id(),
+                provider_auth_method_label(requested_kind)
+            )
+        })
+}
+
+fn map_provider_auth_session(
+    auth_session_id: String,
+    auth_method_kind: &ProviderAuthMethodKindDto,
+    request: AuthContextRequest,
+) -> ProviderAuthSessionDto {
+    match request {
+        AuthContextRequest::ApiKey(request) => ProviderAuthSessionDto {
+            kind: ProviderAuthSessionKindDto::ApiKey,
+            auth_session_id,
+            requires_api_key: matches!(auth_method_kind, ProviderAuthMethodKindDto::ApiKey),
+            api_key_hint: if matches!(auth_method_kind, ProviderAuthMethodKindDto::ApiKey) {
+                request.api_key.as_ref().map(ToString::to_string)
+            } else {
+                None
+            },
+            url_parameters: request
+                .required_params
+                .iter()
+                .map(|parameter| ProviderUrlParamDto {
+                    name: parameter.name.as_str().to_string(),
+                    value: request
+                        .existing_params
+                        .as_ref()
+                        .and_then(|values| values.get(&parameter.name))
+                        .map(|value| value.as_str().to_string()),
+                    options: parameter.options.clone(),
+                })
+                .collect(),
+            verification_uri: None,
+            verification_uri_complete: None,
+            user_code: None,
+            expires_in_seconds: None,
+            authorization_url: None,
+        },
+        AuthContextRequest::DeviceCode(request) => ProviderAuthSessionDto {
+            kind: ProviderAuthSessionKindDto::DeviceCode,
+            auth_session_id,
+            requires_api_key: false,
+            api_key_hint: None,
+            url_parameters: Vec::new(),
+            verification_uri: Some(request.verification_uri.to_string()),
+            verification_uri_complete: request
+                .verification_uri_complete
+                .map(|value| value.to_string()),
+            user_code: Some(request.user_code.to_string()),
+            expires_in_seconds: Some(request.expires_in),
+            authorization_url: None,
+        },
+        AuthContextRequest::Code(request) => ProviderAuthSessionDto {
+            kind: ProviderAuthSessionKindDto::OAuthCode,
+            auth_session_id,
+            requires_api_key: false,
+            api_key_hint: None,
+            url_parameters: Vec::new(),
+            verification_uri: None,
+            verification_uri_complete: None,
+            user_code: None,
+            expires_in_seconds: None,
+            authorization_url: Some(request.authorization_url.to_string()),
+        },
+    }
 }

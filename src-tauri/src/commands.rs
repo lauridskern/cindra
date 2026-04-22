@@ -1,10 +1,11 @@
 use crate::dto::{
     ChatBindingDto, CheckoutGitBranchInput, CloneRepositoryInput, CommitGitChangesInput,
-    CreateGitBranchInput, CreateSavedWorkspaceInput, FollowupResponseDto, PromptSettingsDto,
-    QuickStartProjectInput, QuickStartVisibility, RuntimeStatusDto, SaveConversationLayoutInput,
-    SendPromptInput, SessionSnapshotDto, TerminalCloseInput, TerminalOpenInput,
-    TerminalResizeInput, TerminalSessionDto, TerminalWriteInput, UpdatePromptSettingsInput,
-    UpdateSavedWorkspaceLayoutInput,
+    CompleteProviderAuthInput, CreateGitBranchInput, CreateSavedWorkspaceInput,
+    FollowupResponseDto, PromptSettingsDto, ProviderAuthSessionDto, ProviderSummaryDto,
+    QuickStartProjectInput, QuickStartVisibility, RemoveProviderInput, RuntimeStatusDto,
+    SaveConversationLayoutInput, SendPromptInput, SessionSnapshotDto, StartProviderAuthInput,
+    TerminalCloseInput, TerminalOpenInput, TerminalResizeInput, TerminalSessionDto,
+    TerminalWriteInput, UpdatePromptSettingsInput, UpdateSavedWorkspaceLayoutInput,
 };
 use crate::runtime::{DesktopState, format_error_chain};
 use anyhow::Context;
@@ -83,6 +84,54 @@ pub(crate) async fn get_prompt_settings(
     state
         .manager
         .get_prompt_settings(workspace_path)
+        .await
+        .map_err(map_command_error)
+}
+
+#[tauri::command]
+pub(crate) async fn list_providers(
+    workspace_path: Option<String>,
+    state: tauri::State<'_, DesktopState>,
+) -> Result<Vec<ProviderSummaryDto>, String> {
+    state
+        .manager
+        .list_providers(workspace_path)
+        .await
+        .map_err(map_command_error)
+}
+
+#[tauri::command]
+pub(crate) async fn start_provider_auth(
+    input: StartProviderAuthInput,
+    state: tauri::State<'_, DesktopState>,
+) -> Result<ProviderAuthSessionDto, String> {
+    state
+        .manager
+        .start_provider_auth(input)
+        .await
+        .map_err(map_command_error)
+}
+
+#[tauri::command]
+pub(crate) async fn complete_provider_auth(
+    input: CompleteProviderAuthInput,
+    state: tauri::State<'_, DesktopState>,
+) -> Result<ProviderSummaryDto, String> {
+    state
+        .manager
+        .complete_provider_auth(input)
+        .await
+        .map_err(map_command_error)
+}
+
+#[tauri::command]
+pub(crate) async fn remove_provider(
+    input: RemoveProviderInput,
+    state: tauri::State<'_, DesktopState>,
+) -> Result<ProviderSummaryDto, String> {
+    state
+        .manager
+        .remove_provider(input)
         .await
         .map_err(map_command_error)
 }
@@ -291,6 +340,11 @@ pub(crate) async fn open_in_target(
         .open_in_target(workspace_path, target_id)
         .await
         .map_err(map_command_error)
+}
+
+#[tauri::command]
+pub(crate) async fn open_external_url(url: String) -> Result<(), String> {
+    crate::desktop_open::open_external_url(&url).map_err(map_command_error)
 }
 
 #[tauri::command]

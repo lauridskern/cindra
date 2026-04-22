@@ -199,6 +199,104 @@ pub struct UpdatePromptSettingsInput {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, TS)]
+#[serde(rename_all = "snake_case")]
+#[ts(rename = "ProviderAuthMethodKind")]
+pub enum ProviderAuthMethodKindDto {
+    ApiKey,
+    OAuthDevice,
+    OAuthCode,
+    GoogleAdc,
+    CodexDevice,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(rename = "ProviderAuthMethod")]
+pub struct ProviderAuthMethodDto {
+    pub kind: ProviderAuthMethodKindDto,
+    pub label: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(rename = "ProviderSummary")]
+pub struct ProviderSummaryDto {
+    pub id: String,
+    pub name: String,
+    pub configured: bool,
+    pub auth_methods: Vec<ProviderAuthMethodDto>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(rename = "ProviderUrlParam")]
+pub struct ProviderUrlParamDto {
+    pub name: String,
+    pub value: Option<String>,
+    pub options: Option<Vec<String>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(rename = "ProviderUrlParamValue")]
+pub struct ProviderUrlParamValueDto {
+    pub name: String,
+    pub value: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, TS)]
+#[serde(rename_all = "snake_case")]
+#[ts(rename = "ProviderAuthSessionKind")]
+pub enum ProviderAuthSessionKindDto {
+    ApiKey,
+    DeviceCode,
+    OAuthCode,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(rename = "ProviderAuthSession")]
+pub struct ProviderAuthSessionDto {
+    pub kind: ProviderAuthSessionKindDto,
+    pub auth_session_id: String,
+    pub requires_api_key: bool,
+    pub api_key_hint: Option<String>,
+    pub url_parameters: Vec<ProviderUrlParamDto>,
+    pub verification_uri: Option<String>,
+    pub verification_uri_complete: Option<String>,
+    pub user_code: Option<String>,
+    pub expires_in_seconds: Option<u64>,
+    pub authorization_url: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(rename = "StartProviderAuthInput")]
+pub struct StartProviderAuthInput {
+    pub workspace_path: Option<String>,
+    pub provider_id: String,
+    pub auth_method: ProviderAuthMethodKindDto,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(rename = "CompleteProviderAuthInput")]
+pub struct CompleteProviderAuthInput {
+    pub auth_session_id: String,
+    pub api_key: Option<String>,
+    pub authorization_code: Option<String>,
+    pub url_parameters: Vec<ProviderUrlParamValueDto>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(rename = "RemoveProviderInput")]
+pub struct RemoveProviderInput {
+    pub workspace_path: Option<String>,
+    pub provider_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, TS)]
 #[serde(rename_all = "camelCase")]
 pub struct SendPromptInput {
     pub workspace_path: String,

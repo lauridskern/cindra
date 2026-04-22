@@ -10,9 +10,12 @@ pub(crate) use activity::{map_tool_call_detail, map_tool_result_detail, summariz
 pub use chat::{ChatEventDto, ChatEventKind, StatusCategoryDto, map_chat_response};
 pub use followup::{FollowupKind, FollowupOptionDto, FollowupRequestDto, FollowupResponseDto};
 pub use runtime::{
-    CheckoutGitBranchInput, CloneRepositoryInput, CommitGitChangesInput, CreateGitBranchInput,
-    CreateSavedWorkspaceInput, PromptModelOptionDto, PromptSettingsDto, QuickStartProjectInput,
-    QuickStartVisibility, RuntimeStatusDto, SaveConversationLayoutInput, SendPromptInput,
+    CheckoutGitBranchInput, CloneRepositoryInput, CommitGitChangesInput, CompleteProviderAuthInput,
+    CreateGitBranchInput, CreateSavedWorkspaceInput, PromptModelOptionDto, PromptSettingsDto,
+    ProviderAuthMethodDto, ProviderAuthMethodKindDto, ProviderAuthSessionDto,
+    ProviderAuthSessionKindDto, ProviderSummaryDto, ProviderUrlParamDto, ProviderUrlParamValueDto,
+    QuickStartProjectInput, QuickStartVisibility, RemoveProviderInput, RuntimeStatusDto,
+    SaveConversationLayoutInput, SendPromptInput, StartProviderAuthInput,
     UpdatePromptSettingsInput, UpdateSavedWorkspaceLayoutInput,
 };
 pub use session::{

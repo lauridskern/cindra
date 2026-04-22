@@ -4,6 +4,8 @@ import {
   FolderPlus,
   PanelsTopLeft,
   PenSquare,
+  Plug2Icon,
+  Settings2Icon,
   Trash2Icon,
 } from "lucide-react";
 
@@ -17,6 +19,7 @@ import { handleWindowDragStart } from "../utils/window";
 import { ProjectSidebarActions } from "./ProjectSidebarActions";
 import { SidebarArchiveAction } from "./SidebarArchiveAction";
 import { SidebarItemActionsMenu } from "./SidebarItemActionsMenu";
+import { SidebarSettingsControl } from "./SidebarSettingsControl";
 import { ProjectSidebarProject } from "./ProjectSidebarProject";
 import { Button } from "./ui/button";
 import {
@@ -33,6 +36,13 @@ import {
 } from "./ui/sidebar";
 
 const EXPANDED_PROJECTS_STORAGE_KEY = "project-sidebar:expanded-projects";
+
+interface ProjectSidebarProps {
+  isSettingsViewOpen: boolean;
+  selectedSettingsSection: "general" | "providers";
+  onOpenSettings: () => void;
+  onSelectSettingsSection: (section: "general" | "providers") => void;
+}
 
 function loadExpandedProjectPaths() {
   if (typeof window === "undefined") {
@@ -58,7 +68,12 @@ function loadExpandedProjectPaths() {
   }
 }
 
-export function ProjectSidebar() {
+export function ProjectSidebar({
+  isSettingsViewOpen,
+  selectedSettingsSection,
+  onOpenSettings,
+  onSelectSettingsSection,
+}: ProjectSidebarProps) {
   const isDevBuild = import.meta.env.DEV;
   const [expandedProjectPaths, setExpandedProjectPaths] = useState<string[]>(
     () => loadExpandedProjectPaths(),
@@ -168,8 +183,72 @@ export function ProjectSidebar() {
     setBoardSelection({ kind: "demo-chat" });
   }
 
+  if (isSettingsViewOpen) {
+    return (
+      <Sidebar
+        collapsible="none"
+        className="relative w-full border-r-0 bg-transparent"
+      >
+        <SidebarHeader className="relative pb-1 pt-10">
+          <div
+            className="absolute inset-x-0 top-0 h-9 cursor-grab bg-transparent active:cursor-grabbing"
+            role="presentation"
+            onMouseDown={handleWindowDragStart}
+          />
+        </SidebarHeader>
+
+        <SidebarContent className="select-none">
+          <SidebarGroup className="pt-0">
+            <div className="mb-1 flex h-7 items-center justify-between px-2">
+              <SidebarGroupLabel className="h-full px-0 font-medium">
+                Settings
+              </SidebarGroupLabel>
+            </div>
+
+            <SidebarGroupContent>
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    isActive={selectedSettingsSection === "general"}
+                    tooltip="General"
+                    className="font-medium [&_svg]:size-3.5"
+                    onClick={() => {
+                      onSelectSettingsSection("general");
+                    }}
+                  >
+                    <Settings2Icon
+                      strokeWidth={2}
+                      className="size-3.5 shrink-0"
+                    />
+                    <span>General</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    isActive={selectedSettingsSection === "providers"}
+                    tooltip="Providers"
+                    className="font-medium [&_svg]:size-3.5"
+                    onClick={() => {
+                      onSelectSettingsSection("providers");
+                    }}
+                  >
+                    <Plug2Icon strokeWidth={2} className="size-3.5 shrink-0" />
+                    <span>Providers</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        </SidebarContent>
+      </Sidebar>
+    );
+  }
+
   return (
-    <Sidebar collapsible="none" className="w-full border-r-0 bg-transparent">
+    <Sidebar
+      collapsible="none"
+      className="relative w-full border-r-0 bg-transparent"
+    >
       <SidebarHeader className="relative pb-1 pt-10">
         <div
           className="absolute inset-x-0 top-0 h-9 cursor-grab bg-transparent active:cursor-grabbing"
@@ -182,7 +261,7 @@ export function ProjectSidebar() {
         />
       </SidebarHeader>
 
-      <SidebarContent className="select-none">
+      <SidebarContent className="select-none pb-24">
         <SidebarGroup className="pt-0">
           <div className="mb-1 flex h-7 items-center justify-between px-2">
             <SidebarGroupLabel className="h-full px-0 font-medium">
@@ -218,7 +297,10 @@ export function ProjectSidebar() {
                       menuAriaLabel={`More actions for ${workspace.name}`}
                       onRemove={() => handleDeleteSavedWorkspace(workspace.id)}
                       onRename={(name) =>
-                        handleRenameSavedWorkspace(workspace.id, name ?? workspace.name)
+                        handleRenameSavedWorkspace(
+                          workspace.id,
+                          name ?? workspace.name,
+                        )
                       }
                       removeIcon={Trash2Icon}
                     />
@@ -252,8 +334,7 @@ export function ProjectSidebar() {
                     chatWorkspace.conversations[0]?.conversationId ??
                     null;
                   const isActive =
-                    isChatOpen &&
-                    activeConversationId === activeChatId;
+                    isChatOpen && activeConversationId === activeChatId;
                   const chatTitle =
                     chatWorkspace.conversations[0]?.title ?? "New chat";
                   const updatedAt = formatRelativeTimestamp(
@@ -278,7 +359,10 @@ export function ProjectSidebar() {
                           void openProject(chatWorkspace.workspacePath);
                         }}
                       >
-                        <PenSquare strokeWidth={2} className="size-3.5 shrink-0" />
+                        <PenSquare
+                          strokeWidth={2}
+                          className="size-3.5 shrink-0"
+                        />
                         <span className="min-w-0 flex-1 truncate pr-2">
                           {chatTitle}
                         </span>
@@ -332,12 +416,12 @@ export function ProjectSidebar() {
                   const isProjectOpen =
                     !isDemoChatSelected &&
                     project.workspacePath === activeWorkspacePath;
-                  const isActive = isProjectOpen && activeConversationId == null;
+                  const isActive =
+                    isProjectOpen && activeConversationId == null;
                   const isExpanded = isWorkspaceExpanded(project.workspacePath);
-                  const selectedConversationId =
-                    isProjectOpen
-                      ? activeConversationId ?? project.selectedConversationId
-                      : null;
+                  const selectedConversationId = isProjectOpen
+                    ? (activeConversationId ?? project.selectedConversationId)
+                    : null;
 
                   return (
                     <ProjectSidebarProject
@@ -389,6 +473,13 @@ export function ProjectSidebar() {
           </SidebarGroup>
         ) : null}
       </SidebarContent>
+
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 px-3 pb-3">
+        <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-sidebar via-sidebar/95 to-transparent" />
+        <div className="relative pointer-events-auto">
+          <SidebarSettingsControl onOpenSettings={onOpenSettings} />
+        </div>
+      </div>
     </Sidebar>
   );
 }

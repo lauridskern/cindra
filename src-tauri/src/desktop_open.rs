@@ -49,6 +49,28 @@ pub fn open_path_in_target(target_id: &str, path: &Path) -> anyhow::Result<()> {
     anyhow::bail!("Failed to launch {target_id}.")
 }
 
+pub fn open_external_url(url: &str) -> anyhow::Result<()> {
+    let mut command = build_open_url_command(url);
+    let output = command
+        .output()
+        .with_context(|| "Failed to open the external URL.".to_string())?;
+
+    if output.status.success() {
+        return Ok(());
+    }
+
+    let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+    let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    if !stderr.is_empty() {
+        anyhow::bail!("{stderr}");
+    }
+    if !stdout.is_empty() {
+        anyhow::bail!("{stdout}");
+    }
+
+    anyhow::bail!("Failed to open the external URL.")
+}
+
 fn is_open_target_available(target_id: &str) -> bool {
     #[cfg(target_os = "macos")]
     {
@@ -99,6 +121,29 @@ fn build_open_command(target_id: &str, path: &Path) -> Option<Command> {
         let mut command = Command::new(resolve_command(target_id)?);
         command.arg(path);
         return Some(command);
+    }
+}
+
+fn build_open_url_command(url: &str) -> Command {
+    #[cfg(target_os = "macos")]
+    {
+        let mut command = Command::new("open");
+        command.arg(url);
+        return command;
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        let mut command = Command::new("cmd");
+        command.args(["/C", "start", "", url]);
+        return command;
+    }
+
+    #[cfg(all(unix, not(target_os = "macos")))]
+    {
+        let mut command = Command::new("xdg-open");
+        command.arg(url);
+        return command;
     }
 }
 

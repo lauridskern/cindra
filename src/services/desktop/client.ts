@@ -5,12 +5,16 @@ import type {
   CheckoutGitBranchInput,
   ChatBinding,
   CloneRepositoryInput,
+  CompleteProviderAuthInput,
   CommitGitChangesInput,
   CreateSavedWorkspaceInput,
   CreateGitBranchInput,
   FollowupResponse,
+  ProviderAuthSession,
+  ProviderSummary,
   PromptSettings,
   QuickStartProjectInput,
+  RemoveProviderInput,
   RuntimeStatus,
   SavedWorkspaceDetail,
   SaveConversationLayoutInput,
@@ -25,6 +29,7 @@ import type {
   TerminalSession,
   TerminalWriteInput,
   UpdateSavedWorkspaceLayoutInput,
+  StartProviderAuthInput,
   UpdatePromptSettingsInput,
 } from "./contracts";
 
@@ -81,11 +86,22 @@ export function getPromptSettings(
   });
 }
 
+export function listProviders(
+  workspacePath?: string | null,
+): Promise<ProviderSummary[]> {
+  return invokeCommand("list_providers", {
+    workspacePath: workspacePath ?? null,
+  });
+}
+
 export function selectConversation(
   workspacePath: string,
   conversationId: string,
 ): Promise<SessionSnapshot> {
-  return invokeCommand("select_conversation", { workspacePath, conversationId });
+  return invokeCommand("select_conversation", {
+    workspacePath,
+    conversationId,
+  });
 }
 
 export function ensureConversationView(
@@ -120,6 +136,24 @@ export function updatePromptSettings(
   return invokeCommand("update_prompt_settings", { input });
 }
 
+export function startProviderAuth(
+  input: StartProviderAuthInput,
+): Promise<ProviderAuthSession> {
+  return invokeCommand("start_provider_auth", { input });
+}
+
+export function completeProviderAuth(
+  input: CompleteProviderAuthInput,
+): Promise<ProviderSummary> {
+  return invokeCommand("complete_provider_auth", { input });
+}
+
+export function removeProvider(
+  input: RemoveProviderInput,
+): Promise<ProviderSummary> {
+  return invokeCommand("remove_provider", { input });
+}
+
 export function respondFollowup(
   response: FollowupResponse,
 ): Promise<SessionSnapshot> {
@@ -130,10 +164,15 @@ export function archiveConversation(
   workspacePath: string,
   conversationId: string,
 ): Promise<SessionSnapshot> {
-  return invokeCommand("archive_conversation", { workspacePath, conversationId });
+  return invokeCommand("archive_conversation", {
+    workspacePath,
+    conversationId,
+  });
 }
 
-export function archiveWorkspace(workspacePath: string): Promise<SessionSnapshot> {
+export function archiveWorkspace(
+  workspacePath: string,
+): Promise<SessionSnapshot> {
   return invokeCommand("archive_workspace", { workspacePath });
 }
 
@@ -175,9 +214,7 @@ export function commitGitChanges(
   return invokeCommand("commit_git_changes", { input });
 }
 
-export function pushGitBranch(
-  workspacePath: string,
-): Promise<RuntimeStatus> {
+export function pushGitBranch(workspacePath: string): Promise<RuntimeStatus> {
   return invokeCommand("push_git_branch", { workspacePath });
 }
 
@@ -186,6 +223,10 @@ export function openInTarget(
   targetId: string,
 ): Promise<void> {
   return invokeCommand("open_in_target", { workspacePath, targetId });
+}
+
+export function openExternalUrl(url: string): Promise<void> {
+  return invokeCommand("open_external_url", { url });
 }
 
 export function saveConversationLayout(
@@ -225,11 +266,15 @@ export function renameSavedWorkspace(
   return invokeCommand("rename_saved_workspace", { workspaceId, name });
 }
 
-export function deleteSavedWorkspace(workspaceId: string): Promise<SessionSnapshot> {
+export function deleteSavedWorkspace(
+  workspaceId: string,
+): Promise<SessionSnapshot> {
   return invokeCommand("delete_saved_workspace", { workspaceId });
 }
 
-export function openTerminal(input: TerminalOpenInput): Promise<TerminalSession> {
+export function openTerminal(
+  input: TerminalOpenInput,
+): Promise<TerminalSession> {
   return invokeCommand("terminal_open", { input });
 }
 
@@ -255,11 +300,14 @@ export async function listenTerminalOutput(
   terminalId: string,
   handler: (payload: TerminalOutputEvent) => void,
 ): Promise<UnlistenFn> {
-  return listenEvent(TERMINAL_OUTPUT_EVENT_NAME, (payload: TerminalOutputEvent) => {
-    if (payload.terminalId === terminalId) {
-      handler(payload);
-    }
-  });
+  return listenEvent(
+    TERMINAL_OUTPUT_EVENT_NAME,
+    (payload: TerminalOutputEvent) => {
+      if (payload.terminalId === terminalId) {
+        handler(payload);
+      }
+    },
+  );
 }
 
 export async function listenTerminalExit(
@@ -277,9 +325,12 @@ export async function listenTerminalErrors(
   terminalId: string,
   handler: (payload: TerminalErrorEvent) => void,
 ): Promise<UnlistenFn> {
-  return listenEvent(TERMINAL_ERROR_EVENT_NAME, (payload: TerminalErrorEvent) => {
-    if (payload.terminalId === terminalId) {
-      handler(payload);
-    }
-  });
+  return listenEvent(
+    TERMINAL_ERROR_EVENT_NAME,
+    (payload: TerminalErrorEvent) => {
+      if (payload.terminalId === terminalId) {
+        handler(payload);
+      }
+    },
+  );
 }

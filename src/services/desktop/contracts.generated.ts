@@ -47,6 +47,26 @@ export type PromptSettings = { availableModels: Array<PromptModelOption>, select
 
 export type UpdatePromptSettingsInput = { workspacePath: string | null, providerId: string, modelId: string, reasoningEffort: string | null, };
 
+export type ProviderAuthMethodKind = "api_key" | "o_auth_device" | "o_auth_code" | "google_adc" | "codex_device";
+
+export type ProviderAuthMethod = { kind: ProviderAuthMethodKind, label: string, };
+
+export type ProviderSummary = { id: string, name: string, configured: boolean, authMethods: Array<ProviderAuthMethod>, };
+
+export type ProviderUrlParam = { name: string, value: string | null, options: Array<string> | null, };
+
+export type ProviderUrlParamValue = { name: string, value: string, };
+
+export type ProviderAuthSessionKind = "api_key" | "device_code" | "o_auth_code";
+
+export type ProviderAuthSession = { kind: ProviderAuthSessionKind, authSessionId: string, requiresApiKey: boolean, apiKeyHint: string | null, urlParameters: Array<ProviderUrlParam>, verificationUri: string | null, verificationUriComplete: string | null, userCode: string | null, expiresInSeconds: bigint | null, authorizationUrl: string | null, };
+
+export type StartProviderAuthInput = { workspacePath: string | null, providerId: string, authMethod: ProviderAuthMethodKind, };
+
+export type CompleteProviderAuthInput = { authSessionId: string, apiKey: string | null, authorizationCode: string | null, urlParameters: Array<ProviderUrlParamValue>, };
+
+export type RemoveProviderInput = { workspacePath: string | null, providerId: string, };
+
 export type SendPromptInput = { workspacePath: string, prompt: string, conversationId: string | null, agentId: string | null, };
 
 export type RuntimeStatus = { workspacePath: string | null, workspaceName: string | null, gitRepoName: string | null, gitBranchName: string | null, gitBranches: Array<string>, availableOpenTargets: Array<string>, configured: boolean, configurationError: string | null, };

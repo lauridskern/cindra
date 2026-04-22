@@ -19,13 +19,15 @@ use std::sync::Arc;
 use bridge::emitter::TauriEventEmitter;
 use commands::{
     archive_conversation, archive_workspace, checkout_git_branch, clone_repository,
-    commit_git_changes, create_git_branch, create_managed_chat, create_saved_workspace,
-    delete_saved_workspace, ensure_conversation_view, get_conversation_layout, get_prompt_settings,
-    get_runtime_status, get_saved_workspace, get_session_snapshot, open_in_target, open_workspace,
-    pick_directory, pick_workspace, push_git_branch, quick_start_project, rename_saved_workspace,
-    rename_workspace, respond_followup, save_conversation_layout, select_conversation, send_prompt,
-    start_new_chat, stop_prompt, terminal_close, terminal_open, terminal_resize, terminal_write,
-    update_prompt_settings, update_saved_workspace_layout,
+    commit_git_changes, complete_provider_auth, create_git_branch, create_managed_chat,
+    create_saved_workspace, delete_saved_workspace, ensure_conversation_view,
+    get_conversation_layout, get_prompt_settings, get_runtime_status, get_saved_workspace,
+    get_session_snapshot, list_providers, open_external_url, open_in_target, open_workspace,
+    pick_directory, pick_workspace, push_git_branch, quick_start_project, remove_provider,
+    rename_saved_workspace, rename_workspace, respond_followup, save_conversation_layout,
+    select_conversation, send_prompt, start_new_chat, start_provider_auth, stop_prompt,
+    terminal_close, terminal_open, terminal_resize, terminal_write, update_prompt_settings,
+    update_saved_workspace_layout,
 };
 use persistence::project_store::ProjectStore;
 use runtime::DesktopState;
@@ -72,6 +74,7 @@ pub fn run() {
             get_runtime_status,
             get_session_snapshot,
             get_prompt_settings,
+            list_providers,
             select_conversation,
             ensure_conversation_view,
             start_new_chat,
@@ -79,6 +82,9 @@ pub fn run() {
             send_prompt,
             stop_prompt,
             update_prompt_settings,
+            start_provider_auth,
+            complete_provider_auth,
+            remove_provider,
             respond_followup,
             archive_conversation,
             archive_workspace,
@@ -90,6 +96,7 @@ pub fn run() {
             commit_git_changes,
             push_git_branch,
             open_in_target,
+            open_external_url,
             save_conversation_layout,
             get_conversation_layout,
             create_saved_workspace,
