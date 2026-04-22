@@ -41,7 +41,7 @@ export function ProjectSwitcherMenu({
             size="xs"
             aria-label="Choose project"
             disabled={isBusy}
-            className="-ml-2 h-auto min-h-0 gap-1 rounded-sm px-1.5 py-0.5 text-xs leading-none font-medium text-neutral-800 hover:text-foreground dark:text-neutral-100 dark:hover:text-neutral-100"
+            className="h-auto min-h-0 gap-1 rounded-sm px-1.5 py-0.5 text-xs leading-none font-medium text-neutral-800 hover:text-foreground dark:text-neutral-100 dark:hover:text-neutral-100"
           />
         }
       >
