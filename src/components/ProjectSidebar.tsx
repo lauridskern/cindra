@@ -1,13 +1,22 @@
 import { useEffect, useState } from "react";
-import { FlaskConical, FolderPlus, PanelsTopLeft } from "lucide-react";
+import {
+  FlaskConical,
+  FolderPlus,
+  PanelsTopLeft,
+  PenSquare,
+  Trash2Icon,
+} from "lucide-react";
 
 import {
   useSessionActions,
   useSessionStore,
   useSidebarSession,
 } from "../hooks/useSession";
+import { formatRelativeTimestamp } from "../utils/time";
 import { handleWindowDragStart } from "../utils/window";
 import { ProjectSidebarActions } from "./ProjectSidebarActions";
+import { SidebarArchiveAction } from "./SidebarArchiveAction";
+import { SidebarItemActionsMenu } from "./SidebarItemActionsMenu";
 import { ProjectSidebarProject } from "./ProjectSidebarProject";
 import { Button } from "./ui/button";
 import {
@@ -55,9 +64,14 @@ export function ProjectSidebar() {
     () => loadExpandedProjectPaths(),
   );
   const {
+    archiveConversation,
+    archiveWorkspace,
+    deleteSavedWorkspace,
     openWorkspacePicker,
     openProject,
     openSavedWorkspace,
+    renameSavedWorkspace,
+    renameWorkspace,
     selectConversation,
     startNewChat,
   } = useSessionActions();
@@ -65,12 +79,20 @@ export function ProjectSidebar() {
     activeConversationId,
     activeSavedWorkspaceId,
     activeWorkspacePath,
-    hasCurrentWorkspace,
     isDemoChatSelected,
     savedWorkspaces,
     workspaces,
   } = useSidebarSession();
   const setBoardSelection = useSessionStore((state) => state.setBoardSelection);
+  const projectWorkspaces = workspaces.filter(
+    (workspace) => workspace.kind === "project",
+  );
+  const managedChats = workspaces.filter(
+    (workspace) => workspace.kind === "managed_chat",
+  );
+  const visibleManagedChats = managedChats.filter(
+    (workspace) => workspace.conversations.length > 0,
+  );
 
   useEffect(() => {
     window.localStorage.setItem(
@@ -91,13 +113,6 @@ export function ProjectSidebar() {
     );
   }
 
-  function handleOpenProject(workspacePath: string) {
-    setExpandedProjectPaths((current) =>
-      current.includes(workspacePath) ? current : [...current, workspacePath],
-    );
-    void openProject(workspacePath);
-  }
-
   async function handleOpenWorkspacePicker() {
     const selectedPath = await openWorkspacePicker();
     if (selectedPath == null) {
@@ -114,6 +129,35 @@ export function ProjectSidebar() {
     conversationId: string,
   ) {
     void selectConversation(workspacePath, conversationId);
+  }
+
+  function handleArchiveConversation(
+    workspacePath: string,
+    conversationId: string,
+  ) {
+    void archiveConversation(workspacePath, conversationId);
+  }
+
+  function handleArchiveWorkspace(workspacePath: string) {
+    setExpandedProjectPaths((current) =>
+      current.filter((path) => path !== workspacePath),
+    );
+    void archiveWorkspace(workspacePath);
+  }
+
+  async function handleRenameProject(
+    workspacePath: string,
+    displayName?: string | null,
+  ) {
+    await renameWorkspace(workspacePath, displayName ?? null);
+  }
+
+  function handleDeleteSavedWorkspace(workspaceId: string) {
+    void deleteSavedWorkspace(workspaceId);
+  }
+
+  async function handleRenameSavedWorkspace(workspaceId: string, name: string) {
+    await renameSavedWorkspace(workspaceId, name);
   }
 
   function handleStartNewChat(workspacePath?: string) {
@@ -133,7 +177,6 @@ export function ProjectSidebar() {
           onMouseDown={handleWindowDragStart}
         />
         <ProjectSidebarActions
-          hasCurrentWorkspace={hasCurrentWorkspace}
           onStartNewChat={() => handleStartNewChat()}
           onOpenWorkspacePicker={() => void handleOpenWorkspacePicker()}
         />
@@ -159,7 +202,7 @@ export function ProjectSidebar() {
                     <SidebarMenuButton
                       isActive={workspace.id === activeSavedWorkspaceId}
                       tooltip={workspace.name}
-                      className="font-medium"
+                      className="pr-8 font-medium"
                       onClick={() => {
                         void openSavedWorkspace(workspace.id);
                       }}
@@ -167,8 +210,94 @@ export function ProjectSidebar() {
                       <PanelsTopLeft strokeWidth={2} className="size-3.5" />
                       <span>{workspace.name}</span>
                     </SidebarMenuButton>
+                    <SidebarItemActionsMenu
+                      className="right-0"
+                      currentName={workspace.name}
+                      dialogDescription="Update the saved workspace name shown in the sidebar."
+                      dialogTitle="Rename workspace"
+                      menuAriaLabel={`More actions for ${workspace.name}`}
+                      onRemove={() => handleDeleteSavedWorkspace(workspace.id)}
+                      onRename={(name) =>
+                        handleRenameSavedWorkspace(workspace.id, name ?? workspace.name)
+                      }
+                      removeIcon={Trash2Icon}
+                    />
                   </SidebarMenuItem>
                 ))}
+              </SidebarMenu>
+            )}
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarGroup className="pt-0">
+          <div className="mb-1 flex h-7 items-center justify-between px-2">
+            <SidebarGroupLabel className="h-full px-0 font-medium">
+              Chats
+            </SidebarGroupLabel>
+          </div>
+
+          <SidebarGroupContent>
+            {visibleManagedChats.length === 0 ? (
+              <p className="px-2 py-1 text-xs font-medium text-sidebar-foreground/60">
+                No chats yet
+              </p>
+            ) : (
+              <SidebarMenu>
+                {visibleManagedChats.map((chatWorkspace) => {
+                  const isChatOpen =
+                    !isDemoChatSelected &&
+                    chatWorkspace.workspacePath === activeWorkspacePath;
+                  const activeChatId =
+                    chatWorkspace.selectedConversationId ??
+                    chatWorkspace.conversations[0]?.conversationId ??
+                    null;
+                  const isActive =
+                    isChatOpen &&
+                    activeConversationId === activeChatId;
+                  const chatTitle =
+                    chatWorkspace.conversations[0]?.title ?? "New chat";
+                  const updatedAt = formatRelativeTimestamp(
+                    chatWorkspace.conversations[0]?.updatedAt ?? null,
+                  );
+
+                  return (
+                    <SidebarMenuItem key={chatWorkspace.workspacePath}>
+                      <SidebarMenuButton
+                        isActive={isActive}
+                        tooltip={chatTitle}
+                        className="font-medium"
+                        onClick={() => {
+                          if (activeChatId != null) {
+                            void selectConversation(
+                              chatWorkspace.workspacePath,
+                              activeChatId,
+                            );
+                            return;
+                          }
+
+                          void openProject(chatWorkspace.workspacePath);
+                        }}
+                      >
+                        <PenSquare strokeWidth={2} className="size-3.5 shrink-0" />
+                        <span className="min-w-0 flex-1 truncate pr-2">
+                          {chatTitle}
+                        </span>
+                        {updatedAt ? (
+                          <span className="flex shrink-0 items-center gap-1.5 text-right text-xs font-medium text-sidebar-foreground/60 transition-opacity group-hover/menu-item:opacity-0 group-focus-within/menu-item:opacity-0">
+                            {updatedAt}
+                          </span>
+                        ) : null}
+                      </SidebarMenuButton>
+                      <SidebarArchiveAction
+                        ariaLabel={`Archive ${chatTitle}`}
+                        className="right-0.5 group-hover/menu-item:opacity-100"
+                        onClick={() =>
+                          handleArchiveWorkspace(chatWorkspace.workspacePath)
+                        }
+                      />
+                    </SidebarMenuItem>
+                  );
+                })}
               </SidebarMenu>
             )}
           </SidebarGroupContent>
@@ -193,13 +322,13 @@ export function ProjectSidebar() {
           </div>
 
           <SidebarGroupContent>
-            {workspaces.length === 0 ? (
+            {projectWorkspaces.length === 0 ? (
               <p className="px-2 py-1 text-xs font-medium text-sidebar-foreground/60">
                 No projects yet
               </p>
             ) : (
               <SidebarMenu>
-                {workspaces.map((project) => {
+                {projectWorkspaces.map((project) => {
                   const isProjectOpen =
                     !isDemoChatSelected &&
                     project.workspacePath === activeWorkspacePath;
@@ -217,7 +346,9 @@ export function ProjectSidebar() {
                       isActive={isActive}
                       project={project}
                       selectedConversationId={selectedConversationId}
-                      onOpenProject={handleOpenProject}
+                      onArchiveConversation={handleArchiveConversation}
+                      onArchiveProject={handleArchiveWorkspace}
+                      onRenameProject={handleRenameProject}
                       onSelectConversation={handleSelectConversation}
                       onStartNewChat={handleStartNewChat}
                       onToggleProjectExpanded={toggleProjectExpanded}

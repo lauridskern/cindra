@@ -1,6 +1,7 @@
 import type { ConversationSessionSummary } from "../services/desktop/contracts";
 import { cn } from "../utils/cn";
 import { formatRelativeTimestamp } from "../utils/time";
+import { SidebarArchiveAction } from "./SidebarArchiveAction";
 import {
   clearActiveDraggedChatBinding,
   writeChatBindingToDataTransfer,
@@ -11,6 +12,7 @@ interface ProjectSidebarConversationRowProps {
   conversation: ConversationSessionSummary;
   isSelected: boolean;
   workspacePath: string;
+  onArchiveConversation: (workspacePath: string, conversationId: string) => void;
   onSelectConversation: (workspacePath: string, conversationId: string) => void;
 }
 
@@ -18,6 +20,7 @@ export function ProjectSidebarConversationRow({
   conversation,
   isSelected,
   workspacePath,
+  onArchiveConversation,
   onSelectConversation,
 }: ProjectSidebarConversationRowProps) {
   const updatedAt = formatRelativeTimestamp(conversation.updatedAt);
@@ -48,7 +51,7 @@ export function ProjectSidebarConversationRow({
         <span className="min-w-0 flex-1 truncate pr-2 text-left">
           {conversation.title}
         </span>
-        <span className="flex shrink-0 items-center gap-1.5 text-right text-xs font-medium text-sidebar-foreground/60">
+        <span className="flex shrink-0 items-center gap-1.5 text-right text-xs font-medium text-sidebar-foreground/60 transition-opacity group-hover/menu-sub-item:opacity-0 group-focus-within/menu-sub-item:opacity-0">
           {conversation.hasPendingFollowup ? (
             <span className="rounded-full bg-amber-500/10 px-1.5 py-0.5 font-medium text-amber-700 dark:bg-amber-400/10 dark:text-amber-300">
               Needs input
@@ -62,6 +65,14 @@ export function ProjectSidebarConversationRow({
           {updatedAt ? <span className="whitespace-nowrap">{updatedAt}</span> : null}
         </span>
       </SidebarMenuSubButton>
+      <SidebarArchiveAction
+        ariaLabel={`Archive ${conversation.title}`}
+        className="right-0.5 group-hover/menu-sub-item:opacity-100 group-focus-within/menu-sub-item:opacity-100"
+        disabled={conversation.isRunning}
+        onClick={() =>
+          onArchiveConversation(workspacePath, conversation.conversationId)
+        }
+      />
     </SidebarMenuSubItem>
   );
 }

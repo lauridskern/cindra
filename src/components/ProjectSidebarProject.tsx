@@ -1,8 +1,15 @@
-import { ChevronDown, ChevronRight, Folder, PenSquare } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronRight,
+  Folder,
+  FolderMinusIcon,
+  PenSquare,
+} from "lucide-react";
 
 import type { WorkspaceSession } from "../services/desktop/contracts";
 import { cn } from "../utils/cn";
 import { ProjectSidebarConversationRow } from "./ProjectSidebarConversationRow";
+import { SidebarItemActionsMenu } from "./SidebarItemActionsMenu";
 import { Button } from "./ui/button";
 import {
   SidebarMenuButton,
@@ -15,7 +22,12 @@ interface ProjectSidebarProjectProps {
   isActive: boolean;
   project: WorkspaceSession;
   selectedConversationId: string | null;
-  onOpenProject: (workspacePath: string) => void;
+  onArchiveConversation: (workspacePath: string, conversationId: string) => void;
+  onArchiveProject: (workspacePath: string) => void;
+  onRenameProject: (
+    workspacePath: string,
+    displayName?: string | null,
+  ) => Promise<void>;
   onSelectConversation: (workspacePath: string, conversationId: string) => void;
   onStartNewChat: (workspacePath: string) => void;
   onToggleProjectExpanded: (workspacePath: string) => void;
@@ -26,7 +38,9 @@ export function ProjectSidebarProject({
   isActive,
   project,
   selectedConversationId,
-  onOpenProject,
+  onArchiveConversation,
+  onArchiveProject,
+  onRenameProject,
   onSelectConversation,
   onStartNewChat,
   onToggleProjectExpanded,
@@ -37,15 +51,8 @@ export function ProjectSidebarProject({
         <SidebarMenuButton
           isActive={isActive}
           tooltip={project.workspaceName}
-          className="font-medium"
-          onClick={() => {
-            if (isActive) {
-              onToggleProjectExpanded(project.workspacePath);
-              return;
-            }
-
-            onOpenProject(project.workspacePath);
-          }}
+          className="pr-16 font-medium"
+          onClick={() => onToggleProjectExpanded(project.workspacePath)}
         >
           <span className="relative flex size-3.5 shrink-0 items-center justify-center">
             <Folder
@@ -73,13 +80,29 @@ export function ProjectSidebarProject({
           type="button"
           variant="ghost"
           size="icon"
-          className="absolute right-0 top-1/2 -translate-y-1/2 bg-black/0 opacity-0 hover:bg-black/0 group-hover/menu-item:opacity-100 focus-visible:opacity-100 dark:bg-white/0 dark:hover:bg-white/0 aria-expanded:bg-black/0 dark:aria-expanded:bg-white/0"
+          className="absolute right-6 top-1/2 -translate-y-1/2 bg-black/0 opacity-0 hover:bg-black/0 group-hover/menu-item:opacity-100 focus-visible:opacity-100 dark:bg-white/0 dark:hover:bg-white/0 aria-expanded:bg-black/0 dark:aria-expanded:bg-white/0"
           aria-label={`Start a new chat in ${project.workspaceName}`}
           title="New chat"
-          onClick={() => onStartNewChat(project.workspacePath)}
+          onClick={(event) => {
+            event.stopPropagation();
+            onStartNewChat(project.workspacePath);
+          }}
         >
           <PenSquare strokeWidth={2} className="size-3.5 shrink-0" />
         </Button>
+        <SidebarItemActionsMenu
+          className="right-0"
+          currentName={project.workspaceName}
+          dialogDescription="Use a custom label for this project in the sidebar. Leave it blank to use the folder name."
+          dialogTitle="Rename project"
+          menuAriaLabel={`More actions for ${project.workspaceName}`}
+          allowEmptyName
+          onRemove={() => onArchiveProject(project.workspacePath)}
+          onRename={(displayName) =>
+            onRenameProject(project.workspacePath, displayName)
+          }
+          removeIcon={FolderMinusIcon}
+        />
       </div>
 
       {isExpanded ? (
@@ -92,6 +115,7 @@ export function ProjectSidebarProject({
                 isSelected={
                   selectedConversationId === conversation.conversationId
                 }
+                onArchiveConversation={onArchiveConversation}
                 workspacePath={project.workspacePath}
                 onSelectConversation={onSelectConversation}
               />
