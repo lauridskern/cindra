@@ -13,7 +13,7 @@ export function ConversationSurface({
   return (
     <PaneSurface
       className={cn(
-        "shadow-xl shadow-neutral-950/5 dark:shadow-black/20",
+        "flex-1 shadow-xl shadow-neutral-950/5 dark:shadow-black/20",
         className,
       )}
       framed

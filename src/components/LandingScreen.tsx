@@ -22,7 +22,6 @@ import { Button } from "./ui/button";
 import {
   Card,
   CardAction,
-  CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
@@ -558,7 +557,7 @@ function LandingScreenContent({
           )}
         </div>
 
-        <div className="grid w-full max-w-3xl gap-4 md:grid-cols-3">
+        <div className="grid w-full max-w-3xl gap-3 md:grid-cols-3">
           <LaunchCard
             description="Pick a local folder and open it as the active workspace."
             disabled={isBusy}
@@ -839,21 +838,23 @@ function LaunchCard({
   return (
     <button
       type="button"
-      className="block h-full w-full appearance-none text-left disabled:cursor-not-allowed"
+      className="block w-full appearance-none text-left disabled:cursor-not-allowed"
       onClick={onClick}
       disabled={disabled}
     >
-      <Card className="h-full min-h-40 border-0 bg-accent/60 transition-colors hover:bg-accent dark:bg-accent/80 dark:hover:bg-accent">
-        <CardHeader>
+      <Card
+        size="sm"
+        className="h-full border-0 bg-accent/60 transition-colors hover:bg-accent dark:bg-accent/80 dark:hover:bg-accent"
+      >
+        <CardHeader className="gap-2">
           <CardAction className="justify-self-start">
-            <div className="flex size-10 items-center justify-center rounded-md border border-input bg-input/20 text-muted-foreground dark:bg-input/30">
-              <Icon strokeWidth={2} className="size-3.5" />
+            <div className="flex size-8 items-center justify-center rounded-md border border-input bg-input/20 text-muted-foreground dark:bg-input/30">
+              <Icon strokeWidth={2} className="size-4" />
             </div>
           </CardAction>
           <CardTitle>{label}</CardTitle>
           <CardDescription>{description}</CardDescription>
         </CardHeader>
-        <CardContent className="flex-1" />
       </Card>
     </button>
   );
