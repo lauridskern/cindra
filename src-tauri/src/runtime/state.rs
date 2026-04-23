@@ -46,6 +46,7 @@ pub(crate) struct ConversationSessionState {
     pub(crate) messages: Vec<SessionMessageDto>,
     pub(crate) todos: Vec<SessionTodoDto>,
     pub(crate) pending_file_updates: HashMap<String, PendingFileUpdateState>,
+    pub(crate) pending_anonymous_file_updates: Vec<PendingFileUpdateState>,
     pub(crate) title: Option<String>,
     pub(crate) updated_at: Option<String>,
     pub(crate) active_request_ids: Vec<String>,

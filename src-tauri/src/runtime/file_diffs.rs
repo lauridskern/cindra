@@ -15,9 +15,6 @@ impl RuntimeManager {
         call_id: Option<&str>,
         detail: &ToolCallDetailDto,
     ) {
-        let Some(call_id) = call_id.filter(|call_id| !call_id.is_empty()) else {
-            return;
-        };
         let ToolCallDetailDto::FileUpdate { path, .. } = detail else {
             return;
         };
@@ -39,16 +36,21 @@ impl RuntimeManager {
             return;
         };
 
-        conversation.pending_file_updates.insert(
-            call_id.to_string(),
-            PendingFileUpdateState {
-                before_text,
-                display_path,
-                path: path.clone(),
-                request_id: request_id.to_string(),
-                workspace_path,
-            },
-        );
+        let pending = PendingFileUpdateState {
+            before_text,
+            display_path,
+            path: path.clone(),
+            request_id: request_id.to_string(),
+            workspace_path,
+        };
+
+        if let Some(call_id) = call_id.filter(|call_id| !call_id.is_empty()) {
+            conversation
+                .pending_file_updates
+                .insert(call_id.to_string(), pending);
+        } else {
+            conversation.pending_anonymous_file_updates.push(pending);
+        }
     }
 
     pub(super) async fn attach_file_diff_to_result(
@@ -59,16 +61,23 @@ impl RuntimeManager {
         is_error: bool,
         detail: &mut Option<ToolResultDetailDto>,
     ) {
-        let Some(call_id) = call_id.filter(|call_id| !call_id.is_empty()) else {
-            return;
-        };
         let pending = {
             let mut state = self.state.lock().await;
             let Some(conversation) = state.conversations.get_mut(conversation_id) else {
                 return;
             };
 
-            conversation.pending_file_updates.remove(call_id)
+            if let Some(call_id) = call_id.filter(|call_id| !call_id.is_empty()) {
+                conversation.pending_file_updates.remove(call_id)
+            } else {
+                let pending_index = conversation
+                    .pending_anonymous_file_updates
+                    .iter()
+                    .rposition(|pending| pending.request_id == request_id);
+
+                pending_index
+                    .map(|index| conversation.pending_anonymous_file_updates.remove(index))
+            }
         };
         let Some(pending) = pending else {
             return;

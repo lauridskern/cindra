@@ -214,6 +214,18 @@ pub fn map_tool_result_detail(result: &ToolResult) -> Option<ToolResultDetailDto
         });
     }
 
+    if root.tag_name().name() == "file_diff" {
+        let patch = collect_preformatted_text(root).trim().to_string();
+        return if patch.is_empty() {
+            None
+        } else {
+            Some(ToolResultDetailDto::FileDiff {
+                path: root.attribute("path").unwrap_or_default().to_string(),
+                patch,
+            })
+        };
+    }
+
     let plain_text = collect_node_text(root);
     if plain_text.is_empty() {
         None
@@ -374,4 +386,31 @@ fn parse_attr_i32(node: Node<'_, '_>, name: &str) -> Option<i32> {
 
 fn parse_attr_usize(node: Node<'_, '_>, name: &str) -> Option<usize> {
     node.attribute(name)?.parse().ok()
+}
+
+#[cfg(test)]
+mod tests {
+    use forge_domain::ToolResult;
+
+    use super::{ToolResultDetailDto, map_tool_result_detail};
+
+    #[test]
+    fn map_tool_result_detail_parses_file_diff_payloads() {
+        let result = ToolResult::new("write").success(
+            r#"<file_diff path="src/example.ts"><![CDATA[1 1 | old
+2   |-removed
+  2 |+added
+]]></file_diff>"#,
+        );
+
+        let detail = map_tool_result_detail(&result);
+
+        assert_eq!(
+            detail,
+            Some(ToolResultDetailDto::FileDiff {
+                path: "src/example.ts".to_string(),
+                patch: "1 1 | old\n2   |-removed\n  2 |+added".to_string(),
+            })
+        );
+    }
 }

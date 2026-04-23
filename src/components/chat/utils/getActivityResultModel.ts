@@ -3,7 +3,11 @@ import type {
   ToolResultDetail,
 } from "@/services/desktop/types/contracts";
 
-import type { ActivityResultFooter, ActivityResultModel } from "../activity-results/types/activityResult";
+import { buildRenderableFileDiffPatch } from "../activity-results/utils/fileDiff";
+import type {
+  ActivityResultFooter,
+  ActivityResultModel,
+} from "../activity-results/types/activityResult";
 import type { ActivityOperation } from "../types/chatThread";
 
 function buildShellPreviewText(
@@ -66,13 +70,34 @@ export function getActivityResultModel(
         };
   }
   if (detail?.kind === "file_diff") {
+    const patch = buildRenderableFileDiffPatch(detail.path, detail.patch);
     return {
       kind: "file_diff",
-      title: "Diff",
-      patch: detail.patch,
-      copyText: detail.patch,
-      footer: buildResultFooter(operation),
+      path: detail.path,
+      patch,
+      copyText: patch,
     };
+  }
+
+  if (operation.detail.kind === "file_update") {
+    const patchText =
+      (detail?.kind === "text" ? detail.text : undefined) ??
+      operation.outputText ??
+      operation.summary;
+    const trimmedPatchText = patchText?.trim();
+    const patch =
+      trimmedPatchText == null
+        ? null
+        : buildRenderableFileDiffPatch(operation.detail.path, trimmedPatchText);
+
+    return patch
+      ? {
+          kind: "file_diff",
+          path: operation.detail.path,
+          patch,
+          copyText: patch,
+        }
+      : null;
   }
 
   const text =

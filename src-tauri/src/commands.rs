@@ -343,6 +343,20 @@ pub(crate) async fn open_in_target(
 }
 
 #[tauri::command]
+pub(crate) async fn open_path_in_target(
+    workspace_path: String,
+    target_id: String,
+    path: String,
+    state: tauri::State<'_, DesktopState>,
+) -> Result<(), String> {
+    state
+        .manager
+        .open_path_in_target(workspace_path, target_id, path)
+        .await
+        .map_err(map_command_error)
+}
+
+#[tauri::command]
 pub(crate) async fn open_external_url(url: String) -> Result<(), String> {
     crate::desktop_open::open_external_url(&url).map_err(map_command_error)
 }

@@ -28,10 +28,10 @@ export interface ActivityResultCardProps {
   children: ReactNode;
   copyText?: string | null;
   footer: {
-    leading: string;
-    trailing: string;
+    leading: ReactNode;
+    trailing: ReactNode;
   };
-  title: string;
+  title: ReactNode;
 }
 
 export interface ActivityResultPreformattedBodyProps {
@@ -40,6 +40,7 @@ export interface ActivityResultPreformattedBodyProps {
 
 export interface ActivityResultRendererProps {
   result: ActivityResultModel;
+  workspacePath: string | null;
 }
 
 export interface ChatActivityRowProps {
@@ -128,6 +129,7 @@ export interface ChatWorkRowProps {
 
 export interface FileDiffResultProps {
   result: Extract<ActivityResultModel, { kind: "file_diff" }>;
+  workspacePath: string | null;
 }
 
 export interface MarkdownChatMessageProps {

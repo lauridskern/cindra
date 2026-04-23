@@ -1,9 +1,11 @@
-import type { TranscriptMessage } from "@/services/desktop/types/contracts";
+import type {
+  TranscriptMessage,
+} from "@/services/desktop/types/contracts";
 
 import { TOOL_DEBUG_TITLES } from "../constants/chatThread";
 import type {
-  ActivityItem,
   ActivityGroupBuilder,
+  ActivityItem,
   ActivityOperation,
   ChatThreadItem,
   FlushActivityGroupOptions,
@@ -21,19 +23,42 @@ export function buildChatThreadItems(
 ): ChatThreadItem[] {
   const items: ChatThreadItem[] = [];
   const activeRequestIdSet = new Set(activeRequestIds);
-  const pendingActivitiesByRequestId = new Map<string, ActivityItem[]>();
-  const emittedWorkItemRequestIds = new Set<string>();
-  const requestIdsInEncounterOrder: string[] = [];
-  const seenRequestIds = new Set<string>();
+  const pendingActivitiesByScopeId = new Map<string, ActivityItem[]>();
+  const scopeIdsInEncounterOrder: string[] = [];
+  const seenScopeIds = new Set<string>();
+  const scopeRequestIds = new Map<string, string>();
+  const currentScopeIndexByRequestId = new Map<string, number>();
+  const lastAssistantOrErrorMessageKeyByScopeId = new Map<string, string>();
+  const lastNonUserMessageKeyByScopeId = new Map<string, string>();
   let currentGroup: ActivityGroupBuilder | null = null;
 
-  const trackRequestId = (requestId: string) => {
-    if (seenRequestIds.has(requestId)) {
+  const buildScopeId = (requestId: string, scopeIndex: number) =>
+    `${requestId}:${scopeIndex}`;
+
+  const getCurrentScopeId = (requestId: string) => {
+    const currentScopeIndex = currentScopeIndexByRequestId.get(requestId);
+    if (currentScopeIndex != null) {
+      return buildScopeId(requestId, currentScopeIndex);
+    }
+
+    currentScopeIndexByRequestId.set(requestId, 0);
+    return buildScopeId(requestId, 0);
+  };
+
+  const startNextScope = (requestId: string) => {
+    const nextScopeIndex = (currentScopeIndexByRequestId.get(requestId) ?? -1) + 1;
+    currentScopeIndexByRequestId.set(requestId, nextScopeIndex);
+    return buildScopeId(requestId, nextScopeIndex);
+  };
+
+  const trackScopeId = (scopeId: string, requestId: string) => {
+    scopeRequestIds.set(scopeId, requestId);
+    if (seenScopeIds.has(scopeId)) {
       return;
     }
 
-    seenRequestIds.add(requestId);
-    requestIdsInEncounterOrder.push(requestId);
+    seenScopeIds.add(scopeId);
+    scopeIdsInEncounterOrder.push(scopeId);
   };
 
   const createActivityItems = (
@@ -75,45 +100,21 @@ export function buildChatThreadItems(
     return activityItems;
   };
 
-  const pushWorkItem = (
-    requestId: string,
-    activities: ActivityItem[],
-    isRunning: boolean,
-  ) => {
-    trackRequestId(requestId);
-
-    items.push({
-      kind: "request_work",
-      key: `request-work:${requestId}:${items.length}`,
-      requestId,
-      activities,
-      isRunning,
-      hasError: activities.some((activity) => activity.hasError),
-    });
-    emittedWorkItemRequestIds.add(requestId);
-  };
-
   const appendPendingActivities = (
+    scopeId: string,
     requestId: string,
     activities: ActivityItem[],
   ) => {
-    trackRequestId(requestId);
+    trackScopeId(scopeId, requestId);
     if (activities.length === 0) {
       return;
     }
 
-    const existingActivities = pendingActivitiesByRequestId.get(requestId) ?? [];
-    pendingActivitiesByRequestId.set(requestId, [
+    const existingActivities = pendingActivitiesByScopeId.get(scopeId) ?? [];
+    pendingActivitiesByScopeId.set(scopeId, [
       ...existingActivities,
       ...activities,
     ]);
-  };
-
-  const takePendingActivities = (requestId: string): ActivityItem[] => {
-    trackRequestId(requestId);
-    const activities = pendingActivitiesByRequestId.get(requestId) ?? [];
-    pendingActivitiesByRequestId.delete(requestId);
-    return activities;
   };
 
   const flushGroup = (options?: FlushActivityGroupOptions) => {
@@ -124,17 +125,22 @@ export function buildChatThreadItems(
     const isRunning = activeRequestIdSet.has(currentGroup.requestId);
     const activities = createActivityItems(currentGroup, isRunning);
     if (activities.length > 0) {
-      appendPendingActivities(currentGroup.requestId, activities);
+      appendPendingActivities(
+        currentGroup.scopeId,
+        currentGroup.requestId,
+        activities,
+      );
     } else if (options?.includeEmpty === true) {
-      trackRequestId(currentGroup.requestId);
+      trackScopeId(currentGroup.scopeId, currentGroup.requestId);
     }
 
     currentGroup = null;
   };
 
-  const ensureGroup = (requestId: string) => {
+  const ensureGroup = (scopeId: string, requestId: string) => {
     if (currentGroup == null) {
       currentGroup = {
+        scopeId,
         requestId,
         operations: [],
         reasoningText: "",
@@ -142,9 +148,10 @@ export function buildChatThreadItems(
       return currentGroup;
     }
 
-    if (currentGroup.requestId !== requestId) {
+    if (currentGroup.scopeId !== scopeId) {
       flushGroup();
       currentGroup = {
+        scopeId,
         requestId,
         operations: [],
         reasoningText: "",
@@ -157,36 +164,41 @@ export function buildChatThreadItems(
   for (const message of messages) {
     switch (message.kind) {
       case "user":
-      case "context_compacted":
+      case "context_compacted": {
         flushGroup();
+        const scopeId = startNextScope(message.requestId);
+        trackScopeId(scopeId, message.requestId);
         items.push({
           kind: "message",
           key: message.id,
           message,
         });
         break;
+      }
       case "assistant":
-      case "error":
+      case "error": {
         flushGroup({ includeEmpty: true });
-        pushWorkItem(
-          message.requestId,
-          takePendingActivities(message.requestId),
-          activeRequestIdSet.has(message.requestId),
-        );
-
+        const scopeId = getCurrentScopeId(message.requestId);
+        trackScopeId(scopeId, message.requestId);
         items.push({
           kind: "message",
           key: message.id,
           message,
         });
+        lastNonUserMessageKeyByScopeId.set(scopeId, message.id);
+        if (message.kind === "assistant" || message.kind === "error") {
+          lastAssistantOrErrorMessageKeyByScopeId.set(scopeId, message.id);
+        }
         break;
+      }
       case "reasoning": {
-        const group = ensureGroup(message.requestId);
+        const scopeId = getCurrentScopeId(message.requestId);
+        const group = ensureGroup(scopeId, message.requestId);
         if (group.operations.length > 0) {
           flushGroup();
         }
 
-        const thinkingGroup = ensureGroup(message.requestId);
+        const thinkingGroup = ensureGroup(scopeId, message.requestId);
         thinkingGroup.reasoningText = mergeOutputText(
           thinkingGroup.reasoningText,
           message.text,
@@ -194,11 +206,12 @@ export function buildChatThreadItems(
         break;
       }
       case "tool_start": {
-        if (hasPendingReasoningGroup(currentGroup, message.requestId)) {
+        const scopeId = getCurrentScopeId(message.requestId);
+        if (hasPendingReasoningGroup(currentGroup, scopeId)) {
           flushGroup();
         }
 
-        const group = ensureGroup(message.requestId);
+        const group = ensureGroup(scopeId, message.requestId);
         group.operations.push({
           id: message.id,
           requestId: message.requestId,
@@ -216,6 +229,11 @@ export function buildChatThreadItems(
         }
 
         flushGroup();
+        {
+          const scopeId = getCurrentScopeId(message.requestId);
+          trackScopeId(scopeId, message.requestId);
+          lastNonUserMessageKeyByScopeId.set(scopeId, message.id);
+        }
         items.push({
           kind: "message",
           key: message.id,
@@ -231,6 +249,11 @@ export function buildChatThreadItems(
           );
         } else {
           flushGroup();
+          {
+            const scopeId = getCurrentScopeId(message.requestId);
+            trackScopeId(scopeId, message.requestId);
+            lastNonUserMessageKeyByScopeId.set(scopeId, message.id);
+          }
           items.push({
             kind: "message",
             key: message.id,
@@ -240,7 +263,8 @@ export function buildChatThreadItems(
         break;
       }
       case "tool_end": {
-        const group = ensureGroup(message.requestId);
+        const scopeId = getCurrentScopeId(message.requestId);
+        const group = ensureGroup(scopeId, message.requestId);
         const operation =
           findMatchingOperation(
             group.operations,
@@ -266,24 +290,94 @@ export function buildChatThreadItems(
   flushGroup();
 
   for (const requestId of activeRequestIds) {
-    trackRequestId(requestId);
+    const scopeId = getCurrentScopeId(requestId);
+    trackScopeId(scopeId, requestId);
   }
 
-  for (const requestId of requestIdsInEncounterOrder) {
-    const activities = takePendingActivities(requestId);
-    const isRunning = activeRequestIdSet.has(requestId);
-
-    if (activities.length > 0) {
-      pushWorkItem(requestId, activities, isRunning);
+  const workItemsByScopeId = new Map<
+    string,
+    Extract<ChatThreadItem, { kind: "request_work" }>
+  >();
+  for (const scopeId of scopeIdsInEncounterOrder) {
+    const requestId = scopeRequestIds.get(scopeId);
+    if (requestId == null) {
       continue;
     }
 
-    if (!emittedWorkItemRequestIds.has(requestId) && isRunning) {
-      pushWorkItem(requestId, activities, true);
+    const isRunning =
+      activeRequestIdSet.has(requestId) &&
+      scopeId === getCurrentScopeId(requestId);
+    const activities = finalizeRequestActivities(
+      pendingActivitiesByScopeId.get(scopeId) ?? [],
+      isRunning,
+    );
+
+    if (activities.length > 0 || isRunning) {
+      workItemsByScopeId.set(scopeId, {
+        kind: "request_work",
+        key: `request-work:${scopeId}`,
+        requestId,
+        activities,
+        isRunning,
+        hasError: activities.some((activity) => activity.hasError),
+      });
     }
   }
 
-  return items;
+  const workItemInsertionsByMessageKey = new Map<
+    string,
+    Extract<ChatThreadItem, { kind: "request_work" }>[]
+  >();
+  const trailingWorkItems: Extract<ChatThreadItem, { kind: "request_work" }>[] = [];
+
+  for (const scopeId of scopeIdsInEncounterOrder) {
+    const workItem = workItemsByScopeId.get(scopeId);
+    if (workItem == null) {
+      continue;
+    }
+
+    if (workItem.isRunning) {
+      trailingWorkItems.push({
+        ...workItem,
+        key: buildRequestWorkKey(scopeId, null, true),
+      });
+      continue;
+    }
+
+    const insertionKey = findRequestWorkInsertionKey(
+      scopeId,
+      lastAssistantOrErrorMessageKeyByScopeId,
+      lastNonUserMessageKeyByScopeId,
+    );
+    if (insertionKey == null) {
+      trailingWorkItems.push({
+        ...workItem,
+        key: buildRequestWorkKey(scopeId, null, false),
+      });
+      continue;
+    }
+
+    const existingInsertions = workItemInsertionsByMessageKey.get(insertionKey) ?? [];
+    workItemInsertionsByMessageKey.set(insertionKey, [
+      ...existingInsertions,
+      {
+        ...workItem,
+        key: buildRequestWorkKey(scopeId, insertionKey, false),
+      },
+    ]);
+  }
+
+  const finalItems: ChatThreadItem[] = [];
+  for (const item of items) {
+    const insertions = workItemInsertionsByMessageKey.get(item.key);
+    if (insertions != null) {
+      finalItems.push(...insertions);
+    }
+    finalItems.push(item);
+  }
+
+  finalItems.push(...trailingWorkItems);
+  return finalItems;
 }
 
 function isDecorativeToolStatus(
@@ -346,11 +440,11 @@ function createFallbackOperation(
 
 function hasPendingReasoningGroup(
   group: ActivityGroupBuilder | null,
-  requestId: string,
+  scopeId: string,
 ): boolean {
   return (
     group != null &&
-    group.requestId === requestId &&
+    group.scopeId === scopeId &&
     group.operations.length === 0 &&
     group.reasoningText.trim().length > 0
   );
@@ -367,6 +461,41 @@ function mergeOutputText(current: string | undefined, next: string): string {
   }
 
   return `${current}\n\n${trimmed}`;
+}
+
+function finalizeRequestActivities(
+  activities: ActivityItem[],
+  isRunning: boolean,
+): ActivityItem[] {
+  if (activities.length === 0) {
+    return activities;
+  }
+
+  const lastRunningIndex = isRunning ? activities.length - 1 : -1;
+  return activities.map((activity, index) => ({
+    ...activity,
+    isRunning: index === lastRunningIndex,
+  }));
+}
+
+function buildRequestWorkKey(
+  scopeId: string,
+  insertionKey: string | null,
+  isRunning: boolean,
+): string {
+  return `request-work:${scopeId}:${isRunning ? "running" : insertionKey ?? "trailing"}`;
+}
+
+function findRequestWorkInsertionKey(
+  scopeId: string,
+  lastAssistantOrErrorMessageKeyByScopeId: Map<string, string>,
+  lastNonUserMessageKeyByScopeId: Map<string, string>,
+): string | null {
+  return (
+    lastAssistantOrErrorMessageKeyByScopeId.get(scopeId) ??
+    lastNonUserMessageKeyByScopeId.get(scopeId) ??
+    null
+  );
 }
 
 function splitActivityOperationGroups(

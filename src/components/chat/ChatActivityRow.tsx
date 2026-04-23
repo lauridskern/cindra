@@ -98,7 +98,10 @@ function ActivityOperationRow({
         )}
         {result ? (
           <CollapsibleContent className="min-w-0 max-w-full">
-            <ActivityResultRenderer result={result} />
+            <ActivityResultRenderer
+              result={result}
+              workspacePath={workspacePath}
+            />
           </CollapsibleContent>
         ) : null}
       </div>

@@ -30,6 +30,7 @@ export interface ActivityItem {
 }
 
 export interface ActivityGroupBuilder {
+  scopeId: string;
   requestId: string;
   operations: ActivityOperation[];
   reasoningText: string;

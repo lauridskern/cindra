@@ -32,6 +32,19 @@ export async function openWorkspaceInTarget(
   }
 }
 
+export async function openWorkspacePathInTarget(
+  workspacePath: string,
+  targetId: string,
+  path: string,
+) {
+  try {
+    await desktopClient.openPathInTarget(workspacePath, targetId, path);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export async function submitFollowupResponse(input: FollowupResponseInput) {
   try {
     const snapshot = await desktopClient.respondFollowup({
