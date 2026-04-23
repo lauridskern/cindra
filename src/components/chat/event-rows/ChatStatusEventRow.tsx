@@ -1,4 +1,3 @@
-import type { StatusCategory } from "../../../services/desktop/types/contracts";
 import { cn } from "@/utils/cn";
 import {
   CHAT_BODY_TEXT_CLASS,
@@ -10,19 +9,7 @@ import type {
   StatusOutputRowProps,
   StatusRowProps,
 } from "../types/chatComponents";
-
-function statusToneClass(category: StatusCategory): string {
-  switch (category) {
-    case "error":
-      return "text-red-700 dark:text-red-400";
-    case "warning":
-      return "text-amber-700 dark:text-amber-400";
-    case "completion":
-      return "text-emerald-700 dark:text-emerald-400";
-    default:
-      return "text-neutral-950 dark:text-neutral-400";
-  }
-}
+import { getStatusToneClass } from "../utils/statusTone";
 
 function StatusRow({
   category,
@@ -48,7 +35,7 @@ function StatusRow({
     <article
       className={cn(
         `grid max-w-3xl gap-1.5 select-text ${CHAT_BODY_TEXT_CLASS}`,
-        statusToneClass(category),
+        getStatusToneClass(category),
       )}
     >
       <ChatInlineText as="p" text={title} />

@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from "react";
 import { Check, Copy } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 
 import { CHAT_BODY_TEXT_CLASS } from "../constants/chatStyles";
 import type {
@@ -26,37 +26,8 @@ export function ActivityResultCard({
   footer,
   title,
 }: ActivityResultCardProps) {
-  const [copied, setCopied] = useState(false);
-  const resetCopyTimeoutRef = useRef<number | null>(null);
+  const { copied, copy } = useCopyToClipboard();
   const canCopy = copyText != null && copyText.length > 0;
-
-  const handleCopy = useCallback(async () => {
-    if (!canCopy || navigator.clipboard?.writeText == null) {
-      return;
-    }
-
-    try {
-      await navigator.clipboard.writeText(copyText);
-      setCopied(true);
-      if (resetCopyTimeoutRef.current != null) {
-        window.clearTimeout(resetCopyTimeoutRef.current);
-      }
-      resetCopyTimeoutRef.current = window.setTimeout(() => {
-        setCopied(false);
-        resetCopyTimeoutRef.current = null;
-      }, 1200);
-    } catch {
-      setCopied(false);
-    }
-  }, [canCopy, copyText]);
-
-  useEffect(() => {
-    return () => {
-      if (resetCopyTimeoutRef.current != null) {
-        window.clearTimeout(resetCopyTimeoutRef.current);
-      }
-    };
-  }, []);
 
   return (
     <div className="min-w-0 max-w-full overflow-hidden rounded-2xl border border-neutral-200 bg-neutral-50 dark:border-neutral-800 dark:bg-neutral-950/70">
@@ -69,7 +40,7 @@ export function ActivityResultCard({
             variant="ghost"
             size="xs"
             onClick={() => {
-              void handleCopy();
+              void copy(copyText);
             }}
             className="shrink-0 rounded-full text-neutral-500 hover:text-neutral-950 dark:text-neutral-400 dark:hover:text-neutral-100"
           >

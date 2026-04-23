@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useRef } from "react";
 
 import { Button } from "@/components/ui/Button";
 import {
@@ -10,6 +10,7 @@ import {
   DialogTitle,
 } from "@/components/ui/Dialog";
 import { Input } from "@/components/ui/Input";
+import { useFocusOnOpen } from "@/hooks/useFocusOnOpen";
 import type { CommitChangesDialogProps } from "./types/conversationHeader";
 
 export function CommitChangesDialog({
@@ -23,19 +24,9 @@ export function CommitChangesDialog({
 }: CommitChangesDialogProps) {
   const inputRef = useRef<HTMLInputElement | null>(null);
 
-  useEffect(() => {
-    if (!isOpen || isSubmitting) {
-      return;
-    }
-
-    const frame = window.requestAnimationFrame(() => {
-      inputRef.current?.focus();
-    });
-
-    return () => {
-      window.cancelAnimationFrame(frame);
-    };
-  }, [isOpen, isSubmitting]);
+  useFocusOnOpen(inputRef, {
+    enabled: isOpen && !isSubmitting,
+  });
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>

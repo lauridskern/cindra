@@ -1,9 +1,4 @@
-interface ParsedExcerptDiffLine {
-  beforeLineNumber: number | null;
-  afterLineNumber: number | null;
-  kind: "context" | "addition" | "deletion";
-  text: string;
-}
+import type { ParsedExcerptDiffLine } from "../types/fileDiff";
 
 export function getFileDiffDisplayName(path: string): string {
   const normalizedPath = path.replace(/\\/g, "/");

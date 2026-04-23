@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { EllipsisIcon, PencilLineIcon } from "lucide-react";
 
+import { useFocusOnOpen } from "@/hooks/useFocusOnOpen";
 import { cn } from "@/utils/cn";
 
 import type { SidebarItemActionsMenuProps } from "./types/sidebar";
@@ -41,20 +42,10 @@ export function SidebarItemActionsMenu({
   const [nameDraft, setNameDraft] = useState(currentName);
   const renameInputRef = useRef<HTMLInputElement | null>(null);
 
-  useEffect(() => {
-    if (!isRenameDialogOpen || isRenamePending) {
-      return;
-    }
-
-    const frame = window.requestAnimationFrame(() => {
-      renameInputRef.current?.focus();
-      renameInputRef.current?.select();
-    });
-
-    return () => {
-      window.cancelAnimationFrame(frame);
-    };
-  }, [isRenameDialogOpen, isRenamePending]);
+  useFocusOnOpen(renameInputRef, {
+    enabled: isRenameDialogOpen && !isRenamePending,
+    selectText: true,
+  });
 
   function handleRenameDialogOpenChange(open: boolean) {
     if (isRenamePending) {

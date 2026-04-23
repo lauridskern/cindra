@@ -10,6 +10,11 @@ export type ApplySavedWorkspaceLayoutResult =
   | { kind: "default"; bindings: ChatBinding[] }
   | { kind: "fallback"; bindings: ChatBinding[] };
 
+export type ApplySavedConversationLayoutResult =
+  | { kind: "restored" }
+  | { kind: "default" }
+  | { kind: "fallback" };
+
 export interface ChatTileProps {
   binding: ChatBinding;
   canCloseChat: () => boolean;

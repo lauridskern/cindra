@@ -36,7 +36,6 @@ import {
   dispatchTerminalRestartRequest,
   INNER_CHAT_COMPONENT,
   INNER_PLACEHOLDER_COMPONENT,
-  parseDockviewLayoutJson,
 } from "./layout";
 import {
   applyChatTileLayoutConstraints,
@@ -52,6 +51,7 @@ import type {
   TerminalPaneParams,
 } from "./types/layout";
 import type { ChatTileProps } from "./types/workspaceBoard";
+import { applySavedConversationLayout } from "./utils/savedLayout";
 import "./chat-tile-dockview.css";
 
 function AuxiliaryPaneTab({
@@ -66,27 +66,6 @@ function AuxiliaryPaneTab({
 
 const headerActionsClassName =
   "relative z-20 ml-auto flex h-6 shrink-0 items-center gap-1.5 pointer-events-auto";
-
-function applySavedConversationLayout(
-  api: DockviewApi,
-  layoutJson: string | null,
-) {
-  if (layoutJson == null) {
-    return { kind: "default" as const };
-  }
-
-  const savedLayout = parseDockviewLayoutJson(layoutJson);
-  if (savedLayout == null) {
-    return { kind: "default" as const };
-  }
-
-  try {
-    api.fromJSON(savedLayout, { reuseExistingPanels: false });
-    return { kind: "restored" as const };
-  } catch {
-    return { kind: "fallback" as const };
-  }
-}
 
 export function ChatTile({
   binding,

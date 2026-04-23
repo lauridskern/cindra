@@ -34,10 +34,8 @@ import {
   OUTER_CHAT_COMPONENT,
   clearActiveDraggedChatBinding,
   createChatPanelId,
-  extractBindingsFromLayoutJson,
   extractBindingsFromSerializedLayout,
   hasChatBindingDataTransfer,
-  parseDockviewLayoutJson,
   readChatBindingFromDataTransfer,
   serializeDockviewLayout,
 } from "./layout";
@@ -49,26 +47,7 @@ import {
 import { useDockviewLayoutPersistence } from "./hooks/useDockviewLayoutPersistence";
 import { useDockviewTheme } from "./hooks/useDockviewTheme";
 import type { OuterChatPanelParams } from "./types/layout";
-import type { ApplySavedWorkspaceLayoutResult } from "./types/workspaceBoard";
-
-function applySavedWorkspaceLayout(
-  api: DockviewApi,
-  layoutJson: string,
-): ApplySavedWorkspaceLayoutResult {
-  const savedLayout = parseDockviewLayoutJson(layoutJson);
-  const savedBindings = extractBindingsFromLayoutJson(layoutJson);
-
-  if (savedLayout == null) {
-    return { kind: "default", bindings: savedBindings };
-  }
-
-  try {
-    api.fromJSON(savedLayout, { reuseExistingPanels: false });
-    return { kind: "restored" };
-  } catch {
-    return { kind: "fallback", bindings: savedBindings };
-  }
-}
+import { applySavedWorkspaceLayout } from "./utils/savedLayout";
 
 export function WorkspaceBoard() {
   const selection = useBoardSelection();

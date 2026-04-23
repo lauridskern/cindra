@@ -1,13 +1,13 @@
 import { Children, Fragment, type ReactNode } from "react";
 
 import { cn } from "@/utils/cn";
-import { FILENAME_PATTERN } from "./constants/inlineText";
 import type {
   ChatInlineChildrenProps,
   ChatInlineTextProps,
   FilenameButtonProps,
   InlineTextSegmentsProps,
 } from "./types/chatComponents";
+import { getInlineTextSegments } from "./utils/inlineText";
 
 function FilenameButton({ label }: FilenameButtonProps) {
   return (
@@ -23,46 +23,26 @@ function FilenameButton({ label }: FilenameButtonProps) {
   );
 }
 
-function buildTextSegments(text: string, keyPrefix: string): ReactNode[] {
-  const segments: ReactNode[] = [];
-  let match: RegExpExecArray | null;
-  let lastIndex = 0;
-  let matchIndex = 0;
-
-  FILENAME_PATTERN.lastIndex = 0;
-
-  while ((match = FILENAME_PATTERN.exec(text)) !== null) {
-    const [fullMatch, filename] = match;
-    const matchStart = match.index;
-    const matchEnd = matchStart + fullMatch.length;
-
-    if (matchStart > lastIndex) {
-      segments.push(text.slice(lastIndex, matchStart));
-    }
-
-    segments.push(
-      <FilenameButton
-        key={`${keyPrefix}-file-${matchIndex}`}
-        label={filename}
-      />,
-    );
-
-    lastIndex = matchEnd;
-    matchIndex += 1;
-  }
-
-  if (lastIndex < text.length) {
-    segments.push(text.slice(lastIndex));
-  }
-
-  return segments;
-}
-
 function InlineTextSegments({
   keyPrefix,
   text,
 }: InlineTextSegmentsProps) {
-  return <>{buildTextSegments(text, keyPrefix)}</>;
+  return (
+    <>
+      {getInlineTextSegments(text).map((segment, index) =>
+        segment.kind === "text" ? (
+          <Fragment key={`${keyPrefix}-text-${index}`}>
+            {segment.value}
+          </Fragment>
+        ) : (
+          <FilenameButton
+            key={`${keyPrefix}-file-${index}`}
+            label={segment.value}
+          />
+        ),
+      )}
+    </>
+  );
 }
 
 export function ChatInlineText({

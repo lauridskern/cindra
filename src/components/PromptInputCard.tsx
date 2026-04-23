@@ -34,6 +34,7 @@ import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
 import { Toggle } from "@/components/ui/Toggle";
 import { cn } from "@/utils/cn";
+import { formatReasoningEffortLabel } from "@/utils/reasoning";
 import type { PromptInputCardProps } from "./types/prompt";
 
 export function PromptInputCard({
@@ -277,11 +278,11 @@ export function PromptInputCard({
                   />
                 }
               >
-                <span>
-                  {selectedReasoning == null
-                    ? "Reasoning"
-                    : formatReasoningLabel(selectedReasoning)}
-                </span>
+                  <span>
+                    {selectedReasoning == null
+                      ? "Reasoning"
+                      : formatReasoningEffortLabel(selectedReasoning)}
+                  </span>
                 <ChevronDownIcon />
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="w-40">
@@ -292,7 +293,7 @@ export function PromptInputCard({
                   >
                     {selectedReasoningEfforts.map((option) => (
                       <DropdownMenuRadioItem key={option} value={option}>
-                        {formatReasoningLabel(option)}
+                        {formatReasoningEffortLabel(option)}
                       </DropdownMenuRadioItem>
                     ))}
                   </DropdownMenuRadioGroup>
@@ -329,12 +330,4 @@ export function PromptInputCard({
       </Card>
     </div>
   );
-}
-
-function formatReasoningLabel(value: string) {
-  if (value === "xhigh") {
-    return "XHigh";
-  }
-
-  return value.charAt(0).toUpperCase() + value.slice(1);
 }
