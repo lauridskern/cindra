@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import type { LucideIcon } from "lucide-react";
 import { EllipsisIcon, PencilLineIcon } from "lucide-react";
 
 import { cn } from "@/utils/cn";
 
-import { Button } from "./ui/button";
+import type { SidebarItemActionsMenuProps } from "./types/sidebar";
+import { Button } from "./ui/Button";
 import {
   Dialog,
   DialogContent,
@@ -12,30 +12,15 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "./ui/dialog";
+} from "./ui/Dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "./ui/dropdown-menu";
-import { Input } from "./ui/input";
-
-interface SidebarItemActionsMenuProps {
-  className?: string;
-  currentName: string;
-  dialogDescription: string;
-  dialogTitle: string;
-  menuAriaLabel: string;
-  onRemove: () => void;
-  onRename: (name: string | null) => Promise<void>;
-  placeholder?: string;
-  removeIcon: LucideIcon;
-  removeLabel?: string;
-  renameLabel?: string;
-  allowEmptyName?: boolean;
-}
+} from "./ui/DropdownMenu";
+import { Input } from "./ui/Input";
 
 export function SidebarItemActionsMenu({
   className,

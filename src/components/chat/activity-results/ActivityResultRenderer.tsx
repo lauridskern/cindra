@@ -1,11 +1,7 @@
-import type { ActivityResultModel } from "./activityResultModel";
 import { FileDiffResult } from "./FileDiffResult";
 import { ShellOutputResult } from "./ShellOutputResult";
 import { TextResult } from "./TextResult";
-
-interface ActivityResultRendererProps {
-  result: ActivityResultModel;
-}
+import type { ActivityResultRendererProps } from "../types/chatComponents";
 
 export function ActivityResultRenderer({
   result,

@@ -1,14 +1,15 @@
+import type { StatusCategory } from "../../../services/desktop/contracts";
+import { cn } from "@/utils/cn";
+import {
+  CHAT_BODY_TEXT_CLASS,
+  CHAT_BODY_TONE_CLASS,
+} from "../constants/chatStyles";
+import { ChatInlineText } from "../ChatInlineText";
 import type {
-  StatusCategory,
-  TranscriptMessage,
-} from "../../../services/desktop/contracts";
-import { cn } from "../../../lib/utils";
-import { ChatInlineText } from "../chatInlineText";
-
-type ChatStatusMessage = Extract<
-  TranscriptMessage,
-  { kind: "status" | "status_output" }
->;
+  ChatStatusEventRowProps,
+  StatusOutputRowProps,
+  StatusRowProps,
+} from "../types/chatComponents";
 
 function statusToneClass(category: StatusCategory): string {
   switch (category) {
@@ -27,17 +28,13 @@ function StatusRow({
   category,
   subtitle,
   title,
-}: {
-  category: StatusCategory;
-  subtitle?: string | null;
-  title: string;
-}) {
+}: StatusRowProps) {
   if (
     (category === "action" || category === "info" || category === "debug") &&
     subtitle
   ) {
     return (
-      <article className="grid max-w-3xl gap-1.5 select-text text-[13px] leading-[1.4rem] text-neutral-950 dark:text-neutral-200">
+      <article className={`grid max-w-3xl gap-1.5 select-text ${CHAT_BODY_TONE_CLASS}`}>
         <ChatInlineText as="p" text={subtitle} />
       </article>
     );
@@ -50,7 +47,7 @@ function StatusRow({
   return (
     <article
       className={cn(
-        "grid max-w-3xl gap-1.5 select-text text-[13px] leading-[1.4rem]",
+        `grid max-w-3xl gap-1.5 select-text ${CHAT_BODY_TEXT_CLASS}`,
         statusToneClass(category),
       )}
     >
@@ -66,21 +63,17 @@ function StatusRow({
   );
 }
 
-function StatusOutputRow({ text }: { text: string }) {
+function StatusOutputRow({ text }: StatusOutputRowProps) {
   return (
-    <article className="max-w-3xl min-w-0 select-text overflow-x-auto text-[13px] leading-[1.4rem] text-neutral-950 dark:text-neutral-400">
-      <pre className="m-0 max-w-full overflow-x-auto whitespace-pre font-mono leading-[1.4rem]">
+    <article className={`max-w-3xl min-w-0 select-text overflow-x-auto ${CHAT_BODY_TEXT_CLASS} text-neutral-950 dark:text-neutral-400`}>
+      <pre className="m-0 max-w-full overflow-x-auto whitespace-pre font-mono leading-6">
         {text}
       </pre>
     </article>
   );
 }
 
-export function ChatStatusEventRow({
-  message,
-}: {
-  message: ChatStatusMessage;
-}) {
+export function ChatStatusEventRow({ message }: ChatStatusEventRowProps) {
   switch (message.kind) {
     case "status":
       return (

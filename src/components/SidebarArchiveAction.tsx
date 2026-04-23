@@ -2,14 +2,8 @@ import { Archive } from "lucide-react";
 
 import { cn } from "@/utils/cn";
 
-import { Button } from "./ui/button";
-
-interface SidebarArchiveActionProps {
-  ariaLabel: string;
-  className?: string;
-  disabled?: boolean;
-  onClick: () => void;
-}
+import type { SidebarArchiveActionProps } from "./types/sidebar";
+import { Button } from "./ui/Button";
 
 export function SidebarArchiveAction({
   ariaLabel,

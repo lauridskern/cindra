@@ -3,14 +3,10 @@ import {
   usePromptDraft,
 } from "../hooks/useSession";
 import { useConversationActions } from "../hooks/useConversationActions";
-import type { ChatBinding } from "../services/desktop/contracts";
 import { FollowupComposer } from "./FollowupComposer";
 import { PromptInputCard } from "./PromptInputCard";
 import { SessionTodoDock } from "./conversation-panel/SessionTodoDock";
-
-interface PromptComposerProps {
-  binding?: ChatBinding | null;
-}
+import type { PromptComposerProps } from "./types/prompt";
 
 export function PromptComposer({ binding }: PromptComposerProps) {
   const { stopPrompt, submitPrompt, updatePromptSettings } =

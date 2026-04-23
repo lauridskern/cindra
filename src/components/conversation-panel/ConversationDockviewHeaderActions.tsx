@@ -1,16 +1,7 @@
-import type { ChatBinding } from "@/services/desktop/contracts";
-
 import { CommitChangesDialog } from "./CommitChangesDialog";
 import { ConversationHeaderActions } from "./ConversationHeaderActions";
-import { useConversationHeaderState } from "./useConversationHeaderState";
-
-interface ConversationDockviewHeaderActionsProps {
-  binding?: ChatBinding | null;
-  canCloseChat?: () => boolean;
-  onCloseChat?: () => void;
-  onOpenPreview?: () => void;
-  onOpenTerminal?: () => void;
-}
+import { useConversationHeaderState } from "./hooks/useConversationHeaderState";
+import type { ConversationDockviewHeaderActionsProps } from "./types/conversationHeader";
 
 export function ConversationDockviewHeaderActions({
   binding,

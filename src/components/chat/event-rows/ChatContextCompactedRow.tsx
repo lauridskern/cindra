@@ -1,23 +1,39 @@
-import { ChatInlineText } from "../chatInlineText";
+import { CHAT_MUTED_TEXT_CLASS } from "../constants/chatStyles";
+import { ChatInlineText } from "../ChatInlineText";
 
 function ContextCompactedIcon() {
   return (
-    <span
+    <svg
       aria-hidden="true"
-      className="relative size-4 shrink-0 text-neutral-400 dark:text-neutral-500"
+      viewBox="0 0 16 16"
+      className="size-4 shrink-0 text-neutral-400 dark:text-neutral-500"
     >
-      <span className="absolute inset-x-[3px] top-[2px] h-[10px] rounded-[3px] border border-current bg-white/80 dark:bg-neutral-900/80" />
-      <span className="absolute left-[1px] top-[4px] h-[10px] w-[8px] rounded-[3px] border border-current bg-white/55 dark:bg-neutral-900/55" />
-      <span className="absolute right-[0px] top-[4px] h-[2px] w-[2px] rounded-full bg-current" />
-      <span className="absolute right-[-1px] top-[7px] h-[2px] w-[4px] rounded-full bg-current" />
-      <span className="absolute right-[0px] top-[10px] h-[2px] w-[3px] rounded-full bg-current" />
-    </span>
+      <rect
+        x="3"
+        y="2"
+        width="10"
+        height="10"
+        rx="2"
+        className="fill-white/80 stroke-current dark:fill-neutral-900/80"
+      />
+      <rect
+        x="1"
+        y="4"
+        width="8"
+        height="10"
+        rx="2"
+        className="fill-white/55 stroke-current dark:fill-neutral-900/55"
+      />
+      <circle cx="13" cy="5" r="1" className="fill-current" />
+      <rect x="11" y="7" width="4" height="2" rx="1" className="fill-current" />
+      <rect x="12" y="10" width="3" height="2" rx="1" className="fill-current" />
+    </svg>
   );
 }
 
 export function ChatContextCompactedRow({ text }: { text: string }) {
   return (
-    <article className="flex max-w-3xl items-center gap-4 py-1 text-[13px] text-neutral-500 dark:text-neutral-400">
+    <article className={`flex max-w-3xl items-center gap-4 py-1 ${CHAT_MUTED_TEXT_CLASS}`}>
       <div className="h-px flex-1 bg-neutral-200/90 dark:bg-white/10" />
       <div className="inline-flex items-center gap-2 whitespace-nowrap">
         <ContextCompactedIcon />

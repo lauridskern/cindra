@@ -12,9 +12,8 @@ import {
   SquareIcon,
 } from "lucide-react";
 
-import type { PromptSettings } from "@/services/desktop/contracts";
-import { Button } from "@/components/ui/button";
-import { ButtonGroup } from "@/components/ui/button-group";
+import { Button } from "@/components/ui/Button";
+import { ButtonGroup } from "@/components/ui/ButtonGroup";
 import {
   Card,
   CardContent,
@@ -22,7 +21,7 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
+} from "@/components/ui/Card";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -30,30 +29,12 @@ import {
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Toggle } from "@/components/ui/toggle";
-import { cn } from "@/lib/utils";
-
-interface PromptInputCardProps {
-  canCompose: boolean;
-  isRequestActive: boolean;
-  isSendingPrompt: boolean;
-  isPlanningMode: boolean;
-  placeholder?: string;
-  promptSettings: PromptSettings | null;
-  promptDraft: string;
-  setPlanningMode: (value: boolean) => void;
-  setPromptDraft: (value: string) => void;
-  stopPrompt: () => Promise<void>;
-  submitPrompt: () => Promise<void>;
-  updatePromptSettings: (input: {
-    providerId: string;
-    modelId: string;
-    reasoningEffort?: string | null;
-  }) => Promise<void>;
-}
+} from "@/components/ui/DropdownMenu";
+import { Input } from "@/components/ui/Input";
+import { Textarea } from "@/components/ui/Textarea";
+import { Toggle } from "@/components/ui/Toggle";
+import { cn } from "@/utils/cn";
+import type { PromptInputCardProps } from "./types/prompt";
 
 export function PromptInputCard({
   canCompose,
@@ -172,7 +153,7 @@ export function PromptInputCard({
     <div className="mx-auto w-full max-w-3xl">
       <Card
         className={cn(
-          "relative gap-0 rounded-2xl border border-foreground/5 bg-background/50 p-2 transition-[box-shadow,border-color] ring-0",
+          "relative gap-0 rounded-2xl border border-foreground/5 bg-background/50 p-2 transition-colors transition-shadow ring-0",
           isPlanningMode &&
             "border-yellow-500/80 ring-5 ring-yellow-500/10 dark:border-yellow-400/10 dark:ring-yellow-500/70 border-dashed",
         )}

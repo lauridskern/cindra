@@ -1,10 +1,7 @@
 import { Settings2Icon } from "lucide-react";
 
-import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "./ui/sidebar";
-
-interface SidebarSettingsControlProps {
-  onOpenSettings: () => void;
-}
+import type { SidebarSettingsControlProps } from "./types/sidebar";
+import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "./ui/Sidebar";
 
 export function SidebarSettingsControl({
   onOpenSettings,

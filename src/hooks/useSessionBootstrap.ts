@@ -6,11 +6,7 @@ import {
 } from '../app/sessionSnapshot'
 import * as desktopClient from '../services/desktop/client'
 import type { SessionSnapshot } from '../services/desktop/contracts'
-
-interface UseSessionBootstrapOptions {
-  setSessionSnapshot: (snapshot: SessionSnapshot) => void
-  onReady?: () => void
-}
+import type { UseSessionBootstrapOptions } from './types/sessionBootstrap'
 
 export function useSessionBootstrap({
   setSessionSnapshot,

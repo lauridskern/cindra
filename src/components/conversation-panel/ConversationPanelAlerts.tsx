@@ -1,8 +1,4 @@
-interface ConversationPanelAlertsProps {
-  activeWorkspaceConfigurationError: string | null;
-  activeWorkspaceConfigured: boolean;
-  uiError: string | null;
-}
+import type { ConversationPanelAlertsProps } from "./types/conversationHeader";
 
 export function ConversationPanelAlerts({
   activeWorkspaceConfigurationError,

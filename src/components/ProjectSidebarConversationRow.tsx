@@ -1,20 +1,12 @@
-import type { ConversationSessionSummary } from "../services/desktop/contracts";
-import { cn } from "../utils/cn";
+import { cn } from "@/utils/cn";
 import { formatRelativeTimestamp } from "../utils/time";
 import { SidebarArchiveAction } from "./SidebarArchiveAction";
+import type { ProjectSidebarConversationRowProps } from "./types/sidebar";
 import {
   clearActiveDraggedChatBinding,
   writeChatBindingToDataTransfer,
 } from "./workspace-board/layout";
-import { SidebarMenuSubButton, SidebarMenuSubItem } from "./ui/sidebar";
-
-interface ProjectSidebarConversationRowProps {
-  conversation: ConversationSessionSummary;
-  isSelected: boolean;
-  workspacePath: string;
-  onArchiveConversation: (workspacePath: string, conversationId: string) => void;
-  onSelectConversation: (workspacePath: string, conversationId: string) => void;
-}
+import { SidebarMenuSubButton, SidebarMenuSubItem } from "./ui/Sidebar";
 
 export function ProjectSidebarConversationRow({
   conversation,

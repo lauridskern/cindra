@@ -9,26 +9,31 @@ import {
   XCircle,
 } from "lucide-react";
 
-import type { SessionTodo } from "@/services/desktop/contracts";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
+} from "@/components/ui/Card";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from "@/components/ui/collapsible";
-import { Separator } from "@/components/ui/separator";
-import { cn } from "@/lib/utils";
-
-interface SessionTodoDockProps {
-  isRequestActive: boolean;
-  todos: SessionTodo[];
-}
+} from "@/components/ui/Collapsible";
+import { Separator } from "@/components/ui/Separator";
+import type {
+  SessionTodoDockCardProps,
+  SessionTodoDockProps,
+  TodoStatusIconProps,
+} from "./types/conversationHeader";
+import {
+  buildTodoSummary,
+  isActiveTodo,
+  previewLabel,
+  selectPreviewTodo,
+  todoTextClassName,
+} from "./utils/sessionTodo";
 
 export function SessionTodoDock({
   isRequestActive,
@@ -57,12 +62,7 @@ function SessionTodoDockCard({
   previewTodo,
   summary,
   todos,
-}: {
-  isBusy: boolean;
-  previewTodo: SessionTodo | null;
-  summary: string;
-  todos: SessionTodo[];
-}) {
+}: SessionTodoDockCardProps) {
   const [isIdleCollapsed, setIsIdleCollapsed] = useState(true);
   const open = isBusy || !isIdleCollapsed;
 
@@ -103,7 +103,7 @@ function SessionTodoDockCard({
 
             {previewTodo != null ? (
               <div className="rounded-md bg-muted/50 px-3 py-2">
-                <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+                <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
                   {previewLabel(previewTodo.status)}
                 </p>
                 <div className="mt-1 flex items-start gap-2 text-sm/relaxed">
@@ -140,65 +140,7 @@ function SessionTodoDockCard({
   );
 }
 
-function buildTodoSummary(todos: SessionTodo[]): string {
-  let completedCount = 0;
-  let activeCount = 0;
-
-  for (const todo of todos) {
-    if (todo.status === "completed") {
-      completedCount += 1;
-      continue;
-    }
-
-    if (isActiveTodo(todo)) {
-      activeCount += 1;
-    }
-  }
-
-  if (activeCount === 0) {
-    return `${completedCount}/${todos.length} completed`;
-  }
-
-  return `${completedCount}/${todos.length} completed · ${activeCount} active`;
-}
-
-function selectPreviewTodo(todos: SessionTodo[]): SessionTodo | null {
-  const inProgressTodo = todos.find((todo) => todo.status === "in_progress");
-  if (inProgressTodo != null) {
-    return inProgressTodo;
-  }
-
-  const pendingTodo = todos.find((todo) => todo.status === "pending");
-  if (pendingTodo != null) {
-    return pendingTodo;
-  }
-
-  for (let index = todos.length - 1; index >= 0; index -= 1) {
-    const todo = todos[index];
-    if (todo.status === "completed" || todo.status === "cancelled") {
-      return todo;
-    }
-  }
-
-  return todos.at(-1) ?? null;
-}
-
-function previewLabel(status: SessionTodo["status"]): string {
-  switch (status) {
-    case "in_progress":
-      return "In progress";
-    case "pending":
-      return "Next up";
-    case "completed":
-      return "Last completed";
-    case "cancelled":
-      return "Last removed";
-    default:
-      return "Task plan";
-  }
-}
-
-function TodoStatusIcon({ status }: { status: SessionTodo["status"] }) {
+function TodoStatusIcon({ status }: TodoStatusIconProps) {
   switch (status) {
     case "in_progress":
       return (
@@ -218,18 +160,4 @@ function TodoStatusIcon({ status }: { status: SessionTodo["status"] }) {
         <Circle className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
       );
   }
-}
-
-function todoTextClassName(status: SessionTodo["status"]) {
-  return cn(
-    "min-w-0 flex-1",
-    status === "in_progress" && "font-medium text-foreground",
-    status === "completed" && "text-muted-foreground line-through",
-    status === "cancelled" && "text-muted-foreground line-through",
-    status === "pending" && "text-muted-foreground",
-  );
-}
-
-function isActiveTodo(todo: SessionTodo) {
-  return todo.status === "pending" || todo.status === "in_progress";
 }

@@ -1,5 +1,9 @@
 import type { RequestTimingInfo } from "@/app/SessionContext";
 import type {
+  DemoChatVisibility,
+  DemoTodoPreset,
+} from "./types/demoChat";
+import type {
   FollowupKind,
   FollowupRequest,
   OutputPreview,
@@ -18,14 +22,6 @@ const DEMO_REQUEST_FAILURE_ID = "demo-request-failure";
 const DEMO_REQUEST_LIVE_ID = "demo-request-live";
 
 const FIXTURE_CREATED_AT_MS = Date.now();
-
-export type DemoTodoPreset = "mixed" | "busy" | "complete";
-
-export interface DemoChatVisibility {
-  showCompaction: boolean;
-  showFailure: boolean;
-  showLiveRequest: boolean;
-}
 
 function createOutputPreview(
   content: string,

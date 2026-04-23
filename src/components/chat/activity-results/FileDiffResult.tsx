@@ -4,11 +4,7 @@ import {
   ActivityResultCard,
   ActivityResultPreformattedBody,
 } from "./ActivityResultCard";
-import type { ActivityResultModel } from "./activityResultModel";
-
-interface FileDiffResultProps {
-  result: Extract<ActivityResultModel, { kind: "file_diff" }>;
-}
+import type { FileDiffResultProps } from "../types/chatComponents";
 
 const LazyPatchDiff = lazy(async () => {
   const module = await import("@pierre/diffs/react");

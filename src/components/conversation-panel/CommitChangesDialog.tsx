@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/ui/Button";
 import {
   Dialog,
   DialogContent,
@@ -8,18 +8,9 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-
-interface CommitChangesDialogProps {
-  commitMessage: string;
-  isOpen: boolean;
-  isSubmitting: boolean;
-  onClose: () => void;
-  onCommitMessageChange: (value: string) => void;
-  onOpenChange: (open: boolean) => void;
-  onSubmit: () => Promise<void>;
-}
+} from "@/components/ui/Dialog";
+import { Input } from "@/components/ui/Input";
+import type { CommitChangesDialogProps } from "./types/conversationHeader";
 
 export function CommitChangesDialog({
   commitMessage,

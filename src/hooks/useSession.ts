@@ -16,9 +16,11 @@ import {
   getUiWorkspaceLabel,
   getWorkspaceMetaStoreKey,
   sessionStore,
-  type SessionStoreState,
-  type WorkspaceMetaState,
 } from "../app/sessionStore";
+import type {
+  SessionStoreState,
+  WorkspaceMetaState,
+} from "../app/types/sessionStore";
 import { getWorkspaceBoardSelectionKey } from "../components/workspace-board/workspaceBoardUtils";
 import type { ChatBinding } from "../services/desktop/contracts";
 

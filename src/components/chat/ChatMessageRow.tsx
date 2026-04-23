@@ -1,20 +1,22 @@
-import type { TranscriptMessage } from "../../services/desktop/contracts";
+import {
+  CHAT_BODY_TONE_CLASS,
+  CHAT_REASONING_TONE_CLASS,
+} from "./constants/chatStyles";
 import { ChatMarkdown } from "./ChatMarkdown";
-import { ChatInlineText } from "./chatInlineText";
+import { ChatInlineText } from "./ChatInlineText";
+import type {
+  ChatMessageRowProps,
+  MarkdownChatMessageProps,
+  TextOnlyMessageProps,
+} from "./types/chatComponents";
 
-type ChatContentMessage = Extract<
-  TranscriptMessage,
-  { kind: "user" | "assistant" | "reasoning" }
->;
-
-interface ChatMessageRowProps {
-  message: ChatContentMessage;
-}
-
-function UserChatMessage({ text }: { text: string }) {
+function UserChatMessage({ text }: TextOnlyMessageProps) {
   return (
     <article className="flex w-full justify-end select-text">
-      <div className="max-w-[min(42rem,85%)] rounded-3xl bg-neutral-200/60 px-5 py-3 text-[13px] leading-[1.4rem] text-neutral-950 dark:bg-neutral-800/60 dark:text-neutral-100">
+      <div
+        className="w-fit rounded-3xl bg-neutral-200/60 px-5 py-3 text-sm/6 text-neutral-950 dark:bg-neutral-800/60 dark:text-neutral-100"
+        style={{ maxWidth: "min(42rem, 85%)" }}
+      >
         <ChatInlineText as="p" text={text} />
       </div>
     </article>
@@ -24,10 +26,7 @@ function UserChatMessage({ text }: { text: string }) {
 function MarkdownChatMessage({
   text,
   toneClassName,
-}: {
-  text: string;
-  toneClassName: string;
-}) {
+}: MarkdownChatMessageProps) {
   return (
     <article className="max-w-3xl">
       <ChatMarkdown text={text} className={toneClassName} />
@@ -43,14 +42,14 @@ export function ChatMessageRow({ message }: ChatMessageRowProps) {
       return (
         <MarkdownChatMessage
           text={message.text}
-          toneClassName="text-[13px] leading-[1.4rem] text-neutral-950 dark:text-neutral-200"
+          toneClassName={CHAT_BODY_TONE_CLASS}
         />
       );
     case "reasoning":
       return (
         <MarkdownChatMessage
           text={message.text}
-          toneClassName="text-[13px] leading-[1.4rem] text-neutral-950 dark:text-neutral-300"
+          toneClassName={CHAT_REASONING_TONE_CLASS}
         />
       );
     default:

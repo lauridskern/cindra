@@ -1,9 +1,5 @@
 import { ActivityResultCard, ActivityResultPreformattedBody } from "./ActivityResultCard";
-import type { ActivityResultModel } from "./activityResultModel";
-
-interface ShellOutputResultProps {
-  result: Extract<ActivityResultModel, { kind: "shell" }>;
-}
+import type { ShellOutputResultProps } from "../types/chatComponents";
 
 export function ShellOutputResult({ result }: ShellOutputResultProps) {
   return (

@@ -2,21 +2,10 @@ import { ChatThread } from "@/components/chat/ChatThread";
 import { ConversationPanelAlerts } from "@/components/conversation-panel/ConversationPanelAlerts";
 import { ConversationPanelHeader } from "@/components/conversation-panel/ConversationPanelHeader";
 import { ConversationSurface } from "@/components/conversation-panel/ConversationSurface";
-import { LandingScreen } from "@/components/LandingScreen";
+import { LandingScreen } from "@/components/landing-screen/LandingScreen";
 import { PromptComposer } from "@/components/PromptComposer";
 import { useConversationSession } from "@/hooks/useSession";
-import type { ChatBinding } from "@/services/desktop/contracts";
-
-interface ConversationPanelProps {
-  binding?: ChatBinding | null;
-  canCloseChat?: () => boolean;
-  onCloseChat?: () => void;
-  onOpenPreview?: () => void;
-  onOpenTerminal?: () => void;
-  reserveTitlebarInset?: boolean;
-  showHeader?: boolean;
-  windowDragEnabled?: boolean;
-}
+import type { ConversationPanelProps } from "./types/conversation";
 
 export function ConversationPanel({
   binding,

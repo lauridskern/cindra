@@ -1,9 +1,5 @@
 import { ActivityResultCard, ActivityResultPreformattedBody } from "./ActivityResultCard";
-import type { ActivityResultModel } from "./activityResultModel";
-
-interface TextResultProps {
-  result: Extract<ActivityResultModel, { kind: "text" }>;
-}
+import type { TextResultProps } from "../types/chatComponents";
 
 export function TextResult({ result }: TextResultProps) {
   return (

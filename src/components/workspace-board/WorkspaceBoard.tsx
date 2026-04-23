@@ -13,7 +13,7 @@ import {
 } from "dockview-react";
 
 import { ConversationPanel } from "@/components/ConversationPanel";
-import { LandingScreen } from "@/components/LandingScreen";
+import { LandingScreen } from "@/components/landing-screen/LandingScreen";
 import { DemoConversationPanel } from "@/components/demo-chat/DemoConversationPanel";
 import {
   useBoardSelection,
@@ -47,13 +47,9 @@ import {
   getChatTitle,
   getOuterPanelBinding,
 } from "./workspaceBoardUtils";
-import { useDockviewLayoutPersistence } from "./useDockviewLayoutPersistence";
-import { useDockviewTheme } from "./useDockviewTheme";
-
-type ApplySavedWorkspaceLayoutResult =
-  | { kind: "restored" }
-  | { kind: "default"; bindings: ChatBinding[] }
-  | { kind: "fallback"; bindings: ChatBinding[] };
+import { useDockviewLayoutPersistence } from "./hooks/useDockviewLayoutPersistence";
+import { useDockviewTheme } from "./hooks/useDockviewTheme";
+import type { ApplySavedWorkspaceLayoutResult } from "./types/workspaceBoard";
 
 function applySavedWorkspaceLayout(
   api: DockviewApi,

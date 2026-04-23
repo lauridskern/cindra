@@ -24,9 +24,8 @@ import {
 import { ConversationPanel } from "@/components/ConversationPanel";
 import { ConversationDockviewHeaderActions } from "@/components/conversation-panel/ConversationDockviewHeaderActions";
 import { ConversationDockviewTab } from "@/components/conversation-panel/ConversationDockviewTab";
-import { Button } from "@/components/ui/button";
-import { ButtonGroup } from "@/components/ui/button-group";
-import type { ChatBinding } from "@/services/desktop/contracts";
+import { Button } from "@/components/ui/Button";
+import { ButtonGroup } from "@/components/ui/ButtonGroup";
 import * as desktopClient from "@/services/desktop/client";
 
 import { PlaceholderPane } from "./PlaceholderPane";
@@ -48,8 +47,9 @@ import {
   openChatTilePane,
   shouldPreventChatOverlay,
 } from "./chatTileLayout";
-import { useDockviewLayoutPersistence } from "./useDockviewLayoutPersistence";
-import { useDockviewTheme } from "./useDockviewTheme";
+import { useDockviewLayoutPersistence } from "./hooks/useDockviewLayoutPersistence";
+import { useDockviewTheme } from "./hooks/useDockviewTheme";
+import type { ChatTileProps } from "./types/workspaceBoard";
 import "./chat-tile-dockview.css";
 
 function AuxiliaryPaneTab({
@@ -84,12 +84,6 @@ function applySavedConversationLayout(
   } catch {
     return { kind: "fallback" as const };
   }
-}
-
-interface ChatTileProps {
-  binding: ChatBinding;
-  canCloseChat: () => boolean;
-  onCloseChat: () => void;
 }
 
 export function ChatTile({

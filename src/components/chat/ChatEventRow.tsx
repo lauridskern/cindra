@@ -1,20 +1,10 @@
-import type { TranscriptMessage } from "../../services/desktop/contracts";
 import {
   ChatContextCompactedRow,
   ChatErrorEventRow,
   ChatStatusEventRow,
   ChatToolEventRow,
 } from "./event-rows";
-
-type ChatEventMessage = Extract<
-  TranscriptMessage,
-  | { kind: "context_compacted" }
-  | { kind: "status" | "status_output" | "tool_start" | "tool_end" | "error" }
->;
-
-interface ChatEventRowProps {
-  message: ChatEventMessage;
-}
+import type { ChatEventRowProps } from "./types/chatComponents";
 
 export function ChatEventRow({ message }: ChatEventRowProps) {
   switch (message.kind) {

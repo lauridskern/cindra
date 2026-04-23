@@ -1,6 +1,6 @@
 import { ChevronDownIcon, FolderIcon, MinusIcon } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/ui/Button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -8,22 +8,10 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+} from "@/components/ui/DropdownMenu";
+import type { ProjectSwitcherMenuProps } from "./types/conversationHeader";
 
 const NO_PROJECT_VALUE = "__no_project__";
-
-export interface ProjectSwitchOption {
-  label: string;
-  workspacePath: string;
-}
-
-interface ProjectSwitcherMenuProps {
-  currentProjectLabel: string;
-  isBusy: boolean;
-  projects: readonly ProjectSwitchOption[];
-  selectedProjectPath: string | null;
-  onSelectProject: (workspacePath: string | null) => Promise<void>;
-}
 
 export function ProjectSwitcherMenu({
   currentProjectLabel,
@@ -41,7 +29,7 @@ export function ProjectSwitcherMenu({
             size="xs"
             aria-label="Choose project"
             disabled={isBusy}
-            className="h-auto min-h-0 gap-1 rounded-sm px-1.5 py-0.5 text-xs leading-none font-medium text-neutral-800 hover:text-foreground dark:text-neutral-100 dark:hover:text-neutral-100"
+            className="h-auto gap-1 rounded-sm px-1.5 py-0.5 text-xs leading-none font-medium text-neutral-800 hover:text-foreground dark:text-neutral-100 dark:hover:text-neutral-100"
           />
         }
       >
