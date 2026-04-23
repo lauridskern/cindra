@@ -80,7 +80,6 @@ export function buildChatThreadItems(
   const items: ChatThreadItem[] = [];
   const activeRequestIdSet = new Set(activeRequestIds);
   const pendingActivitiesByRequestId = new Map<string, ActivityItem[]>();
-  const emittedWorkItemRequestIds = new Set<string>();
   const requestIdsInEncounterOrder: string[] = [];
   const seenRequestIds = new Set<string>();
   let currentGroup: ActivityGroupBuilder | null = null;
@@ -133,24 +132,6 @@ export function buildChatThreadItems(
     return activityItems;
   };
 
-  const pushWorkItem = (
-    requestId: string,
-    activities: ActivityItem[],
-    isRunning: boolean,
-  ) => {
-    trackRequestId(requestId);
-
-    items.push({
-      kind: "request_work",
-      key: `request-work:${requestId}:${items.length}`,
-      requestId,
-      activities,
-      isRunning,
-      hasError: activities.some((activity) => activity.hasError),
-    });
-    emittedWorkItemRequestIds.add(requestId);
-  };
-
   const appendPendingActivities = (
     requestId: string,
     activities: ActivityItem[],
@@ -165,13 +146,6 @@ export function buildChatThreadItems(
       ...existingActivities,
       ...activities,
     ]);
-  };
-
-  const takePendingActivities = (requestId: string): ActivityItem[] => {
-    trackRequestId(requestId);
-    const activities = pendingActivitiesByRequestId.get(requestId) ?? [];
-    pendingActivitiesByRequestId.delete(requestId);
-    return activities;
   };
 
   const flushGroup = (options?: { includeEmpty?: boolean }) => {
@@ -226,12 +200,7 @@ export function buildChatThreadItems(
       case "assistant":
       case "error":
         flushGroup({ includeEmpty: true });
-        pushWorkItem(
-          message.requestId,
-          takePendingActivities(message.requestId),
-          activeRequestIdSet.has(message.requestId),
-        );
-
+        trackRequestId(message.requestId);
         items.push({
           kind: "message",
           key: message.id,
@@ -327,21 +296,70 @@ export function buildChatThreadItems(
     trackRequestId(requestId);
   }
 
+  const workItemsByRequestId = new Map<
+    string,
+    Extract<ChatThreadItem, { kind: "request_work" }>
+  >();
   for (const requestId of requestIdsInEncounterOrder) {
-    const activities = takePendingActivities(requestId);
     const isRunning = activeRequestIdSet.has(requestId);
+    const activities = finalizeRequestActivities(
+      pendingActivitiesByRequestId.get(requestId) ?? [],
+      isRunning,
+    );
 
-    if (activities.length > 0) {
-      pushWorkItem(requestId, activities, isRunning);
-      continue;
-    }
-
-    if (!emittedWorkItemRequestIds.has(requestId) && isRunning) {
-      pushWorkItem(requestId, activities, true);
+    if (activities.length > 0 || isRunning) {
+      workItemsByRequestId.set(requestId, {
+        kind: "request_work",
+        key: `request-work:${requestId}`,
+        requestId,
+        activities,
+        isRunning,
+        hasError: activities.some((activity) => activity.hasError),
+      });
     }
   }
 
-  return items;
+  const workItemInsertionsByMessageKey = new Map<
+    string,
+    Extract<ChatThreadItem, { kind: "request_work" }>[]
+  >();
+  const trailingWorkItems: Extract<ChatThreadItem, { kind: "request_work" }>[] = [];
+
+  for (const requestId of requestIdsInEncounterOrder) {
+    const workItem = workItemsByRequestId.get(requestId);
+    if (workItem == null) {
+      continue;
+    }
+
+    if (workItem.isRunning) {
+      trailingWorkItems.push(workItem);
+      continue;
+    }
+
+    const insertionKey = findRequestWorkInsertionKey(items, requestId);
+    if (insertionKey == null) {
+      trailingWorkItems.push(workItem);
+      continue;
+    }
+
+    const existingInsertions = workItemInsertionsByMessageKey.get(insertionKey) ?? [];
+    workItemInsertionsByMessageKey.set(insertionKey, [
+      ...existingInsertions,
+      workItem,
+    ]);
+  }
+
+  const finalItems: ChatThreadItem[] = [];
+  for (const item of items) {
+    const insertions = workItemInsertionsByMessageKey.get(item.key);
+    if (insertions != null) {
+      finalItems.push(...insertions);
+    }
+    finalItems.push(item);
+  }
+
+  finalItems.push(...trailingWorkItems);
+  return finalItems;
 }
 
 function isDecorativeToolStatus(
@@ -425,6 +443,46 @@ function mergeOutputText(current: string | undefined, next: string): string {
   }
 
   return `${current}\n\n${trimmed}`;
+}
+
+function finalizeRequestActivities(
+  activities: ActivityItem[],
+  isRunning: boolean,
+): ActivityItem[] {
+  if (activities.length === 0) {
+    return activities;
+  }
+
+  const lastRunningIndex = isRunning ? activities.length - 1 : -1;
+  return activities.map((activity, index) => ({
+    ...activity,
+    isRunning: index === lastRunningIndex,
+  }));
+}
+
+function findRequestWorkInsertionKey(
+  items: ChatThreadItem[],
+  requestId: string,
+): string | null {
+  for (let index = items.length - 1; index >= 0; index -= 1) {
+    const item = items[index];
+    if (item.kind !== "message" || item.message.requestId !== requestId) {
+      continue;
+    }
+
+    if (item.message.kind === "assistant" || item.message.kind === "error") {
+      return item.key;
+    }
+  }
+
+  for (let index = items.length - 1; index >= 0; index -= 1) {
+    const item = items[index];
+    if (item.kind === "message" && item.message.requestId === requestId) {
+      return item.key;
+    }
+  }
+
+  return null;
 }
 
 function splitActivityOperationGroups(
