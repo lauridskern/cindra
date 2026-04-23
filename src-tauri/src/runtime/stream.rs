@@ -440,6 +440,9 @@ fn clear_request_tracking(conversation: &mut ConversationSessionState, request_i
     conversation
         .pending_file_updates
         .retain(|_, pending| pending.request_id != request_id);
+    conversation
+        .pending_anonymous_file_updates
+        .retain(|pending| pending.request_id != request_id);
 }
 
 fn append_streamed_message(

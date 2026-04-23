@@ -1,32 +1,35 @@
+import type { ReactNode } from "react";
+
 import type { OutputPreview, ToolResultDetail } from "../../../services/desktop/contracts";
 import type { ActivityOperation } from "../chatThreadModel";
+import { buildRenderableFileDiffPatch } from "./fileDiffUtils";
 
 interface ActivityResultFooter {
-  leading: string;
-  trailing: string;
-}
-
-interface ActivityResultBase {
-  copyText: string;
-  footer: ActivityResultFooter;
+  leading: ReactNode;
+  trailing: ReactNode;
 }
 
 export type ActivityResultModel =
-  | (ActivityResultBase & {
+  | {
       kind: "shell";
       text: string;
       title: "Shell";
-    })
-  | (ActivityResultBase & {
+      copyText: string;
+      footer: ActivityResultFooter;
+    }
+  | {
       kind: "file_diff";
+      path: string;
       patch: string;
-      title: "Diff";
-    })
-  | (ActivityResultBase & {
+      copyText: string;
+    }
+  | {
       kind: "text";
       text: string;
       title: "Output";
-    });
+      copyText: string;
+      footer: ActivityResultFooter;
+    };
 
 function buildShellPreviewText(
   command: string,
@@ -88,13 +91,34 @@ export function getActivityResultModel(
         };
   }
   if (detail?.kind === "file_diff") {
+    const patch = buildRenderableFileDiffPatch(detail.path, detail.patch);
     return {
       kind: "file_diff",
-      title: "Diff",
-      patch: detail.patch,
-      copyText: detail.patch,
-      footer: buildResultFooter(operation),
+      path: detail.path,
+      patch,
+      copyText: patch,
     };
+  }
+
+  if (operation.detail.kind === "file_update") {
+    const patchText =
+      (detail?.kind === "text" ? detail.text : undefined) ??
+      operation.outputText ??
+      operation.summary;
+    const trimmedPatchText = patchText?.trim();
+    const patch =
+      trimmedPatchText == null
+        ? null
+        : buildRenderableFileDiffPatch(operation.detail.path, trimmedPatchText);
+
+    return patch
+      ? {
+          kind: "file_diff",
+          path: operation.detail.path,
+          patch,
+          copyText: patch,
+        }
+      : null;
   }
 
   const text =

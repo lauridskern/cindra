@@ -149,6 +149,24 @@ impl RuntimeManager {
         .await
     }
 
+    pub async fn open_path_in_target(
+        &self,
+        workspace_path: String,
+        target_id: String,
+        path: String,
+    ) -> anyhow::Result<()> {
+        self.with_recorded_ui_error(async {
+            let workspace_path = self.workspace_path_for_action(&workspace_path).await?;
+            let target_id = validate_non_empty_value(&target_id, "Open target")?;
+            let path = validate_non_empty_value(&path, "Path")?;
+            let resolved_path = resolve_path_for_target(&workspace_path, &path);
+            desktop_open::open_path_in_target(&target_id, resolved_path.as_path())?;
+            self.clear_ui_error().await?;
+            Ok(())
+        })
+        .await
+    }
+
     async fn finish_runtime_status_action(
         &self,
         workspace_path: Option<&Path>,
@@ -172,6 +190,15 @@ impl RuntimeManager {
         }
 
         Ok(PathBuf::from(workspace_path))
+    }
+}
+
+fn resolve_path_for_target(workspace_path: &Path, path: &str) -> PathBuf {
+    let raw_path = Path::new(path);
+    if raw_path.is_absolute() {
+        raw_path.to_path_buf()
+    } else {
+        workspace_path.join(raw_path)
     }
 }
 

@@ -225,6 +225,14 @@ export function openInTarget(
   return invokeCommand("open_in_target", { workspacePath, targetId });
 }
 
+export function openPathInTarget(
+  workspacePath: string,
+  targetId: string,
+  path: string,
+): Promise<void> {
+  return invokeCommand("open_path_in_target", { workspacePath, targetId, path });
+}
+
 export function openExternalUrl(url: string): Promise<void> {
   return invokeCommand("open_external_url", { url });
 }

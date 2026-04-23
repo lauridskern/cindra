@@ -1,14 +1,21 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { Check, Copy } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 interface ActivityResultCardProps {
   children: ReactNode;
   copyText?: string | null;
   footer: {
-    leading: string;
-    trailing: string;
+    leading: ReactNode;
+    trailing: ReactNode;
   };
-  title: string;
+  title: ReactNode;
 }
 
 export function ActivityResultPreformattedBody({ text }: { text: string }) {
@@ -60,26 +67,32 @@ export function ActivityResultCard({
   }, []);
 
   return (
-    <div className="min-w-0 max-w-full overflow-hidden rounded-2xl border border-neutral-200 bg-neutral-50 dark:border-neutral-800 dark:bg-neutral-950/70">
-      <div className="flex items-center justify-between border-b border-neutral-200 px-3 py-2 text-[13px] leading-[1.4rem] text-neutral-950 dark:border-neutral-800 dark:text-neutral-400">
-        <span>{title}</span>
+    <div className="min-w-0 max-w-full overflow-hidden rounded-lg border border-neutral-200 bg-neutral-50 dark:border-neutral-800 dark:bg-neutral-950/70 my-1">
+      <div className="flex items-center justify-between border-b border-neutral-200 pl-2.5 pr-1 py-1 text-[13px] text-neutral-950 dark:border-neutral-800 dark:text-neutral-400">
+        <span className="min-w-0 truncate text-neutral-950 dark:text-neutral-200">
+          {title}
+        </span>
         {canCopy ? (
-          <button
-            type="button"
+          <Button
+            variant={"ghost"}
+            size={"xs"}
             onClick={() => {
               void handleCopy();
             }}
-            className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-[13px] leading-[1.4rem] text-neutral-950 transition hover:bg-neutral-200/70 hover:text-neutral-950 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-100"
           >
-            {copied ? <Check className="size-3" /> : <Copy className="size-3" />}
+            {copied ? (
+              <Check className="size-3" />
+            ) : (
+              <Copy className="size-3" />
+            )}
             {copied ? "Copied" : "Copy"}
-          </button>
+          </Button>
         ) : null}
       </div>
       {children}
-      <div className="flex items-center justify-between border-t border-neutral-200 px-3 py-2 text-[13px] leading-[1.4rem] text-neutral-950 dark:border-neutral-800 dark:text-neutral-400">
-        <span>{footer.leading}</span>
-        <span>{footer.trailing}</span>
+      <div className="flex items-center justify-between border-t border-neutral-200 px-3 py-1 text-[13px] leading-[1.4rem] text-neutral-950 dark:border-neutral-800 dark:text-neutral-400">
+        <span className="min-w-0 flex-1 truncate">{footer.leading}</span>
+        <span className="ml-3 shrink-0">{footer.trailing}</span>
       </div>
     </div>
   );
