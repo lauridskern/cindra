@@ -1,16 +1,10 @@
 import { useState } from 'react'
 
-import type { FollowupRequest } from '../services/desktop/contracts'
 import { useSessionActions } from '../hooks/useSession'
-
-interface FollowupComposerProps {
-  followupRequest: FollowupRequest
-  onSubmit?: (input: {
-    cancelled: boolean
-    text?: string
-    selectedOptionIds?: string[]
-  }) => Promise<void> | void
-}
+import type {
+  FollowupComposerProps,
+  FollowupSubmitInput,
+} from './types/prompt'
 
 export function FollowupComposer({
   followupRequest,
@@ -19,11 +13,7 @@ export function FollowupComposer({
   const [followupText, setFollowupText] = useState('')
   const [selectedOptionIds, setSelectedOptionIds] = useState<string[]>([])
   const { submitFollowup } = useSessionActions()
-  const handleSubmit = (input: {
-    cancelled: boolean
-    text?: string
-    selectedOptionIds?: string[]
-  }) => {
+  const handleSubmit = (input: FollowupSubmitInput) => {
     const action = onSubmit ?? submitFollowup
     void action(input)
   }
@@ -85,7 +75,7 @@ export function FollowupComposer({
         </div>
       )}
 
-      <div className="mt-4 flex items-center justify-between gap-4 max-md:flex-col max-md:items-stretch">
+      <div className="mt-4 flex items-center justify-between gap-4">
         <button
           type="button"
           className="appearance-none font-inherit transition duration-150 ease-out disabled:cursor-not-allowed disabled:opacity-45 rounded-full border border-neutral-200 bg-white/85 px-4 py-2.5 text-sm text-neutral-700 dark:border-white/10 dark:bg-neutral-900/80 dark:text-neutral-200"

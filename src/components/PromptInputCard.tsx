@@ -1,9 +1,5 @@
 import {
-  useLayoutEffect,
   useRef,
-  useState,
-  type ChangeEvent,
-  type KeyboardEvent,
 } from "react";
 import {
   ArrowUpIcon,
@@ -12,9 +8,8 @@ import {
   SquareIcon,
 } from "lucide-react";
 
-import type { PromptSettings } from "@/services/desktop/contracts";
-import { Button } from "@/components/ui/button";
-import { ButtonGroup } from "@/components/ui/button-group";
+import { Button } from "@/components/ui/Button";
+import { ButtonGroup } from "@/components/ui/ButtonGroup";
 import {
   Card,
   CardContent,
@@ -22,7 +17,7 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
+} from "@/components/ui/Card";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -30,30 +25,15 @@ import {
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Toggle } from "@/components/ui/toggle";
-import { cn } from "@/lib/utils";
-
-interface PromptInputCardProps {
-  canCompose: boolean;
-  isRequestActive: boolean;
-  isSendingPrompt: boolean;
-  isPlanningMode: boolean;
-  placeholder?: string;
-  promptSettings: PromptSettings | null;
-  promptDraft: string;
-  setPlanningMode: (value: boolean) => void;
-  setPromptDraft: (value: string) => void;
-  stopPrompt: () => Promise<void>;
-  submitPrompt: () => Promise<void>;
-  updatePromptSettings: (input: {
-    providerId: string;
-    modelId: string;
-    reasoningEffort?: string | null;
-  }) => Promise<void>;
-}
+} from "@/components/ui/DropdownMenu";
+import { Input } from "@/components/ui/Input";
+import { Textarea } from "@/components/ui/Textarea";
+import { Toggle } from "@/components/ui/Toggle";
+import { useAutosizeTextarea } from "@/hooks/useAutosizeTextarea";
+import { usePromptModelPicker } from "@/hooks/usePromptModelPicker";
+import { cn } from "@/utils/cn";
+import { formatReasoningEffortLabel } from "@/utils/reasoning";
+import type { PromptInputCardProps } from "./types/prompt";
 
 export function PromptInputCard({
   canCompose,
@@ -70,86 +50,29 @@ export function PromptInputCard({
   updatePromptSettings,
 }: PromptInputCardProps) {
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
-  const [isModelMenuOpen, setIsModelMenuOpen] = useState(false);
-  const [modelSearchQuery, setModelSearchQuery] = useState("");
   const isControlDisabled = isSendingPrompt || isRequestActive || !canCompose;
   const isWorking = isRequestActive;
   const isSubmitDisabled =
     !canCompose || isSendingPrompt || promptDraft.trim().length === 0;
-  const selectedModel =
-    promptSettings?.availableModels.find(
-      (model) =>
-        model.providerId === promptSettings.selectedProviderId &&
-        model.modelId === promptSettings.selectedModelId,
-    ) ?? null;
-  const selectedReasoningEfforts = selectedModel?.reasoningEfforts ?? [];
-  const selectedReasoning =
-    promptSettings?.selectedReasoningEffort != null &&
-    selectedReasoningEfforts.includes(promptSettings.selectedReasoningEffort)
-      ? promptSettings.selectedReasoningEffort
-      : null;
-  const normalizedModelSearchQuery = modelSearchQuery.trim().toLowerCase();
-  const visibleModels =
-    normalizedModelSearchQuery.length === 0
-      ? (promptSettings?.availableModels ?? [])
-      : (promptSettings?.availableModels.filter((model) => {
-          const searchableText = [
-            model.modelName,
-            model.modelId,
-            model.providerName,
-            model.providerId,
-          ]
-            .filter(Boolean)
-            .join(" ")
-            .toLowerCase();
+  const {
+    handleModelChange,
+    handleModelMenuOpenChange,
+    handleReasoningChange,
+    hasAvailableModels,
+    isModelMenuOpen,
+    modelSearchQuery,
+    selectedModel,
+    selectedModelValue,
+    selectedReasoning,
+    selectedReasoningEfforts,
+    setModelSearchQuery,
+    visibleModels,
+  } = usePromptModelPicker({
+    promptSettings,
+    updatePromptSettings,
+  });
 
-          return searchableText.includes(normalizedModelSearchQuery);
-        }) ?? []);
-
-  useLayoutEffect(() => {
-    const textarea = textareaRef.current;
-    if (textarea == null) {
-      return;
-    }
-
-    textarea.style.height = "0px";
-    textarea.style.height = `${textarea.scrollHeight}px`;
-  }, [promptDraft]);
-
-  function handleModelChange(value: string) {
-    const nextModel = promptSettings?.availableModels.find(
-      (model) => `${model.providerId}:${model.modelId}` === value,
-    );
-    if (nextModel == null) {
-      return;
-    }
-
-    const nextReasoning =
-      selectedReasoning != null &&
-      nextModel.reasoningEfforts.includes(selectedReasoning)
-        ? selectedReasoning
-        : (nextModel.reasoningEfforts[0] ?? null);
-
-    void updatePromptSettings({
-      providerId: nextModel.providerId,
-      modelId: nextModel.modelId,
-      reasoningEffort: nextReasoning,
-    });
-    setIsModelMenuOpen(false);
-    setModelSearchQuery("");
-  }
-
-  function handleReasoningChange(value: string) {
-    if (selectedModel == null) {
-      return;
-    }
-
-    void updatePromptSettings({
-      providerId: selectedModel.providerId,
-      modelId: selectedModel.modelId,
-      reasoningEffort: value,
-    });
-  }
+  useAutosizeTextarea(textareaRef, promptDraft);
 
   function handleSubmit() {
     if (!canCompose || promptDraft.trim().length === 0) {
@@ -172,7 +95,7 @@ export function PromptInputCard({
     <div className="mx-auto w-full max-w-3xl">
       <Card
         className={cn(
-          "relative gap-0 rounded-2xl border border-foreground/5 bg-background/50 p-2 transition-[box-shadow,border-color] ring-0",
+          "relative gap-0 rounded-2xl border border-foreground/5 bg-background/50 p-2 transition-colors transition-shadow ring-0",
           isPlanningMode &&
             "border-yellow-500/80 ring-5 ring-yellow-500/10 dark:border-yellow-400/10 dark:ring-yellow-500/70 border-dashed",
         )}
@@ -206,12 +129,7 @@ export function PromptInputCard({
           <ButtonGroup aria-label="Prompt controls" className="-mb-1.5">
             <DropdownMenu
               open={isModelMenuOpen}
-              onOpenChange={(open) => {
-                setIsModelMenuOpen(open);
-                if (!open) {
-                  setModelSearchQuery("");
-                }
-              }}
+              onOpenChange={handleModelMenuOpenChange}
             >
               <DropdownMenuTrigger
                 render={
@@ -222,7 +140,7 @@ export function PromptInputCard({
                     className="text-muted-foreground hover:bg-transparent hover:text-foreground"
                     disabled={
                       isControlDisabled ||
-                      (promptSettings?.availableModels.length ?? 0) === 0
+                      !hasAvailableModels
                     }
                   />
                 }
@@ -241,21 +159,17 @@ export function PromptInputCard({
                     placeholder="Search models"
                     className="h-8 bg-popover dark:bg-popover"
                     autoFocus
-                    onChange={(event: ChangeEvent<HTMLInputElement>) => {
+                    onChange={(event) => {
                       setModelSearchQuery(event.target.value);
                     }}
-                    onKeyDown={(event: KeyboardEvent<HTMLInputElement>) => {
+                    onKeyDown={(event) => {
                       event.stopPropagation();
                     }}
                   />
                 </div>
                 <DropdownMenuGroup>
                   <DropdownMenuRadioGroup
-                    value={
-                      selectedModel == null
-                        ? ""
-                        : `${selectedModel.providerId}:${selectedModel.modelId}`
-                    }
+                    value={selectedModelValue}
                     onValueChange={handleModelChange}
                   >
                     {visibleModels.length === 0 ? (
@@ -296,11 +210,11 @@ export function PromptInputCard({
                   />
                 }
               >
-                <span>
-                  {selectedReasoning == null
-                    ? "Reasoning"
-                    : formatReasoningLabel(selectedReasoning)}
-                </span>
+                  <span>
+                    {selectedReasoning == null
+                      ? "Reasoning"
+                      : formatReasoningEffortLabel(selectedReasoning)}
+                  </span>
                 <ChevronDownIcon />
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="w-40">
@@ -311,7 +225,7 @@ export function PromptInputCard({
                   >
                     {selectedReasoningEfforts.map((option) => (
                       <DropdownMenuRadioItem key={option} value={option}>
-                        {formatReasoningLabel(option)}
+                        {formatReasoningEffortLabel(option)}
                       </DropdownMenuRadioItem>
                     ))}
                   </DropdownMenuRadioGroup>
@@ -348,12 +262,4 @@ export function PromptInputCard({
       </Card>
     </div>
   );
-}
-
-function formatReasoningLabel(value: string) {
-  if (value === "xhigh") {
-    return "XHigh";
-  }
-
-  return value.charAt(0).toUpperCase() + value.slice(1);
 }

@@ -7,14 +7,14 @@ import {
   SlidersHorizontal,
 } from "lucide-react";
 
-import type { PromptSettings } from "@/services/desktop/contracts";
+import type { PromptSettings } from "@/services/desktop/types/contracts";
 import { ChatThread } from "@/components/chat/ChatThread";
 import { FollowupComposer } from "@/components/FollowupComposer";
 import { ConversationSurface } from "@/components/conversation-panel/ConversationSurface";
 import { PromptInputCard } from "@/components/PromptInputCard";
 import { SessionTodoDock } from "@/components/conversation-panel/SessionTodoDock";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/Button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/Card";
 import {
   Sheet,
   SheetContent,
@@ -22,8 +22,9 @@ import {
   SheetHeader,
   SheetTitle,
   SheetTrigger,
-} from "@/components/ui/sheet";
-import { cn } from "@/lib/utils";
+} from "@/components/ui/Sheet";
+import { cn } from "@/utils/cn";
+import { DEFAULT_PROMPT_DRAFT } from "./constants/demoChat";
 
 import {
   buildDemoActiveRequestIds,
@@ -33,55 +34,29 @@ import {
   DEMO_PROMPT_SETTINGS,
   DEMO_REQUEST_TIMINGS,
   DEMO_TODO_PRESETS,
-  type DemoChatVisibility,
-  type DemoTodoPreset,
 } from "./demoChatFixtures";
-
-type DemoComposerMode =
-  | "prompt"
-  | "followup-text"
-  | "followup-single"
-  | "followup-multi";
-
-type DemoPromptState =
-  | "interactive"
-  | "sending"
-  | "disabled"
-  | "no-models";
-
-const DEFAULT_PROMPT_DRAFT =
-  "Run the demo-only thread through every visible chat state.";
-
-const EMPTY_PROMPT_SETTINGS: PromptSettings = {
-  availableModels: [],
-  selectedProviderId: null,
-  selectedModelId: null,
-  selectedReasoningEffort: null,
-};
-
-function buildPromptSettingsWithoutModels(
-  current: PromptSettings,
-): PromptSettings {
-  return {
-    ...EMPTY_PROMPT_SETTINGS,
-    selectedReasoningEffort: current.selectedReasoningEffort,
-  };
-}
+import type {
+  DemoChatVisibility,
+  DemoBooleanToggleProps,
+  DemoComposerMode,
+  DemoControlsSheetProps,
+  DemoFollowupSubmitInput,
+  DemoOptionGroupProps,
+  DemoPromptSettingsUpdateInput,
+  DemoPromptState,
+  DemoTodoPreset,
+} from "./types/demoChat";
+import { buildPromptSettingsWithoutModels } from "./utils/promptSettings";
 
 function DemoOptionGroup<T extends string>({
   label,
   options,
   value,
   onChange,
-}: {
-  label: string;
-  options: ReadonlyArray<{ label: string; value: T }>;
-  value: T;
-  onChange: (value: T) => void;
-}) {
+}: DemoOptionGroupProps<T>) {
   return (
     <div className="grid gap-2">
-      <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+      <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
         {label}
       </p>
       <div className="flex flex-wrap gap-2">
@@ -106,19 +81,14 @@ function DemoBooleanToggle({
   label,
   value,
   onChange,
-}: {
-  description: string;
-  label: string;
-  value: boolean;
-  onChange: (value: boolean) => void;
-}) {
+}: DemoBooleanToggleProps) {
   return (
     <button
       type="button"
       className={cn(
         "flex w-full items-start justify-between gap-4 rounded-xl border px-3 py-2 text-left transition",
         value
-          ? "border-foreground/15 bg-foreground/[0.04]"
+          ? "border-foreground/15 bg-foreground/5"
           : "border-border bg-background hover:bg-accent/50",
       )}
       onClick={() => onChange(!value)}
@@ -129,7 +99,7 @@ function DemoBooleanToggle({
       </div>
       <span
         className={cn(
-          "rounded-full px-2 py-0.5 text-[11px] font-medium uppercase tracking-[0.14em]",
+          "rounded-full px-2 py-0.5 text-xs font-medium uppercase tracking-widest",
           value
             ? "bg-foreground text-background"
             : "bg-muted text-muted-foreground",
@@ -159,25 +129,7 @@ function DemoControlsSheet({
   onShowLiveRequestChange,
   onShowTodosChange,
   onTodoPresetChange,
-}: {
-  composerMode: DemoComposerMode;
-  promptDraft: string;
-  promptState: DemoPromptState;
-  showCompaction: boolean;
-  showFailure: boolean;
-  showLiveRequest: boolean;
-  showTodos: boolean;
-  todoPreset: DemoTodoPreset;
-  onClearDraft: () => void;
-  onComposerModeChange: (value: DemoComposerMode) => void;
-  onPromptStateChange: (value: DemoPromptState) => void;
-  onSeedDraft: () => void;
-  onShowCompactionChange: (value: boolean) => void;
-  onShowFailureChange: (value: boolean) => void;
-  onShowLiveRequestChange: (value: boolean) => void;
-  onShowTodosChange: (value: boolean) => void;
-  onTodoPresetChange: (value: DemoTodoPreset) => void;
-}) {
+}: DemoControlsSheetProps) {
   return (
     <Sheet>
       <SheetTrigger
@@ -188,7 +140,7 @@ function DemoControlsSheet({
       </SheetTrigger>
       <SheetContent
         side="right"
-        className="w-[28rem] overflow-y-auto border-l border-border/80 bg-background/98 p-0"
+        className="w-full max-w-md overflow-y-auto border-l border-border/80 bg-background/98 p-0"
       >
         <SheetHeader className="border-b border-border/70">
           <SheetTitle>Demo Controls</SheetTitle>
@@ -392,11 +344,9 @@ export function DemoConversationPanel() {
     setDemoNotice("Demo mode is local-only. Send and follow-up actions are intercepted.");
   }
 
-  async function handlePromptSettingsUpdate(input: {
-    providerId: string;
-    modelId: string;
-    reasoningEffort?: string | null;
-  }) {
+  async function handlePromptSettingsUpdate(
+    input: DemoPromptSettingsUpdateInput,
+  ) {
     setPromptSettings((current) => ({
       ...current,
       selectedProviderId: input.providerId,
@@ -417,11 +367,7 @@ export function DemoConversationPanel() {
     setDemoNotice("Intercepted a local stop action.");
   }
 
-  async function handleFollowupSubmit(input: {
-    cancelled: boolean;
-    text?: string;
-    selectedOptionIds?: string[];
-  }) {
+  async function handleFollowupSubmit(input: DemoFollowupSubmitInput) {
     if (input.cancelled) {
       setDemoNotice("Intercepted a local follow-up cancel action.");
       return;
@@ -449,7 +395,7 @@ export function DemoConversationPanel() {
             <span className="truncate text-xs font-medium tracking-tight text-neutral-800 dark:text-neutral-100">
               Demo chat
             </span>
-            <span className="rounded-full bg-amber-500/12 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-[0.18em] text-amber-700 dark:bg-amber-400/12 dark:text-amber-300">
+            <span className="rounded-full bg-amber-500/12 px-1.5 py-0.5 text-xs font-medium uppercase tracking-widest text-amber-700 dark:bg-amber-400/12 dark:text-amber-300">
               Dev only
             </span>
           </div>

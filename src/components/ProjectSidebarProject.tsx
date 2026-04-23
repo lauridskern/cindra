@@ -6,32 +6,16 @@ import {
   PenSquare,
 } from "lucide-react";
 
-import type { WorkspaceSession } from "../services/desktop/contracts";
-import { cn } from "../utils/cn";
+import { cn } from "@/utils/cn";
 import { ProjectSidebarConversationRow } from "./ProjectSidebarConversationRow";
 import { SidebarItemActionsMenu } from "./SidebarItemActionsMenu";
-import { Button } from "./ui/button";
+import type { ProjectSidebarProjectProps } from "./types/sidebar";
+import { Button } from "./ui/Button";
 import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarMenuSub,
-} from "./ui/sidebar";
-
-interface ProjectSidebarProjectProps {
-  isExpanded: boolean;
-  isActive: boolean;
-  project: WorkspaceSession;
-  selectedConversationId: string | null;
-  onArchiveConversation: (workspacePath: string, conversationId: string) => void;
-  onArchiveProject: (workspacePath: string) => void;
-  onRenameProject: (
-    workspacePath: string,
-    displayName?: string | null,
-  ) => Promise<void>;
-  onSelectConversation: (workspacePath: string, conversationId: string) => void;
-  onStartNewChat: (workspacePath: string) => void;
-  onToggleProjectExpanded: (workspacePath: string) => void;
-}
+} from "./ui/Sidebar";
 
 export function ProjectSidebarProject({
   isExpanded,

@@ -1,6 +1,12 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 
+import {
+  SESSION_UPDATED_EVENT_NAME,
+  TERMINAL_ERROR_EVENT_NAME,
+  TERMINAL_EXIT_EVENT_NAME,
+  TERMINAL_OUTPUT_EVENT_NAME,
+} from "./constants/events";
 import type {
   CheckoutGitBranchInput,
   ChatBinding,
@@ -31,12 +37,7 @@ import type {
   UpdateSavedWorkspaceLayoutInput,
   StartProviderAuthInput,
   UpdatePromptSettingsInput,
-} from "./contracts";
-
-const SESSION_UPDATED_EVENT_NAME = "agent-ui://session-updated";
-const TERMINAL_OUTPUT_EVENT_NAME = "agent-ui://terminal-output";
-const TERMINAL_EXIT_EVENT_NAME = "agent-ui://terminal-exit";
-const TERMINAL_ERROR_EVENT_NAME = "agent-ui://terminal-error";
+} from "./types/contracts";
 
 function invokeCommand<T>(
   command: string,

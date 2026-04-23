@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import type { PanelImperativeHandle } from "react-resizable-panels";
 import {
   ArrowLeftIcon,
@@ -7,59 +7,37 @@ import {
   PenSquare,
 } from "lucide-react";
 
-import { ProvidersSettingsPane } from "../components/ProvidersSettingsPane";
+import { ProvidersSettingsPane } from "../components/providers-settings/ProvidersSettingsPane";
 import { ProjectSidebar } from "../components/ProjectSidebar";
-import { PaneSurface } from "../components/ui/pane-surface";
+import { PaneSurface } from "../components/ui/PaneSurface";
 import { WorkspaceBoard } from "../components/workspace-board/WorkspaceBoard";
-import { Button } from "../components/ui/button";
+import { Button } from "../components/ui/Button";
 import {
   ResizableHandle,
   ResizablePanel,
   ResizablePanelGroup,
-} from "../components/ui/resizable";
-import { SidebarProvider, useSidebar } from "../components/ui/sidebar";
-import { TooltipProvider } from "../components/ui/tooltip";
+} from "../components/ui/Resizable";
+import { SidebarProvider, useSidebar } from "../components/ui/Sidebar";
+import { TooltipProvider } from "../components/ui/Tooltip";
+import { useSystemThemeClass } from "../hooks/useSystemThemeClass";
 import { useSessionActions, useSessionStore } from "../hooks/useSession";
 import { SessionProvider } from "./SessionProvider";
-
-const DEFAULT_SIDEBAR_WIDTH = 320;
-const MIN_SIDEBAR_WIDTH = 200;
-const MAX_SIDEBAR_WIDTH = 400;
-type SettingsSection = "general" | "providers";
-
-function useSystemThemeClass() {
-  useEffect(() => {
-    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
-
-    function syncThemeClass(matches: boolean) {
-      document.documentElement.classList.toggle("dark", matches);
-    }
-
-    syncThemeClass(mediaQuery.matches);
-
-    const handleChange = (event: MediaQueryListEvent) => {
-      syncThemeClass(event.matches);
-    };
-
-    mediaQuery.addEventListener("change", handleChange);
-
-    return () => {
-      mediaQuery.removeEventListener("change", handleChange);
-    };
-  }, []);
-}
+import {
+  DEFAULT_SIDEBAR_WIDTH,
+  MAX_SIDEBAR_WIDTH,
+  MIN_SIDEBAR_WIDTH,
+} from "./constants/layout";
+import type {
+  AppSidebarControlProps,
+  SettingsSection,
+} from "./types/app";
 
 function AppSidebarControl({
   isSidebarVisible,
   isSettingsViewOpen,
   onExitSettings,
   onToggleDesktopSidebar,
-}: {
-  isSidebarVisible: boolean;
-  isSettingsViewOpen: boolean;
-  onExitSettings: () => void;
-  onToggleDesktopSidebar: () => void;
-}) {
+}: AppSidebarControlProps) {
   const { toggleSidebar } = useSidebar();
 
   if (isSettingsViewOpen) {

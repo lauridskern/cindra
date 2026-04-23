@@ -1,11 +1,11 @@
-import { useCallback, useEffect, useMemo, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import { useStore } from "zustand";
 
 import * as desktopClient from "../services/desktop/client";
 import type {
   ChatBinding,
   SessionSnapshot,
-} from "../services/desktop/contracts";
+} from "../services/desktop/types/contracts";
 import { extractBindingsFromLayoutJson } from "../components/workspace-board/layout";
 import { SessionActionsContext } from "./SessionContext";
 import {
@@ -34,9 +34,10 @@ import {
   getWorkspaceDraftKey,
   LATEST_WORKSPACE_STORAGE_KEY,
 } from "./sessionSnapshot";
+import type { SessionProviderProps } from "./types/app";
 import { useSessionBootstrap } from "../hooks/useSessionBootstrap";
 
-export function SessionProvider({ children }: { children: ReactNode }) {
+export function SessionProvider({ children }: SessionProviderProps) {
   const activeWorkspacePath = useStore(
     sessionStore,
     (state) => getUiActiveWorkspacePath(state),

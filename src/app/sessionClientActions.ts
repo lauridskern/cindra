@@ -1,7 +1,11 @@
 import * as desktopClient from "../services/desktop/client";
-import type { RuntimeStatus } from "../services/desktop/contracts";
+import type { RuntimeStatus } from "../services/desktop/types/contracts";
 
 import { sessionStore } from "./sessionStore";
+import type {
+  FollowupResponseInput,
+  WorkspacePromptSettingsUpdateInput,
+} from "./types/sessionClientActions";
 
 export async function runWorkspaceRuntimeStatusAction(
   workspacePath: string,
@@ -41,12 +45,7 @@ export async function openWorkspacePathInTarget(
   }
 }
 
-export async function submitFollowupResponse(input: {
-  cancelled: boolean;
-  followupId: string;
-  text?: string;
-  selectedOptionIds?: string[];
-}) {
+export async function submitFollowupResponse(input: FollowupResponseInput) {
   try {
     const snapshot = await desktopClient.respondFollowup({
       cancelled: input.cancelled,
@@ -63,11 +62,7 @@ export async function submitFollowupResponse(input: {
 
 export async function updateWorkspacePromptSettings(
   workspacePath: string,
-  input: {
-    providerId: string;
-    modelId: string;
-    reasoningEffort?: string | null;
-  },
+  input: WorkspacePromptSettingsUpdateInput,
 ) {
   try {
     const promptSettings = await desktopClient.updatePromptSettings({

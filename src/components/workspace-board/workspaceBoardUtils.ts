@@ -4,10 +4,11 @@ import {
   getConversationSummary,
   getWorkspaceSession,
 } from "@/app/sessionStore";
-import type { WorkspaceBoardSelection } from "@/app/SessionContext";
-import type { ChatBinding } from "@/services/desktop/contracts";
+import type { WorkspaceBoardSelection } from "@/app/types/sessionContext";
+import type { ChatBinding } from "@/services/desktop/types/contracts";
 
-import { createChatPanelId, type OuterChatPanelParams } from "./layout";
+import { createChatPanelId } from "./layout";
+import type { OuterChatPanelParams } from "./types/layout";
 
 export function getWorkspaceBoardSelectionKey(
   selection: WorkspaceBoardSelection,

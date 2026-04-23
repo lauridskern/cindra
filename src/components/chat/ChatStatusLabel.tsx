@@ -1,7 +1,4 @@
-interface ChatStatusLabelProps {
-  active?: boolean;
-  text: string;
-}
+import type { ChatStatusLabelProps } from "./types/chatComponents";
 
 export function ChatStatusLabel({
   active = false,

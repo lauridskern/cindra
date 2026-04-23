@@ -1,20 +1,12 @@
-import type { ConversationSessionSummary } from "../services/desktop/contracts";
-import { cn } from "../utils/cn";
+import { cn } from "@/utils/cn";
 import { formatRelativeTimestamp } from "../utils/time";
 import { SidebarArchiveAction } from "./SidebarArchiveAction";
+import type { ProjectSidebarConversationRowProps } from "./types/sidebar";
 import {
   clearActiveDraggedChatBinding,
   writeChatBindingToDataTransfer,
 } from "./workspace-board/layout";
-import { SidebarMenuSubButton, SidebarMenuSubItem } from "./ui/sidebar";
-
-interface ProjectSidebarConversationRowProps {
-  conversation: ConversationSessionSummary;
-  isSelected: boolean;
-  workspacePath: string;
-  onArchiveConversation: (workspacePath: string, conversationId: string) => void;
-  onSelectConversation: (workspacePath: string, conversationId: string) => void;
-}
+import { SidebarMenuSubButton, SidebarMenuSubItem } from "./ui/Sidebar";
 
 export function ProjectSidebarConversationRow({
   conversation,
@@ -31,7 +23,7 @@ export function ProjectSidebarConversationRow({
         render={<button type="button" draggable />}
         isActive={isSelected}
         className={cn(
-          "h-auto w-full items-center justify-start gap-2 py-1.5 text-left font-medium",
+          "h-auto w-full items-center gap-2 py-1.5 text-left font-medium",
           isSelected &&
             "bg-sidebar-accent text-sidebar-accent-foreground dark:bg-sidebar-accent dark:text-sidebar-accent-foreground",
         )}

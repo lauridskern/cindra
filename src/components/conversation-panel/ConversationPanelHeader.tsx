@@ -1,5 +1,4 @@
 import { ChevronRight } from "lucide-react";
-import type { ChatBinding } from "@/services/desktop/contracts";
 
 import {
   Breadcrumb,
@@ -7,7 +6,7 @@ import {
   BreadcrumbList,
   BreadcrumbPage,
   BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
+} from "@/components/ui/Breadcrumb";
 import { cn } from "@/utils/cn";
 import { handleWindowDragStart } from "@/utils/window";
 
@@ -15,17 +14,8 @@ import { BranchSwitcherMenu } from "./BranchSwitcherMenu";
 import { CommitChangesDialog } from "./CommitChangesDialog";
 import { ConversationHeaderActions } from "./ConversationHeaderActions";
 import { ProjectSwitcherMenu } from "./ProjectSwitcherMenu";
-import { useConversationHeaderState } from "./useConversationHeaderState";
-
-interface ConversationPanelHeaderProps {
-  binding?: ChatBinding | null;
-  canCloseChat?: () => boolean;
-  onCloseChat?: () => void;
-  onOpenPreview?: () => void;
-  onOpenTerminal?: () => void;
-  reserveTitlebarInset: boolean;
-  windowDragEnabled: boolean;
-}
+import { useConversationHeaderState } from "./hooks/useConversationHeaderState";
+import type { ConversationPanelHeaderProps } from "./types/conversationHeader";
 
 export function ConversationPanelHeader({
   binding,

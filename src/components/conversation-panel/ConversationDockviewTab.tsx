@@ -5,15 +5,11 @@ import {
   BreadcrumbItem,
   BreadcrumbList,
   BreadcrumbPage,
-} from "@/components/ui/breadcrumb";
-import type { ChatBinding } from "@/services/desktop/contracts";
+} from "@/components/ui/Breadcrumb";
 
 import { BranchSwitcherMenu } from "./BranchSwitcherMenu";
-import { useConversationHeaderState } from "./useConversationHeaderState";
-
-interface ConversationDockviewTabProps {
-  binding?: ChatBinding | null;
-}
+import { useConversationHeaderState } from "./hooks/useConversationHeaderState";
+import type { ConversationDockviewTabProps } from "./types/conversationHeader";
 
 export function ConversationDockviewTab({
   binding,

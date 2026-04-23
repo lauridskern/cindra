@@ -22,7 +22,7 @@ use ts_rs::{Config, TS};
 
 fn main() -> anyhow::Result<()> {
     let output_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../src/services/desktop/contracts.generated.ts");
+        .join("../src/services/desktop/types/contracts.generated.ts");
     let config = Config::default();
 
     let declarations = [

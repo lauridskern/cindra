@@ -1,118 +1,12 @@
+import { LegendList } from "@legendapp/list/react";
+
+import { CHAT_BADGE_TEXT_CLASS } from "./constants/chatStyles";
+import type { ChatThreadProps } from "./types/chatComponents";
+import { buildChatThreadItems } from "./utils/chatThread";
 import {
-  LegendList,
-  type LegendListRenderItemProps,
-} from "@legendapp/list/react";
-
-import type { RequestTimingInfo } from "../../app/SessionContext";
-import type { TranscriptMessage } from "../../services/desktop/contracts";
-import { ChatEventRow } from "./ChatEventRow";
-import { ChatMessageRow } from "./ChatMessageRow";
-import { ChatWorkRow } from "./ChatWorkRow";
-import { buildChatThreadItems, type ChatThreadItem } from "./chatThreadModel";
-
-interface ChatThreadProps {
-  activeRequestIds: string[];
-  messages: TranscriptMessage[];
-  requestTimingsById: Record<string, RequestTimingInfo>;
-  workspaceLabel: string;
-  workspacePath: string | null;
-}
-
-const THREAD_ITEM_GAP = 16;
-
-function getMessageText(message: TranscriptMessage): string {
-  switch (message.kind) {
-    case "user":
-    case "context_compacted":
-    case "assistant":
-    case "reasoning":
-    case "status_output":
-      return message.text;
-    case "error":
-      return message.message;
-    case "status":
-      return `${message.title} ${message.subtitle ?? ""}`;
-    case "tool_start":
-      return `${message.name} ${message.callId ?? ""}`;
-    case "tool_end":
-      return `${message.name} ${message.summary ?? ""}`;
-    default:
-      return "";
-  }
-}
-
-function estimateMessageItemSize(message: TranscriptMessage): number {
-  const lineCount = Math.max(1, Math.ceil(getMessageText(message).length / 72));
-
-  switch (message.kind) {
-    case "user":
-      return 42 + lineCount * 34;
-    case "context_compacted":
-      return 48;
-    case "assistant":
-      return 32 + lineCount * 26;
-    case "reasoning":
-      return 28 + lineCount * 24;
-    case "status_output":
-      return 36 + lineCount * 18;
-    default:
-      return 28 + lineCount * 22;
-  }
-}
-
-function estimateRequestWorkItemSize(
-  item: Extract<ChatThreadItem, { kind: "request_work" }>,
-) {
-  return item.isRunning ? 40 : 44;
-}
-
-function estimateChatThreadItemSize(item: ChatThreadItem): number {
-  const contentSize =
-    item.kind === "message"
-      ? estimateMessageItemSize(item.message)
-      : estimateRequestWorkItemSize(item);
-
-  return contentSize + THREAD_ITEM_GAP;
-}
-
-function renderChatMessage(message: TranscriptMessage) {
-  switch (message.kind) {
-    case "user":
-    case "assistant":
-    case "reasoning":
-      return <ChatMessageRow message={message} />;
-    default:
-      return <ChatEventRow message={message} />;
-  }
-}
-
-function renderChatThreadItem(
-  { item, index }: LegendListRenderItemProps<ChatThreadItem>,
-  requestTimingsById: Record<string, RequestTimingInfo>,
-  workspacePath: string | null,
-  itemCount: number,
-) {
-  const row =
-    item.kind === "message" ? (
-      renderChatMessage(item.message)
-    ) : (
-      <ChatWorkRow
-        key={`${item.key}:${item.isRunning ? "running" : item.hasError ? "error" : "idle"}`}
-        item={item}
-        requestTiming={requestTimingsById[item.requestId]}
-        workspacePath={workspacePath}
-      />
-    );
-
-  return (
-    <div
-      className="mx-auto min-w-0 w-full max-w-3xl select-text"
-      style={{ paddingBottom: index === itemCount - 1 ? 0 : THREAD_ITEM_GAP }}
-    >
-      {row}
-    </div>
-  );
-}
+  estimateChatThreadItemSize,
+  renderChatThreadItem,
+} from "./utils/chatThreadList";
 
 export function ChatThread({
   activeRequestIds,
@@ -127,12 +21,11 @@ export function ChatThread({
     <LegendList
       data={items}
       renderItem={(props) =>
-        renderChatThreadItem(
-          props,
+        renderChatThreadItem(props, {
           requestTimingsById,
           workspacePath,
-          items.length,
-        )
+          itemCount: items.length,
+        })
       }
       keyExtractor={(item) => item.key}
       getItemType={(item) =>
@@ -150,8 +43,8 @@ export function ChatThread({
       }}
       ListEmptyComponent={
         <div className="mx-auto flex min-h-full w-full max-w-3xl items-center justify-center px-6 py-12">
-          <div className="w-full rounded-3xl border border-black/5 bg-black/[0.02] px-8 py-10 text-center dark:border-white/10 dark:bg-white/[0.03]">
-            <p className="text-xs font-medium uppercase tracking-[0.22em] text-neutral-500 dark:text-neutral-400">
+          <div className="w-full rounded-3xl border border-black/5 bg-black/5 px-8 py-10 text-center dark:border-white/10 dark:bg-white/5">
+            <p className={`${CHAT_BADGE_TEXT_CLASS} text-neutral-500 dark:text-neutral-400`}>
               New chat
             </p>
             <h2 className="mt-3 text-2xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-50">

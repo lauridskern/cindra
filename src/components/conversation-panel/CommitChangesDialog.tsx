@@ -1,6 +1,6 @@
-import { useEffect, useRef } from "react";
+import { useRef } from "react";
 
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/ui/Button";
 import {
   Dialog,
   DialogContent,
@@ -8,18 +8,10 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-
-interface CommitChangesDialogProps {
-  commitMessage: string;
-  isOpen: boolean;
-  isSubmitting: boolean;
-  onClose: () => void;
-  onCommitMessageChange: (value: string) => void;
-  onOpenChange: (open: boolean) => void;
-  onSubmit: () => Promise<void>;
-}
+} from "@/components/ui/Dialog";
+import { Input } from "@/components/ui/Input";
+import { useFocusOnOpen } from "@/hooks/useFocusOnOpen";
+import type { CommitChangesDialogProps } from "./types/conversationHeader";
 
 export function CommitChangesDialog({
   commitMessage,
@@ -32,19 +24,9 @@ export function CommitChangesDialog({
 }: CommitChangesDialogProps) {
   const inputRef = useRef<HTMLInputElement | null>(null);
 
-  useEffect(() => {
-    if (!isOpen || isSubmitting) {
-      return;
-    }
-
-    const frame = window.requestAnimationFrame(() => {
-      inputRef.current?.focus();
-    });
-
-    return () => {
-      window.cancelAnimationFrame(frame);
-    };
-  }, [isOpen, isSubmitting]);
+  useFocusOnOpen(inputRef, {
+    enabled: isOpen && !isSubmitting,
+  });
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>

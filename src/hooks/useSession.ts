@@ -4,7 +4,6 @@ import { useShallow } from "zustand/react/shallow";
 
 import {
   SessionActionsContext,
-  type WorkspaceBoardSelection,
 } from "../app/SessionContext";
 import { getPromptDraftKey } from "../app/sessionSnapshot";
 import {
@@ -16,18 +15,21 @@ import {
   getUiWorkspaceLabel,
   getWorkspaceMetaStoreKey,
   sessionStore,
-  type SessionStoreState,
-  type WorkspaceMetaState,
 } from "../app/sessionStore";
+import type {
+  SessionStoreState,
+  WorkspaceMetaState,
+} from "../app/types/sessionStore";
+import type { WorkspaceBoardSelection } from "../app/types/sessionContext";
 import { getWorkspaceBoardSelectionKey } from "../components/workspace-board/workspaceBoardUtils";
-import type { ChatBinding } from "../services/desktop/contracts";
+import type { ChatBinding } from "../services/desktop/types/contracts";
 
 const EMPTY_REQUEST_TIMINGS = {};
 const EMPTY_STRING_ARRAY: string[] = [];
 const EMPTY_MESSAGES: Array<
-  import("../services/desktop/contracts").TranscriptMessage
+  import("../services/desktop/types/contracts").TranscriptMessage
 > = [];
-const EMPTY_TODOS: Array<import("../services/desktop/contracts").SessionTodo> = [];
+const EMPTY_TODOS: Array<import("../services/desktop/types/contracts").SessionTodo> = [];
 const EMPTY_WORKSPACE_META: WorkspaceMetaState = {
   promptSettings: null,
   promptSettingsLoaded: false,

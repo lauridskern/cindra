@@ -1,11 +1,7 @@
 import { Folder, PenSquare } from "lucide-react";
 
-import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "./ui/sidebar";
-
-interface ProjectSidebarActionsProps {
-  onOpenWorkspacePicker: () => void;
-  onStartNewChat: () => void;
-}
+import type { ProjectSidebarActionsProps } from "./types/sidebar";
+import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "./ui/Sidebar";
 
 export function ProjectSidebarActions({
   onOpenWorkspacePicker,

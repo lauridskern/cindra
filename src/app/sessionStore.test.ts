@@ -4,7 +4,7 @@ import type {
   PromptSettings,
   RuntimeStatus,
   SessionSnapshot,
-} from "../services/desktop/contracts";
+} from "../services/desktop/types/contracts";
 
 let runtimeStatusCallCount = 0;
 let promptSettingsCallCount = 0;

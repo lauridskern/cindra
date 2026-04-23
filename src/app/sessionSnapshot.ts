@@ -2,7 +2,7 @@ import type {
   ConversationSessionSummary,
   SessionSnapshot,
   WorkspaceSession,
-} from '../services/desktop/contracts'
+} from '../services/desktop/types/contracts'
 
 export const LATEST_WORKSPACE_STORAGE_KEY = 'session:latest-workspace-path'
 

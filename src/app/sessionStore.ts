@@ -1,4 +1,4 @@
-import { createStore, type StoreApi } from "zustand/vanilla";
+import { createStore } from "zustand/vanilla";
 
 import * as desktopClient from "../services/desktop/client";
 import type {
@@ -7,71 +7,18 @@ import type {
   ConversationViewSnapshot,
   PromptSettings,
   RuntimeStatus,
-  SavedWorkspaceSummary,
   SessionSnapshot,
   WorkspaceSession,
-} from "../services/desktop/contracts";
+} from "../services/desktop/types/contracts";
+import type { WorkspaceBoardSelection } from "./types/sessionContext";
 import type {
-  RequestTimingInfo,
-  WorkspaceBoardSelection,
-} from "./SessionContext";
+  PromptDraftEntry,
+  SessionStoreSetter,
+  SessionStoreState,
+  WorkspaceMetaState,
+} from "./types/sessionStore";
 
 const GLOBAL_WORKSPACE_META_KEY = "__global__";
-
-interface PromptDraftEntry {
-  isPending: boolean;
-  isPlanningMode: boolean;
-  value: string;
-}
-
-export interface WorkspaceMetaState {
-  promptSettings: PromptSettings | null;
-  promptSettingsLoaded: boolean;
-  runtimeStatus: RuntimeStatus | null;
-  runtimeStatusLoaded: boolean;
-}
-
-export interface SessionStoreState {
-  activeConversationId: string | null;
-  activeWorkspacePath: string | null;
-  conversationSummariesByKey: Record<string, ConversationSessionSummary>;
-  conversationViewsByKey: Record<string, ConversationViewSnapshot>;
-  isBootstrapped: boolean;
-  isOpeningProject: boolean;
-  promptDraftsByKey: Record<string, PromptDraftEntry>;
-  requestTimingsByConversationId: Record<
-    string,
-    Record<string, RequestTimingInfo>
-  >;
-  savedWorkspaces: SavedWorkspaceSummary[];
-  selection: WorkspaceBoardSelection;
-  uiError: string | null;
-  workspaceMetaByKey: Record<string, WorkspaceMetaState>;
-  workspaces: WorkspaceSession[];
-  workspacesByPath: Record<string, WorkspaceSession>;
-  applySessionSnapshot: (snapshot: SessionSnapshot) => void;
-  clearPromptDraft: (key: string | null) => void;
-  movePromptDraft: (fromKey: string | null, toKey: string | null) => void;
-  setBoardSelection: (selection: WorkspaceBoardSelection) => void;
-  setIsBootstrapped: (value: boolean) => void;
-  setIsOpeningProject: (value: boolean) => void;
-  setPromptDraftPending: (key: string | null, isPending: boolean) => void;
-  setPromptDraftPlanningMode: (
-    key: string | null,
-    isPlanningMode: boolean,
-  ) => void;
-  setPromptDraftValue: (key: string | null, value: string) => void;
-  setWorkspacePromptSettings: (
-    workspacePath: string | null,
-    promptSettings: PromptSettings | null,
-  ) => void;
-  setWorkspaceRuntimeStatus: (
-    workspacePath: string | null,
-    runtimeStatus: RuntimeStatus | null,
-  ) => void;
-}
-
-type SessionStoreSetter = StoreApi<SessionStoreState>["setState"];
 
 export function getConversationStoreKey(
   workspacePath: string,

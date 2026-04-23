@@ -24,9 +24,8 @@ import {
 import { ConversationPanel } from "@/components/ConversationPanel";
 import { ConversationDockviewHeaderActions } from "@/components/conversation-panel/ConversationDockviewHeaderActions";
 import { ConversationDockviewTab } from "@/components/conversation-panel/ConversationDockviewTab";
-import { Button } from "@/components/ui/button";
-import { ButtonGroup } from "@/components/ui/button-group";
-import type { ChatBinding } from "@/services/desktop/contracts";
+import { Button } from "@/components/ui/Button";
+import { ButtonGroup } from "@/components/ui/ButtonGroup";
 import * as desktopClient from "@/services/desktop/client";
 
 import { PlaceholderPane } from "./PlaceholderPane";
@@ -37,9 +36,6 @@ import {
   dispatchTerminalRestartRequest,
   INNER_CHAT_COMPONENT,
   INNER_PLACEHOLDER_COMPONENT,
-  parseDockviewLayoutJson,
-  type PlaceholderPaneParams,
-  type TerminalPaneParams,
 } from "./layout";
 import {
   applyChatTileLayoutConstraints,
@@ -48,8 +44,14 @@ import {
   openChatTilePane,
   shouldPreventChatOverlay,
 } from "./chatTileLayout";
-import { useDockviewLayoutPersistence } from "./useDockviewLayoutPersistence";
-import { useDockviewTheme } from "./useDockviewTheme";
+import { useDockviewLayoutPersistence } from "./hooks/useDockviewLayoutPersistence";
+import { useDockviewTheme } from "./hooks/useDockviewTheme";
+import type {
+  PlaceholderPaneParams,
+  TerminalPaneParams,
+} from "./types/layout";
+import type { ChatTileProps } from "./types/workspaceBoard";
+import { applySavedConversationLayout } from "./utils/savedLayout";
 import "./chat-tile-dockview.css";
 
 function AuxiliaryPaneTab({
@@ -64,33 +66,6 @@ function AuxiliaryPaneTab({
 
 const headerActionsClassName =
   "relative z-20 ml-auto flex h-6 shrink-0 items-center gap-1.5 pointer-events-auto";
-
-function applySavedConversationLayout(
-  api: DockviewApi,
-  layoutJson: string | null,
-) {
-  if (layoutJson == null) {
-    return { kind: "default" as const };
-  }
-
-  const savedLayout = parseDockviewLayoutJson(layoutJson);
-  if (savedLayout == null) {
-    return { kind: "default" as const };
-  }
-
-  try {
-    api.fromJSON(savedLayout, { reuseExistingPanels: false });
-    return { kind: "restored" as const };
-  } catch {
-    return { kind: "fallback" as const };
-  }
-}
-
-interface ChatTileProps {
-  binding: ChatBinding;
-  canCloseChat: () => boolean;
-  onCloseChat: () => void;
-}
 
 export function ChatTile({
   binding,

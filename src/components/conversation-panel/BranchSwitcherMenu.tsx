@@ -1,29 +1,14 @@
-import * as React from "react";
 import { ChevronDownIcon, GitBranchIcon } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
-import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/Button";
+import { cn } from "@/utils/cn";
+import { Input } from "@/components/ui/Input";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@/components/ui/popover";
-
-interface BranchSwitcherMenuProps {
-  branchName: string;
-  branchQuery: string;
-  branches: readonly string[];
-  canCreateBranch: boolean;
-  isBusy: boolean;
-  isOpen: boolean;
-  searchInputRef: React.RefObject<HTMLInputElement | null>;
-  onBranchQueryChange: (value: string) => void;
-  onCreateBranch: () => Promise<void>;
-  onOpenChange: (open: boolean) => void;
-  onSelectBranch: (branchName: string) => Promise<void>;
-  triggerClassName?: string;
-}
+} from "@/components/ui/Popover";
+import type { BranchSwitcherMenuProps } from "./types/conversationHeader";
 
 export function BranchSwitcherMenu({
   branchName,
@@ -53,7 +38,7 @@ export function BranchSwitcherMenu({
             aria-label="Choose git branch"
             disabled={isBusy}
             className={cn(
-              "-ml-2 h-auto min-h-0 gap-1 rounded-sm px-1.5 py-0.5 text-xs leading-none font-medium text-neutral-800 hover:text-foreground dark:text-neutral-400 dark:hover:text-neutral-100",
+              "-ml-2 h-auto gap-1 rounded-sm px-1.5 py-0.5 text-xs leading-none font-medium text-neutral-800 hover:text-foreground dark:text-neutral-400 dark:hover:text-neutral-100",
               triggerClassName,
             )}
           />

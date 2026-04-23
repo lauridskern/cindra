@@ -1,4 +1,3 @@
-import { useEffect, useState } from "react";
 import {
   FlaskConical,
   FolderPlus,
@@ -9,6 +8,7 @@ import {
   Trash2Icon,
 } from "lucide-react";
 
+import { useExpandedProjectPaths } from "../hooks/useExpandedProjectPaths";
 import {
   useSessionActions,
   useSessionStore,
@@ -21,7 +21,8 @@ import { SidebarArchiveAction } from "./SidebarArchiveAction";
 import { SidebarItemActionsMenu } from "./SidebarItemActionsMenu";
 import { SidebarSettingsControl } from "./SidebarSettingsControl";
 import { ProjectSidebarProject } from "./ProjectSidebarProject";
-import { Button } from "./ui/button";
+import type { ProjectSidebarProps } from "./types/sidebar";
+import { Button } from "./ui/Button";
 import {
   Sidebar,
   SidebarContent,
@@ -33,40 +34,7 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-} from "./ui/sidebar";
-
-const EXPANDED_PROJECTS_STORAGE_KEY = "project-sidebar:expanded-projects";
-
-interface ProjectSidebarProps {
-  isSettingsViewOpen: boolean;
-  selectedSettingsSection: "general" | "providers";
-  onOpenSettings: () => void;
-  onSelectSettingsSection: (section: "general" | "providers") => void;
-}
-
-function loadExpandedProjectPaths() {
-  if (typeof window === "undefined") {
-    return [];
-  }
-
-  try {
-    const storedValue = window.localStorage.getItem(
-      EXPANDED_PROJECTS_STORAGE_KEY,
-    );
-    if (storedValue == null) {
-      return [];
-    }
-
-    const parsedValue: unknown = JSON.parse(storedValue);
-    return Array.isArray(parsedValue)
-      ? parsedValue.filter(
-          (value): value is string => typeof value === "string",
-        )
-      : [];
-  } catch {
-    return [];
-  }
-}
+} from "./ui/Sidebar";
 
 export function ProjectSidebar({
   isSettingsViewOpen,
@@ -75,9 +43,12 @@ export function ProjectSidebar({
   onSelectSettingsSection,
 }: ProjectSidebarProps) {
   const isDevBuild = import.meta.env.DEV;
-  const [expandedProjectPaths, setExpandedProjectPaths] = useState<string[]>(
-    () => loadExpandedProjectPaths(),
-  );
+  const {
+    collapseProject,
+    ensureProjectExpanded,
+    isProjectExpanded,
+    toggleProjectExpanded,
+  } = useExpandedProjectPaths();
   const {
     archiveConversation,
     archiveWorkspace,
@@ -109,34 +80,13 @@ export function ProjectSidebar({
     (workspace) => workspace.conversations.length > 0,
   );
 
-  useEffect(() => {
-    window.localStorage.setItem(
-      EXPANDED_PROJECTS_STORAGE_KEY,
-      JSON.stringify(expandedProjectPaths),
-    );
-  }, [expandedProjectPaths]);
-
-  function isWorkspaceExpanded(workspacePath: string) {
-    return expandedProjectPaths.includes(workspacePath);
-  }
-
-  function toggleProjectExpanded(workspacePath: string) {
-    setExpandedProjectPaths((current) =>
-      current.includes(workspacePath)
-        ? current.filter((path) => path !== workspacePath)
-        : [...current, workspacePath],
-    );
-  }
-
   async function handleOpenWorkspacePicker() {
     const selectedPath = await openWorkspacePicker();
     if (selectedPath == null) {
       return;
     }
 
-    setExpandedProjectPaths((current) =>
-      current.includes(selectedPath) ? current : [...current, selectedPath],
-    );
+    ensureProjectExpanded(selectedPath);
   }
 
   function handleSelectConversation(
@@ -154,9 +104,7 @@ export function ProjectSidebar({
   }
 
   function handleArchiveWorkspace(workspacePath: string) {
-    setExpandedProjectPaths((current) =>
-      current.filter((path) => path !== workspacePath),
-    );
+    collapseProject(workspacePath);
     void archiveWorkspace(workspacePath);
   }
 
@@ -418,7 +366,7 @@ export function ProjectSidebar({
                     project.workspacePath === activeWorkspacePath;
                   const isActive =
                     isProjectOpen && activeConversationId == null;
-                  const isExpanded = isWorkspaceExpanded(project.workspacePath);
+                  const isExpanded = isProjectExpanded(project.workspacePath);
                   const selectedConversationId = isProjectOpen
                     ? (activeConversationId ?? project.selectedConversationId)
                     : null;
@@ -464,7 +412,7 @@ export function ProjectSidebar({
                     <FlaskConical strokeWidth={2} className="size-3.5" />
                     <span>Demo chat</span>
                   </SidebarMenuButton>
-                  <SidebarMenuBadge className="right-2 rounded-full bg-amber-500/10 px-1.5 text-[10px] font-medium uppercase tracking-[0.18em] text-amber-700 dark:bg-amber-400/10 dark:text-amber-300">
+                  <SidebarMenuBadge className="right-2 rounded-full bg-amber-500/10 px-1.5 text-xs font-medium uppercase tracking-widest text-amber-700 dark:bg-amber-400/10 dark:text-amber-300">
                     Dev
                   </SidebarMenuBadge>
                 </SidebarMenuItem>

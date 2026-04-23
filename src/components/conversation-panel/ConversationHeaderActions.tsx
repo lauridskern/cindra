@@ -9,8 +9,8 @@ import {
   XIcon,
 } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
-import { ButtonGroup } from "@/components/ui/button-group";
+import { Button } from "@/components/ui/Button";
+import { ButtonGroup } from "@/components/ui/ButtonGroup";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,25 +19,10 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+} from "@/components/ui/DropdownMenu";
 
-import { appTargets } from "./model";
-import type { AppTarget, AppTargetId } from "./model";
-
-interface ConversationHeaderActionsProps {
-  canCloseChat?: () => boolean;
-  isGitBusy: boolean;
-  isOpenTargetBusy: boolean;
-  onCloseChat?: () => void;
-  onOpenCommitDialog: () => void;
-  onOpenPreview?: () => void;
-  onOpenTerminal?: () => void;
-  onPush: () => Promise<void>;
-  onSelectOpenTarget: (appId: AppTargetId) => Promise<void>;
-  openTargets: ReadonlyArray<AppTarget>;
-  preferredAppId: AppTargetId;
-  showGitActions?: boolean;
-}
+import { appTargets } from "./constants/conversationHeader";
+import type { ConversationHeaderActionsProps } from "./types/conversationHeader";
 
 export function ConversationHeaderActions({
   canCloseChat,

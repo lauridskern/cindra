@@ -1,53 +1,23 @@
 import { ChevronDown, ChevronRight } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
-import type { RequestTimingInfo } from "../../app/SessionContext";
+import { formatDurationLabel } from "@/utils/time";
+
+import { CHAT_MUTED_TEXT_CLASS } from "./constants/chatStyles";
+import { useRunningNow } from "./hooks/useRunningNow";
 import { ChatActivityRow } from "./ChatActivityRow";
 import { ChatStatusLabel } from "./ChatStatusLabel";
-import type { ChatThreadItem } from "./chatThreadModel";
-
-interface ChatWorkRowProps {
-  item: Extract<ChatThreadItem, { kind: "request_work" }>;
-  requestTiming?: RequestTimingInfo;
-  workspacePath: string | null;
-}
-
-function formatDurationLabel(durationMs: number): string {
-  const totalSeconds = Math.max(0, Math.floor(durationMs / 1000));
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-
-  if (minutes === 0) {
-    return `${seconds}s`;
-  }
-
-  return `${minutes}m ${seconds}s`;
-}
+import type {
+  ChatWorkRowProps,
+  WorkHeaderLabelProps,
+} from "./types/chatComponents";
 
 function WorkHeaderLabel({
   hasError,
   isRunning,
   requestTiming,
-}: {
-  hasError: boolean;
-  isRunning: boolean;
-  requestTiming?: RequestTimingInfo;
-}) {
-  const [now, setNow] = useState(() => Date.now());
-
-  useEffect(() => {
-    if (!isRunning) {
-      return;
-    }
-
-    const interval = window.setInterval(() => {
-      setNow(Date.now());
-    }, 1000);
-
-    return () => {
-      window.clearInterval(interval);
-    };
-  }, [isRunning]);
+}: WorkHeaderLabelProps) {
+  const now = useRunningNow(isRunning);
 
   let label = "Worked";
   if (requestTiming == null) {
@@ -102,12 +72,12 @@ export function ChatWorkRow({
         <button
           type="button"
           onClick={() => setOpen((current) => !current)}
-          className="inline-flex min-w-0 items-center justify-between gap-2 border-b border-neutral-200 pb-1 text-left text-[13px] leading-[1.4rem] text-neutral-500 dark:border-neutral-800 dark:text-neutral-400"
+          className={`inline-flex min-w-0 items-center justify-between gap-2 border-b border-neutral-200 pb-1 text-left dark:border-neutral-800 ${CHAT_MUTED_TEXT_CLASS}`}
         >
           {header}
         </button>
       ) : (
-        <div className="inline-flex min-w-0 items-center justify-between gap-2 border-b border-neutral-200 pb-1 text-[13px] leading-[1.4rem] text-neutral-500 dark:border-neutral-800 dark:text-neutral-400">
+        <div className={`inline-flex min-w-0 items-center justify-between gap-2 border-b border-neutral-200 pb-1 dark:border-neutral-800 ${CHAT_MUTED_TEXT_CLASS}`}>
           {header}
         </div>
       )}

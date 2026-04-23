@@ -13,7 +13,7 @@ import {
 } from "dockview-react";
 
 import { ConversationPanel } from "@/components/ConversationPanel";
-import { LandingScreen } from "@/components/LandingScreen";
+import { LandingScreen } from "@/components/landing-screen/LandingScreen";
 import { DemoConversationPanel } from "@/components/demo-chat/DemoConversationPanel";
 import {
   useBoardSelection,
@@ -22,7 +22,7 @@ import {
   useSessionStore,
 } from "@/hooks/useSession";
 import * as desktopClient from "@/services/desktop/client";
-import type { ChatBinding } from "@/services/desktop/contracts";
+import type { ChatBinding } from "@/services/desktop/types/contracts";
 import {
   areChatBindingsEqual,
   ensureConversationViewLoaded,
@@ -34,45 +34,20 @@ import {
   OUTER_CHAT_COMPONENT,
   clearActiveDraggedChatBinding,
   createChatPanelId,
-  extractBindingsFromLayoutJson,
   extractBindingsFromSerializedLayout,
   hasChatBindingDataTransfer,
-  parseDockviewLayoutJson,
   readChatBindingFromDataTransfer,
   serializeDockviewLayout,
-  type OuterChatPanelParams,
 } from "./layout";
 import {
   getActiveOuterBinding,
   getChatTitle,
   getOuterPanelBinding,
 } from "./workspaceBoardUtils";
-import { useDockviewLayoutPersistence } from "./useDockviewLayoutPersistence";
-import { useDockviewTheme } from "./useDockviewTheme";
-
-type ApplySavedWorkspaceLayoutResult =
-  | { kind: "restored" }
-  | { kind: "default"; bindings: ChatBinding[] }
-  | { kind: "fallback"; bindings: ChatBinding[] };
-
-function applySavedWorkspaceLayout(
-  api: DockviewApi,
-  layoutJson: string,
-): ApplySavedWorkspaceLayoutResult {
-  const savedLayout = parseDockviewLayoutJson(layoutJson);
-  const savedBindings = extractBindingsFromLayoutJson(layoutJson);
-
-  if (savedLayout == null) {
-    return { kind: "default", bindings: savedBindings };
-  }
-
-  try {
-    api.fromJSON(savedLayout, { reuseExistingPanels: false });
-    return { kind: "restored" };
-  } catch {
-    return { kind: "fallback", bindings: savedBindings };
-  }
-}
+import { useDockviewLayoutPersistence } from "./hooks/useDockviewLayoutPersistence";
+import { useDockviewTheme } from "./hooks/useDockviewTheme";
+import type { OuterChatPanelParams } from "./types/layout";
+import { applySavedWorkspaceLayout } from "./utils/savedLayout";
 
 export function WorkspaceBoard() {
   const selection = useBoardSelection();

@@ -4,7 +4,7 @@ import type {
   IDockviewPanel,
 } from "dockview-react";
 
-import type { ChatBinding } from "@/services/desktop/contracts";
+import type { ChatBinding } from "@/services/desktop/types/contracts";
 
 import {
   CHAT_PANE_ID,
@@ -12,8 +12,8 @@ import {
   INNER_PLACEHOLDER_COMPONENT,
   PREVIEW_PANE_ID,
   TERMINAL_PANE_ID,
-  type PlaceholderPaneParams,
 } from "./layout";
+import type { PlaceholderPaneParams } from "./types/layout";
 
 export function groupContainsChatPanel(
   group: DockviewGroupPanel | null | undefined,

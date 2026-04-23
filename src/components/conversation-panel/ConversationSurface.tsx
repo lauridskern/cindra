@@ -1,9 +1,6 @@
-import type { ComponentProps } from "react";
-
-import { PaneSurface } from "@/components/ui/pane-surface";
-import { cn } from "@/lib/utils";
-
-type ConversationSurfaceProps = ComponentProps<"section">;
+import { PaneSurface } from "@/components/ui/PaneSurface";
+import { cn } from "@/utils/cn";
+import type { ConversationSurfaceProps } from "./types/conversationHeader";
 
 export function ConversationSurface({
   children,
