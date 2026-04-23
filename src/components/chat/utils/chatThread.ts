@@ -1,4 +1,4 @@
-import type { TranscriptMessage } from "@/services/desktop/contracts";
+import type { TranscriptMessage } from "@/services/desktop/types/contracts";
 
 import { TOOL_DEBUG_TITLES } from "../constants/chatThread";
 import type {
@@ -6,6 +6,7 @@ import type {
   ActivityGroupBuilder,
   ActivityOperation,
   ChatThreadItem,
+  FlushActivityGroupOptions,
 } from "../types/chatThread";
 
 function shouldDisplayOperationInActivity(operation: ActivityOperation): boolean {
@@ -115,7 +116,7 @@ export function buildChatThreadItems(
     return activities;
   };
 
-  const flushGroup = (options?: { includeEmpty?: boolean }) => {
+  const flushGroup = (options?: FlushActivityGroupOptions) => {
     if (currentGroup == null) {
       return;
     }

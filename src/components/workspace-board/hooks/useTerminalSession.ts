@@ -19,8 +19,8 @@ import {
 import {
   createTerminalSessionId,
   TERMINAL_RESTART_EVENT_NAME,
-  type TerminalPaneParams,
 } from "../layout";
+import type { TerminalPaneParams } from "../types/layout";
 import type { TerminalGridSize, TerminalStatus } from "../types/workspaceBoard";
 import {
   applyTerminalAppearance,

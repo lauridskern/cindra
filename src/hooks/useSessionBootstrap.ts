@@ -5,7 +5,7 @@ import {
   resolveLatestWorkspacePath,
 } from '../app/sessionSnapshot'
 import * as desktopClient from '../services/desktop/client'
-import type { SessionSnapshot } from '../services/desktop/contracts'
+import type { SessionSnapshot } from '../services/desktop/types/contracts'
 import type { UseSessionBootstrapOptions } from './types/sessionBootstrap'
 
 export function useSessionBootstrap({

@@ -1,4 +1,4 @@
-import type { SessionSnapshot } from "@/services/desktop/contracts";
+import type { SessionSnapshot } from "@/services/desktop/types/contracts";
 
 export interface UseSessionBootstrapOptions {
   setSessionSnapshot: (snapshot: SessionSnapshot) => void;

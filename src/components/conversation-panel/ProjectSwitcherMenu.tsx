@@ -9,9 +9,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/DropdownMenu";
+import { NO_PROJECT_VALUE } from "./constants/conversationHeader";
 import type { ProjectSwitcherMenuProps } from "./types/conversationHeader";
-
-const NO_PROJECT_VALUE = "__no_project__";
 
 export function ProjectSwitcherMenu({
   currentProjectLabel,

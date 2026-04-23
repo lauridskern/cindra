@@ -37,8 +37,6 @@ import {
   INNER_CHAT_COMPONENT,
   INNER_PLACEHOLDER_COMPONENT,
   parseDockviewLayoutJson,
-  type PlaceholderPaneParams,
-  type TerminalPaneParams,
 } from "./layout";
 import {
   applyChatTileLayoutConstraints,
@@ -49,6 +47,10 @@ import {
 } from "./chatTileLayout";
 import { useDockviewLayoutPersistence } from "./hooks/useDockviewLayoutPersistence";
 import { useDockviewTheme } from "./hooks/useDockviewTheme";
+import type {
+  PlaceholderPaneParams,
+  TerminalPaneParams,
+} from "./types/layout";
 import type { ChatTileProps } from "./types/workspaceBoard";
 import "./chat-tile-dockview.css";
 

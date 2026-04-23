@@ -1,5 +1,6 @@
 import { CHAT_MUTED_TEXT_CLASS } from "../constants/chatStyles";
 import { ChatInlineText } from "../ChatInlineText";
+import type { ChatContextCompactedRowProps } from "../types/chatComponents";
 
 function ContextCompactedIcon() {
   return (
@@ -31,7 +32,7 @@ function ContextCompactedIcon() {
   );
 }
 
-export function ChatContextCompactedRow({ text }: { text: string }) {
+export function ChatContextCompactedRow({ text }: ChatContextCompactedRowProps) {
   return (
     <article className={`flex max-w-3xl items-center gap-4 py-1 ${CHAT_MUTED_TEXT_CLASS}`}>
       <div className="h-px flex-1 bg-neutral-200/90 dark:bg-white/10" />

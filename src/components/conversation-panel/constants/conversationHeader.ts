@@ -23,3 +23,4 @@ export const appTargets: readonly AppTarget[] = [
 
 export const DEFAULT_APP_TARGET_ID: AppTargetId = appTargets[0].id;
 export const OPEN_IN_PREFERRED_APP_STORAGE_KEY = "agent-ui:preferred-open-app";
+export const NO_PROJECT_VALUE = "__no_project__";

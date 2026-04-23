@@ -1,4 +1,4 @@
-import type { ChatBinding } from "@/services/desktop/contracts";
+import type { ChatBinding } from "@/services/desktop/types/contracts";
 
 export interface ConversationPanelProps {
   binding?: ChatBinding | null;

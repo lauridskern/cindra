@@ -1,7 +1,7 @@
-import type { QuickStartProjectInput } from "@/services/desktop/contracts";
+import type { QuickStartProjectInput } from "@/services/desktop/types/contracts";
 
 export interface LandingScreenProps {
-  binding?: import("@/services/desktop/contracts").ChatBinding | null;
+  binding?: import("@/services/desktop/types/contracts").ChatBinding | null;
   embedded?: boolean;
 }
 

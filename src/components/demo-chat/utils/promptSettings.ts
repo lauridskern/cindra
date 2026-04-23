@@ -1,4 +1,4 @@
-import type { PromptSettings } from "@/services/desktop/contracts";
+import type { PromptSettings } from "@/services/desktop/types/contracts";
 
 const EMPTY_PROMPT_SETTINGS: PromptSettings = {
   availableModels: [],

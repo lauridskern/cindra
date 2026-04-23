@@ -2,7 +2,7 @@ import type {
   ProviderAuthMethod,
   ProviderSummary,
   ProviderUrlParam,
-} from "@/services/desktop/contracts";
+} from "@/services/desktop/types/contracts";
 
 function getAuthMethodPriority(method: ProviderAuthMethod) {
   switch (method.kind) {

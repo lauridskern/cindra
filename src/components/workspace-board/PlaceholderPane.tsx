@@ -4,7 +4,7 @@ import type {
 
 import { PaneSurface } from "@/components/ui/PaneSurface";
 
-import type { PlaceholderPaneParams } from "./layout";
+import type { PlaceholderPaneParams } from "./types/layout";
 
 export function PlaceholderPane({
   params,

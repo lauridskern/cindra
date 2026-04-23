@@ -1,7 +1,7 @@
 import type {
   OutputPreview,
   ToolResultDetail,
-} from "@/services/desktop/contracts";
+} from "@/services/desktop/types/contracts";
 
 import type { ActivityResultFooter, ActivityResultModel } from "../activity-results/types/activityResult";
 import type { ActivityOperation } from "../types/chatThread";

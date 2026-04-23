@@ -14,7 +14,7 @@ import type {
   ProviderAuthMethodKind,
   ProviderAuthSession,
   ProviderSummary,
-} from "@/services/desktop/contracts";
+} from "@/services/desktop/types/contracts";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent } from "@/components/ui/Card";
 import {

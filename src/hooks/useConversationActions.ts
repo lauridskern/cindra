@@ -13,7 +13,7 @@ import {
 } from "@/app/sessionStore";
 import { getPromptDraftKey } from "@/app/sessionSnapshot";
 import * as desktopClient from "@/services/desktop/client";
-import type { ChatBinding } from "@/services/desktop/contracts";
+import type { ChatBinding } from "@/services/desktop/types/contracts";
 
 import { useSessionActions } from "./useSession";
 

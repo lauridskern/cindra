@@ -1,4 +1,4 @@
-import type { PromptSettings } from "@/services/desktop/contracts";
+import type { PromptSettings } from "@/services/desktop/types/contracts";
 
 import type { FollowupSubmitInput } from "@/components/types/prompt";
 

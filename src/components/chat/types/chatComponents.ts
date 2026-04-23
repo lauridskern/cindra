@@ -1,11 +1,11 @@
 import type { LegendListRenderItemProps } from "@legendapp/list/react";
 import type { ReactNode } from "react";
 
-import type { RequestTimingInfo } from "@/app/SessionContext";
+import type { RequestTimingInfo } from "@/app/types/sessionContext";
 import type {
   StatusCategory,
   TranscriptMessage,
-} from "@/services/desktop/contracts";
+} from "@/services/desktop/types/contracts";
 
 import type { ActivityResultModel } from "../activity-results/types/activityResult";
 import type {
@@ -62,6 +62,14 @@ export interface ChatEventRowProps {
   message: ChatEventMessage;
 }
 
+export interface ChatErrorEventRowProps {
+  message: string;
+}
+
+export interface ChatContextCompactedRowProps {
+  text: string;
+}
+
 export interface ChatMessageRowProps {
   message: ChatContentMessage;
 }
@@ -69,6 +77,16 @@ export interface ChatMessageRowProps {
 export interface ChatMarkdownProps {
   text: string;
   className?: string;
+}
+
+export interface ChatInlineChildrenProps {
+  children: ReactNode;
+}
+
+export interface ChatInlineTextProps {
+  as?: "p" | "span";
+  className?: string;
+  text: string;
 }
 
 export interface ChatStatusLabelProps {
@@ -115,6 +133,15 @@ export interface FileDiffResultProps {
 export interface MarkdownChatMessageProps {
   text: string;
   toneClassName: string;
+}
+
+export interface FilenameButtonProps {
+  label: string;
+}
+
+export interface InlineTextSegmentsProps {
+  keyPrefix: string;
+  text: string;
 }
 
 export interface RenderChatThreadItemOptions {

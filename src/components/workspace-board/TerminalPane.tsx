@@ -4,7 +4,7 @@ import "@wterm/dom/css";
 
 import { PaneSurface } from "@/components/ui/PaneSurface";
 import { useTerminalSession } from "./hooks/useTerminalSession";
-import { type TerminalPaneParams } from "./layout";
+import type { TerminalPaneParams } from "./types/layout";
 
 export function TerminalPane({
   params,

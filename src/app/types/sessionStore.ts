@@ -8,12 +8,12 @@ import type {
   SavedWorkspaceSummary,
   SessionSnapshot,
   WorkspaceSession,
-} from "@/services/desktop/contracts";
+} from "@/services/desktop/types/contracts";
 
 import type {
   RequestTimingInfo,
   WorkspaceBoardSelection,
-} from "../SessionContext";
+} from "./sessionContext";
 
 export interface PromptDraftEntry {
   isPending: boolean;

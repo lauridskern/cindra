@@ -1,4 +1,4 @@
-import type { TranscriptMessage } from "@/services/desktop/contracts";
+import type { TranscriptMessage } from "@/services/desktop/types/contracts";
 
 import { ChatEventRow } from "../ChatEventRow";
 import { ChatMessageRow } from "../ChatMessageRow";

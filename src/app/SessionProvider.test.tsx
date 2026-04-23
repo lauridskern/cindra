@@ -6,7 +6,8 @@ import type {
   PromptSettings,
   RuntimeStatus,
   SessionSnapshot,
-} from "../services/desktop/contracts";
+} from "../services/desktop/types/contracts";
+import type { SessionActionsContextValue } from "./types/sessionContext";
 
 let ensureConversationViewCallCount = 0;
 let getPromptSettingsCallCount = 0;
@@ -28,7 +29,7 @@ let renameSavedWorkspaceImpl: (
   name: string,
 ) => Promise<SessionSnapshot>;
 let lastStopPromptInput:
-  | import("../services/desktop/contracts").ChatBinding
+  | import("../services/desktop/types/contracts").ChatBinding
   | null = null;
 
 function deferred<T>() {
@@ -145,7 +146,7 @@ mock.module("../services/desktop/client", () => ({
     return createSnapshot(workspacePath, conversationId);
   },
   stopPrompt: async (
-    input: import("../services/desktop/contracts").ChatBinding,
+    input: import("../services/desktop/types/contracts").ChatBinding,
   ) => {
     stopPromptCallCount += 1;
     lastStopPromptInput = input;
@@ -235,7 +236,7 @@ describe("SessionProvider", () => {
     });
 
     let capturedActions:
-      | import("./SessionContext").SessionActionsContextValue
+      | SessionActionsContextValue
       | null = null;
 
     function CaptureActions() {
@@ -254,7 +255,7 @@ describe("SessionProvider", () => {
     }
 
     const actions =
-      capturedActions as import("./SessionContext").SessionActionsContextValue;
+      capturedActions as SessionActionsContextValue;
 
     await actions.selectConversation("/workspace/other", "chat-9");
 
@@ -281,7 +282,7 @@ describe("SessionProvider", () => {
     });
 
     let capturedActions:
-      | import("./SessionContext").SessionActionsContextValue
+      | SessionActionsContextValue
       | null = null;
 
     function CaptureActions() {
@@ -300,7 +301,7 @@ describe("SessionProvider", () => {
     }
 
     const actions =
-      capturedActions as import("./SessionContext").SessionActionsContextValue;
+      capturedActions as SessionActionsContextValue;
 
     await actions.stopPrompt();
 
@@ -330,7 +331,7 @@ describe("SessionProvider", () => {
     openWorkspaceImpl = async () => await workspaceRequest.promise;
 
     let capturedActions:
-      | import("./SessionContext").SessionActionsContextValue
+      | SessionActionsContextValue
       | null = null;
 
     function CaptureActions() {
@@ -349,7 +350,7 @@ describe("SessionProvider", () => {
     }
 
     const actions =
-      capturedActions as import("./SessionContext").SessionActionsContextValue;
+      capturedActions as SessionActionsContextValue;
     const openProjectPromise = actions.openProject("/workspace/other");
 
     expect(openWorkspaceCallCount).toBe(1);
@@ -381,7 +382,7 @@ describe("SessionProvider", () => {
 
   test("starting a sidebar chat without a project creates a managed chat workspace", async () => {
     let capturedActions:
-      | import("./SessionContext").SessionActionsContextValue
+      | SessionActionsContextValue
       | null = null;
 
     function CaptureActions() {
@@ -400,7 +401,7 @@ describe("SessionProvider", () => {
     }
 
     const actions =
-      capturedActions as import("./SessionContext").SessionActionsContextValue;
+      capturedActions as SessionActionsContextValue;
 
     await actions.startNewChat();
 
@@ -466,7 +467,7 @@ describe("SessionProvider", () => {
       });
 
     let capturedActions:
-      | import("./SessionContext").SessionActionsContextValue
+      | SessionActionsContextValue
       | null = null;
 
     function CaptureActions() {
@@ -485,7 +486,7 @@ describe("SessionProvider", () => {
     }
 
     const actions =
-      capturedActions as import("./SessionContext").SessionActionsContextValue;
+      capturedActions as SessionActionsContextValue;
 
     await actions.startNewChat();
 
@@ -503,7 +504,7 @@ describe("SessionProvider", () => {
     );
 
     let capturedActions:
-      | import("./SessionContext").SessionActionsContextValue
+      | SessionActionsContextValue
       | null = null;
 
     function CaptureActions() {
@@ -522,7 +523,7 @@ describe("SessionProvider", () => {
     }
 
     const actions =
-      capturedActions as import("./SessionContext").SessionActionsContextValue;
+      capturedActions as SessionActionsContextValue;
 
     await actions.renameWorkspace("/workspace/agent-ui", "Renamed UI");
 
@@ -558,7 +559,7 @@ describe("SessionProvider", () => {
     );
 
     let capturedActions:
-      | import("./SessionContext").SessionActionsContextValue
+      | SessionActionsContextValue
       | null = null;
 
     function CaptureActions() {
@@ -577,7 +578,7 @@ describe("SessionProvider", () => {
     }
 
     const actions =
-      capturedActions as import("./SessionContext").SessionActionsContextValue;
+      capturedActions as SessionActionsContextValue;
 
     await actions.renameSavedWorkspace("saved-1", "Renamed workspace");
 

@@ -4,7 +4,7 @@ import type { SettingsSection } from "@/app/types/app";
 import type {
   ConversationSessionSummary,
   WorkspaceSession,
-} from "@/services/desktop/contracts";
+} from "@/services/desktop/types/contracts";
 
 export interface ProjectSidebarProps {
   isSettingsViewOpen: boolean;

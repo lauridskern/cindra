@@ -2,7 +2,7 @@ import type {
   ChatBinding,
   FollowupRequest,
   PromptSettings,
-} from "@/services/desktop/contracts";
+} from "@/services/desktop/types/contracts";
 
 export interface FollowupSubmitInput {
   cancelled: boolean;

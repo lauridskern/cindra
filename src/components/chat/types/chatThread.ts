@@ -2,7 +2,7 @@ import type {
   ToolCallDetail,
   ToolResultDetail,
   TranscriptMessage,
-} from "@/services/desktop/contracts";
+} from "@/services/desktop/types/contracts";
 
 export interface ActivityOperation {
   id: string;
@@ -33,6 +33,10 @@ export interface ActivityGroupBuilder {
   requestId: string;
   operations: ActivityOperation[];
   reasoningText: string;
+}
+
+export interface FlushActivityGroupOptions {
+  includeEmpty?: boolean;
 }
 
 export type ChatThreadItem =

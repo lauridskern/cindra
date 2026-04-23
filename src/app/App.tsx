@@ -22,13 +22,15 @@ import { TooltipProvider } from "../components/ui/Tooltip";
 import { useSystemThemeClass } from "../hooks/useSystemThemeClass";
 import { useSessionActions, useSessionStore } from "../hooks/useSession";
 import { SessionProvider } from "./SessionProvider";
+import {
+  DEFAULT_SIDEBAR_WIDTH,
+  MAX_SIDEBAR_WIDTH,
+  MIN_SIDEBAR_WIDTH,
+} from "./constants/layout";
 import type {
   AppSidebarControlProps,
   SettingsSection,
 } from "./types/app";
-const DEFAULT_SIDEBAR_WIDTH = 320;
-const MIN_SIDEBAR_WIDTH = 200;
-const MAX_SIDEBAR_WIDTH = 400;
 
 function AppSidebarControl({
   isSidebarVisible,

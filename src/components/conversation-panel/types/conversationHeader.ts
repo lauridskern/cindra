@@ -3,7 +3,7 @@ import type { LucideIcon } from "lucide-react";
 import type {
   ChatBinding,
   SessionTodo,
-} from "@/services/desktop/contracts";
+} from "@/services/desktop/types/contracts";
 
 export type AppTargetId =
   | "cursor"

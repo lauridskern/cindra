@@ -1,4 +1,4 @@
-import type { StatusCategory } from "../../../services/desktop/contracts";
+import type { StatusCategory } from "../../../services/desktop/types/contracts";
 import { cn } from "@/utils/cn";
 import {
   CHAT_BODY_TEXT_CLASS,

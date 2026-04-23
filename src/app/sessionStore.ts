@@ -9,10 +9,8 @@ import type {
   RuntimeStatus,
   SessionSnapshot,
   WorkspaceSession,
-} from "../services/desktop/contracts";
-import type {
-  WorkspaceBoardSelection,
-} from "./SessionContext";
+} from "../services/desktop/types/contracts";
+import type { WorkspaceBoardSelection } from "./types/sessionContext";
 import type {
   PromptDraftEntry,
   SessionStoreSetter,

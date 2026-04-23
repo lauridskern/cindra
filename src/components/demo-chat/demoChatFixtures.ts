@@ -1,4 +1,4 @@
-import type { RequestTimingInfo } from "@/app/SessionContext";
+import type { RequestTimingInfo } from "@/app/types/sessionContext";
 import type {
   DemoChatVisibility,
   DemoTodoPreset,
@@ -13,7 +13,7 @@ import type {
   StatusCategory,
   ToolCallDetail,
   ToolResultDetail,
-} from "@/services/desktop/contracts";
+} from "@/services/desktop/types/contracts";
 
 export const DEMO_CHAT_WORKSPACE_PATH = "/demo/agent-ui";
 

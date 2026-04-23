@@ -1,4 +1,4 @@
-import type { SessionTodo } from "@/services/desktop/contracts";
+import type { SessionTodo } from "@/services/desktop/types/contracts";
 
 import { cn } from "@/utils/cn";
 

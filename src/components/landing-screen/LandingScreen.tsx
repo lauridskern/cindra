@@ -9,7 +9,7 @@ import {
 import type {
   FollowupRequest,
   PromptSettings,
-} from "@/services/desktop/contracts";
+} from "@/services/desktop/types/contracts";
 import { FollowupComposer } from "@/components/FollowupComposer";
 import { PromptInputCard } from "@/components/PromptInputCard";
 import { ConversationSurface } from "@/components/conversation-panel/ConversationSurface";

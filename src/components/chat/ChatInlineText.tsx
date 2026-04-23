@@ -1,11 +1,15 @@
 import { Children, Fragment, type ReactNode } from "react";
 
 import { cn } from "@/utils/cn";
+import { FILENAME_PATTERN } from "./constants/inlineText";
+import type {
+  ChatInlineChildrenProps,
+  ChatInlineTextProps,
+  FilenameButtonProps,
+  InlineTextSegmentsProps,
+} from "./types/chatComponents";
 
-const FILENAME_PATTERN =
-  /(?<![\w-])((?:~\/)?(?:[\w.-]+\/)*[\w.-]*\.[A-Za-z0-9][A-Za-z0-9._-]*)(?=[:),\].\s]|$)/g;
-
-function FilenameButton({ label }: { label: string }) {
+function FilenameButton({ label }: FilenameButtonProps) {
   return (
     <button
       type="button"
@@ -57,10 +61,7 @@ function buildTextSegments(text: string, keyPrefix: string): ReactNode[] {
 function InlineTextSegments({
   keyPrefix,
   text,
-}: {
-  keyPrefix: string;
-  text: string;
-}) {
+}: InlineTextSegmentsProps) {
   return <>{buildTextSegments(text, keyPrefix)}</>;
 }
 
@@ -68,11 +69,7 @@ export function ChatInlineText({
   as: Component = "span",
   className,
   text,
-}: {
-  as?: "p" | "span";
-  className?: string;
-  text: string;
-}) {
+}: ChatInlineTextProps) {
   return (
     <Component className={cn("m-0", className)}>
       <InlineTextSegments text={text} keyPrefix="chat-inline-text" />
@@ -80,7 +77,7 @@ export function ChatInlineText({
   );
 }
 
-export function ChatInlineChildren({ children }: { children: ReactNode }) {
+export function ChatInlineChildren({ children }: ChatInlineChildrenProps) {
   const renderedChildren = Children.toArray(children).reduce<{
     offset: number;
     nodes: ReactNode[];

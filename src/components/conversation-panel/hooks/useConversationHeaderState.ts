@@ -6,7 +6,7 @@ import {
   useConversationSummary,
   useSessionStore,
 } from "@/hooks/useSession";
-import type { ChatBinding, WorkspaceSession } from "@/services/desktop/contracts";
+import type { ChatBinding, WorkspaceSession } from "@/services/desktop/types/contracts";
 
 import { appTargets } from "../constants/conversationHeader";
 import { usePreferredOpenTarget } from "./usePreferredOpenTarget";

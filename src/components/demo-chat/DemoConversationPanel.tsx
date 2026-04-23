@@ -7,7 +7,7 @@ import {
   SlidersHorizontal,
 } from "lucide-react";
 
-import type { PromptSettings } from "@/services/desktop/contracts";
+import type { PromptSettings } from "@/services/desktop/types/contracts";
 import { ChatThread } from "@/components/chat/ChatThread";
 import { FollowupComposer } from "@/components/FollowupComposer";
 import { ConversationSurface } from "@/components/conversation-panel/ConversationSurface";
@@ -40,6 +40,7 @@ import type {
   DemoBooleanToggleProps,
   DemoComposerMode,
   DemoControlsSheetProps,
+  DemoFollowupSubmitInput,
   DemoOptionGroupProps,
   DemoPromptSettingsUpdateInput,
   DemoPromptState,
@@ -366,11 +367,7 @@ export function DemoConversationPanel() {
     setDemoNotice("Intercepted a local stop action.");
   }
 
-  async function handleFollowupSubmit(input: {
-    cancelled: boolean;
-    text?: string;
-    selectedOptionIds?: string[];
-  }) {
+  async function handleFollowupSubmit(input: DemoFollowupSubmitInput) {
     if (input.cancelled) {
       setDemoNotice("Intercepted a local follow-up cancel action.");
       return;

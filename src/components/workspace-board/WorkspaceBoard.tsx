@@ -22,7 +22,7 @@ import {
   useSessionStore,
 } from "@/hooks/useSession";
 import * as desktopClient from "@/services/desktop/client";
-import type { ChatBinding } from "@/services/desktop/contracts";
+import type { ChatBinding } from "@/services/desktop/types/contracts";
 import {
   areChatBindingsEqual,
   ensureConversationViewLoaded,
@@ -40,7 +40,6 @@ import {
   parseDockviewLayoutJson,
   readChatBindingFromDataTransfer,
   serializeDockviewLayout,
-  type OuterChatPanelParams,
 } from "./layout";
 import {
   getActiveOuterBinding,
@@ -49,6 +48,7 @@ import {
 } from "./workspaceBoardUtils";
 import { useDockviewLayoutPersistence } from "./hooks/useDockviewLayoutPersistence";
 import { useDockviewTheme } from "./hooks/useDockviewTheme";
+import type { OuterChatPanelParams } from "./types/layout";
 import type { ApplySavedWorkspaceLayoutResult } from "./types/workspaceBoard";
 
 function applySavedWorkspaceLayout(
