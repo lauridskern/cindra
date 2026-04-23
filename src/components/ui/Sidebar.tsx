@@ -14,14 +14,13 @@ import {
   TooltipTrigger,
 } from "@/components/ui/Tooltip";
 import { PanelLeftIcon } from "lucide-react";
-import {
-  SIDEBAR_COOKIE_MAX_AGE,
-  SIDEBAR_COOKIE_NAME,
-  SIDEBAR_KEYBOARD_SHORTCUT,
-  SIDEBAR_WIDTH,
-  SIDEBAR_WIDTH_ICON,
-} from "./constants/sidebar";
 import type { SidebarContextProps } from "./types/ui";
+
+const SIDEBAR_COOKIE_NAME = "sidebar_state";
+const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7;
+const SIDEBAR_WIDTH = "16rem";
+const SIDEBAR_WIDTH_ICON = "3rem";
+const SIDEBAR_KEYBOARD_SHORTCUT = "b";
 
 const SidebarContext = React.createContext<SidebarContextProps | null>(null);
 
