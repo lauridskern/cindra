@@ -1,5 +1,4 @@
-import { PatchDiff } from "@pierre/diffs/react";
-import { useCallback, useMemo } from "react";
+import { Suspense, lazy, useCallback, useMemo } from "react";
 
 import { openWorkspacePathInTarget } from "@/app/sessionClientActions";
 import {
@@ -8,6 +7,7 @@ import {
   isAppTargetId,
 } from "@/components/conversation-panel/model";
 import { useWorkspaceMeta } from "@/hooks/useSession";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import {
   ActivityResultCard,
   ActivityResultPreformattedBody,
@@ -19,6 +19,11 @@ interface FileDiffResultProps {
   result: Extract<ActivityResultModel, { kind: "file_diff" }>;
   workspacePath: string | null;
 }
+
+const LazyPatchDiff = lazy(async () => {
+  const module = await import("@pierre/diffs/react");
+  return { default: module.PatchDiff };
+});
 
 function getDisplayName(path: string): string {
   const normalizedPath = path.replace(/\\/g, "/");
@@ -41,6 +46,15 @@ function getDisplayPath(path: string, workspacePath: string | null): string {
   }
 
   return normalizedPath;
+}
+
+function FileDiffLoadingBody() {
+  return (
+    <div className="flex min-h-32 items-center justify-center gap-2 px-3 py-6 text-[13px] text-neutral-500 dark:text-neutral-400">
+      <LoadingSpinner className="size-4" />
+      <span>Loading diff...</span>
+    </div>
+  );
 }
 
 export function FileDiffResult({ result, workspacePath }: FileDiffResultProps) {
@@ -124,19 +138,21 @@ export function FileDiffResult({ result, workspacePath }: FileDiffResultProps) {
       footer={footer}
     >
       {isGitPatch ? (
-        <PatchDiff
-          patch={result.patch}
-          disableWorkerPool
-          className="block max-w-full overflow-hidden text-xs"
-          options={{
-            diffIndicators: "bars",
-            diffStyle: "unified",
-            lineDiffType: "word-alt",
-            overflow: "scroll",
-            disableFileHeader: true,
-            themeType: "system",
-          }}
-        />
+        <Suspense fallback={<FileDiffLoadingBody />}>
+          <LazyPatchDiff
+            patch={result.patch}
+            disableWorkerPool
+            className="block max-w-full overflow-hidden text-xs"
+            options={{
+              diffIndicators: "bars",
+              diffStyle: "unified",
+              lineDiffType: "word-alt",
+              overflow: "scroll",
+              disableFileHeader: true,
+              themeType: "system",
+            }}
+          />
+        </Suspense>
       ) : (
         <ActivityResultPreformattedBody text={result.patch} />
       )}
