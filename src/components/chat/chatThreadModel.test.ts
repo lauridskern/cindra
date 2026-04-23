@@ -183,4 +183,63 @@ describe("buildChatThreadItems", () => {
       workItem.activities.filter((activity) => activity.isRunning),
     ).toHaveLength(1);
   });
+
+  test("does not merge work rows across user turns when history messages reuse a request id", () => {
+    const requestId = "history:conversation-1";
+    const items = buildChatThreadItems(
+      [
+        userMessage("user-1", requestId, "first task"),
+        assistantMessage("assistant-1", requestId, "Checking files."),
+        toolStartMessage("tool-start-1", requestId, "call-1", {
+          kind: "shell",
+          command: "rg --files",
+          cwd: null,
+          description: null,
+        }),
+        toolEndMessage("tool-end-1", requestId, "call-1", {
+          kind: "text",
+          text: "src/first.ts",
+        }),
+        assistantMessage("assistant-2", requestId, "Done with the first task."),
+        userMessage("user-2", requestId, "second task"),
+        assistantMessage("assistant-3", requestId, "Updating another file."),
+        toolStartMessage("tool-start-2", requestId, "call-2", {
+          kind: "file_update",
+          path: "src/second.ts",
+          operation: "replace",
+        }),
+        toolEndMessage("tool-end-2", requestId, "call-2", {
+          kind: "file_diff",
+          path: "src/second.ts",
+          patch: "diff --git a/src/second.ts b/src/second.ts",
+        }),
+        assistantMessage("assistant-4", requestId, "Done with the second task."),
+      ],
+      [],
+    );
+
+    expect(items.map((item) => item.kind)).toEqual([
+      "message",
+      "message",
+      "request_work",
+      "message",
+      "message",
+      "message",
+      "request_work",
+      "message",
+    ]);
+
+    const workItems = items.filter(
+      (item): item is Extract<typeof item, { kind: "request_work" }> =>
+        item.kind === "request_work",
+    );
+
+    expect(workItems).toHaveLength(2);
+    expect(workItems[0]?.activities.map((activity) => activity.summary)).toEqual([
+      "Ran 1 command",
+    ]);
+    expect(workItems[1]?.activities.map((activity) => activity.summary)).toEqual([
+      "Updated 1 file",
+    ]);
+  });
 });

@@ -45,6 +45,7 @@ export type ChatThreadItem =
     };
 
 interface ActivityGroupBuilder {
+  scopeId: string;
   requestId: string;
   operations: ActivityOperation[];
   reasoningText: string;
@@ -79,18 +80,42 @@ export function buildChatThreadItems(
 ): ChatThreadItem[] {
   const items: ChatThreadItem[] = [];
   const activeRequestIdSet = new Set(activeRequestIds);
-  const pendingActivitiesByRequestId = new Map<string, ActivityItem[]>();
-  const requestIdsInEncounterOrder: string[] = [];
-  const seenRequestIds = new Set<string>();
+  const pendingActivitiesByScopeId = new Map<string, ActivityItem[]>();
+  const scopeIdsInEncounterOrder: string[] = [];
+  const seenScopeIds = new Set<string>();
+  const scopeRequestIds = new Map<string, string>();
+  const currentScopeIndexByRequestId = new Map<string, number>();
+  const lastAssistantOrErrorMessageKeyByScopeId = new Map<string, string>();
+  const lastNonUserMessageKeyByScopeId = new Map<string, string>();
   let currentGroup: ActivityGroupBuilder | null = null;
 
-  const trackRequestId = (requestId: string) => {
-    if (seenRequestIds.has(requestId)) {
+  const buildScopeId = (requestId: string, scopeIndex: number) =>
+    `${requestId}:${scopeIndex}`;
+
+  const getCurrentScopeId = (requestId: string) => {
+    const currentScopeIndex = currentScopeIndexByRequestId.get(requestId);
+    if (currentScopeIndex != null) {
+      return buildScopeId(requestId, currentScopeIndex);
+    }
+
+    currentScopeIndexByRequestId.set(requestId, 0);
+    return buildScopeId(requestId, 0);
+  };
+
+  const startNextScope = (requestId: string) => {
+    const nextScopeIndex = (currentScopeIndexByRequestId.get(requestId) ?? -1) + 1;
+    currentScopeIndexByRequestId.set(requestId, nextScopeIndex);
+    return buildScopeId(requestId, nextScopeIndex);
+  };
+
+  const trackScopeId = (scopeId: string, requestId: string) => {
+    scopeRequestIds.set(scopeId, requestId);
+    if (seenScopeIds.has(scopeId)) {
       return;
     }
 
-    seenRequestIds.add(requestId);
-    requestIdsInEncounterOrder.push(requestId);
+    seenScopeIds.add(scopeId);
+    scopeIdsInEncounterOrder.push(scopeId);
   };
 
   const createActivityItems = (
@@ -133,16 +158,17 @@ export function buildChatThreadItems(
   };
 
   const appendPendingActivities = (
+    scopeId: string,
     requestId: string,
     activities: ActivityItem[],
   ) => {
-    trackRequestId(requestId);
+    trackScopeId(scopeId, requestId);
     if (activities.length === 0) {
       return;
     }
 
-    const existingActivities = pendingActivitiesByRequestId.get(requestId) ?? [];
-    pendingActivitiesByRequestId.set(requestId, [
+    const existingActivities = pendingActivitiesByScopeId.get(scopeId) ?? [];
+    pendingActivitiesByScopeId.set(scopeId, [
       ...existingActivities,
       ...activities,
     ]);
@@ -156,17 +182,22 @@ export function buildChatThreadItems(
     const isRunning = activeRequestIdSet.has(currentGroup.requestId);
     const activities = createActivityItems(currentGroup, isRunning);
     if (activities.length > 0) {
-      appendPendingActivities(currentGroup.requestId, activities);
+      appendPendingActivities(
+        currentGroup.scopeId,
+        currentGroup.requestId,
+        activities,
+      );
     } else if (options?.includeEmpty === true) {
-      trackRequestId(currentGroup.requestId);
+      trackScopeId(currentGroup.scopeId, currentGroup.requestId);
     }
 
     currentGroup = null;
   };
 
-  const ensureGroup = (requestId: string) => {
+  const ensureGroup = (scopeId: string, requestId: string) => {
     if (currentGroup == null) {
       currentGroup = {
+        scopeId,
         requestId,
         operations: [],
         reasoningText: "",
@@ -174,9 +205,10 @@ export function buildChatThreadItems(
       return currentGroup;
     }
 
-    if (currentGroup.requestId !== requestId) {
+    if (currentGroup.scopeId !== scopeId) {
       flushGroup();
       currentGroup = {
+        scopeId,
         requestId,
         operations: [],
         reasoningText: "",
@@ -189,31 +221,41 @@ export function buildChatThreadItems(
   for (const message of messages) {
     switch (message.kind) {
       case "user":
-      case "context_compacted":
+      case "context_compacted": {
         flushGroup();
+        const scopeId = startNextScope(message.requestId);
+        trackScopeId(scopeId, message.requestId);
         items.push({
           kind: "message",
           key: message.id,
           message,
         });
         break;
+      }
       case "assistant":
-      case "error":
+      case "error": {
         flushGroup({ includeEmpty: true });
-        trackRequestId(message.requestId);
+        const scopeId = getCurrentScopeId(message.requestId);
+        trackScopeId(scopeId, message.requestId);
         items.push({
           kind: "message",
           key: message.id,
           message,
         });
+        lastNonUserMessageKeyByScopeId.set(scopeId, message.id);
+        if (message.kind === "assistant" || message.kind === "error") {
+          lastAssistantOrErrorMessageKeyByScopeId.set(scopeId, message.id);
+        }
         break;
+      }
       case "reasoning": {
-        const group = ensureGroup(message.requestId);
+        const scopeId = getCurrentScopeId(message.requestId);
+        const group = ensureGroup(scopeId, message.requestId);
         if (group.operations.length > 0) {
           flushGroup();
         }
 
-        const thinkingGroup = ensureGroup(message.requestId);
+        const thinkingGroup = ensureGroup(scopeId, message.requestId);
         thinkingGroup.reasoningText = mergeOutputText(
           thinkingGroup.reasoningText,
           message.text,
@@ -221,11 +263,12 @@ export function buildChatThreadItems(
         break;
       }
       case "tool_start": {
-        if (hasPendingReasoningGroup(currentGroup, message.requestId)) {
+        const scopeId = getCurrentScopeId(message.requestId);
+        if (hasPendingReasoningGroup(currentGroup, scopeId)) {
           flushGroup();
         }
 
-        const group = ensureGroup(message.requestId);
+        const group = ensureGroup(scopeId, message.requestId);
         group.operations.push({
           id: message.id,
           requestId: message.requestId,
@@ -243,6 +286,11 @@ export function buildChatThreadItems(
         }
 
         flushGroup();
+        {
+          const scopeId = getCurrentScopeId(message.requestId);
+          trackScopeId(scopeId, message.requestId);
+          lastNonUserMessageKeyByScopeId.set(scopeId, message.id);
+        }
         items.push({
           kind: "message",
           key: message.id,
@@ -258,6 +306,11 @@ export function buildChatThreadItems(
           );
         } else {
           flushGroup();
+          {
+            const scopeId = getCurrentScopeId(message.requestId);
+            trackScopeId(scopeId, message.requestId);
+            lastNonUserMessageKeyByScopeId.set(scopeId, message.id);
+          }
           items.push({
             kind: "message",
             key: message.id,
@@ -267,7 +320,8 @@ export function buildChatThreadItems(
         break;
       }
       case "tool_end": {
-        const group = ensureGroup(message.requestId);
+        const scopeId = getCurrentScopeId(message.requestId);
+        const group = ensureGroup(scopeId, message.requestId);
         const operation =
           findMatchingOperation(
             group.operations,
@@ -293,24 +347,32 @@ export function buildChatThreadItems(
   flushGroup();
 
   for (const requestId of activeRequestIds) {
-    trackRequestId(requestId);
+    const scopeId = getCurrentScopeId(requestId);
+    trackScopeId(scopeId, requestId);
   }
 
-  const workItemsByRequestId = new Map<
+  const workItemsByScopeId = new Map<
     string,
     Extract<ChatThreadItem, { kind: "request_work" }>
   >();
-  for (const requestId of requestIdsInEncounterOrder) {
-    const isRunning = activeRequestIdSet.has(requestId);
+  for (const scopeId of scopeIdsInEncounterOrder) {
+    const requestId = scopeRequestIds.get(scopeId);
+    if (requestId == null) {
+      continue;
+    }
+
+    const isRunning =
+      activeRequestIdSet.has(requestId) &&
+      scopeId === getCurrentScopeId(requestId);
     const activities = finalizeRequestActivities(
-      pendingActivitiesByRequestId.get(requestId) ?? [],
+      pendingActivitiesByScopeId.get(scopeId) ?? [],
       isRunning,
     );
 
     if (activities.length > 0 || isRunning) {
-      workItemsByRequestId.set(requestId, {
+      workItemsByScopeId.set(scopeId, {
         kind: "request_work",
-        key: `request-work:${requestId}`,
+        key: `request-work:${scopeId}`,
         requestId,
         activities,
         isRunning,
@@ -325,27 +387,40 @@ export function buildChatThreadItems(
   >();
   const trailingWorkItems: Extract<ChatThreadItem, { kind: "request_work" }>[] = [];
 
-  for (const requestId of requestIdsInEncounterOrder) {
-    const workItem = workItemsByRequestId.get(requestId);
+  for (const scopeId of scopeIdsInEncounterOrder) {
+    const workItem = workItemsByScopeId.get(scopeId);
     if (workItem == null) {
       continue;
     }
 
     if (workItem.isRunning) {
-      trailingWorkItems.push(workItem);
+      trailingWorkItems.push({
+        ...workItem,
+        key: buildRequestWorkKey(scopeId, null, true),
+      });
       continue;
     }
 
-    const insertionKey = findRequestWorkInsertionKey(items, requestId);
+    const insertionKey = findRequestWorkInsertionKey(
+      scopeId,
+      lastAssistantOrErrorMessageKeyByScopeId,
+      lastNonUserMessageKeyByScopeId,
+    );
     if (insertionKey == null) {
-      trailingWorkItems.push(workItem);
+      trailingWorkItems.push({
+        ...workItem,
+        key: buildRequestWorkKey(scopeId, null, false),
+      });
       continue;
     }
 
     const existingInsertions = workItemInsertionsByMessageKey.get(insertionKey) ?? [];
     workItemInsertionsByMessageKey.set(insertionKey, [
       ...existingInsertions,
-      workItem,
+      {
+        ...workItem,
+        key: buildRequestWorkKey(scopeId, insertionKey, false),
+      },
     ]);
   }
 
@@ -422,11 +497,11 @@ function createFallbackOperation(
 
 function hasPendingReasoningGroup(
   group: ActivityGroupBuilder | null,
-  requestId: string,
+  scopeId: string,
 ): boolean {
   return (
     group != null &&
-    group.requestId === requestId &&
+    group.scopeId === scopeId &&
     group.operations.length === 0 &&
     group.reasoningText.trim().length > 0
   );
@@ -460,29 +535,24 @@ function finalizeRequestActivities(
   }));
 }
 
+function buildRequestWorkKey(
+  scopeId: string,
+  insertionKey: string | null,
+  isRunning: boolean,
+): string {
+  return `request-work:${scopeId}:${isRunning ? "running" : insertionKey ?? "trailing"}`;
+}
+
 function findRequestWorkInsertionKey(
-  items: ChatThreadItem[],
-  requestId: string,
+  scopeId: string,
+  lastAssistantOrErrorMessageKeyByScopeId: Map<string, string>,
+  lastNonUserMessageKeyByScopeId: Map<string, string>,
 ): string | null {
-  for (let index = items.length - 1; index >= 0; index -= 1) {
-    const item = items[index];
-    if (item.kind !== "message" || item.message.requestId !== requestId) {
-      continue;
-    }
-
-    if (item.message.kind === "assistant" || item.message.kind === "error") {
-      return item.key;
-    }
-  }
-
-  for (let index = items.length - 1; index >= 0; index -= 1) {
-    const item = items[index];
-    if (item.kind === "message" && item.message.requestId === requestId) {
-      return item.key;
-    }
-  }
-
-  return null;
+  return (
+    lastAssistantOrErrorMessageKeyByScopeId.get(scopeId) ??
+    lastNonUserMessageKeyByScopeId.get(scopeId) ??
+    null
+  );
 }
 
 function splitActivityOperationGroups(
