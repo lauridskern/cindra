@@ -1,11 +1,10 @@
 import type { FormEvent } from "react";
 import { FolderOpen, GitBranchPlus, LoaderCircle, Rocket } from "lucide-react";
 
-import { useConversationActions } from "@/hooks/useConversationActions";
 import {
   useConversationSession,
-  usePromptDraft,
 } from "@/hooks/useSession";
+import { usePrompt } from "@/hooks/usePrompt";
 import type {
   FollowupRequest,
   PromptSettings,
@@ -44,7 +43,6 @@ export function LandingScreen({
   embedded = false,
 }: LandingScreenProps) {
   const {
-    activeRequestIds,
     activeWorkspaceConfigurationError,
     activeWorkspaceConfigured,
     activeWorkspaceLabel,
@@ -53,18 +51,20 @@ export function LandingScreen({
     uiError,
     workspaceKind,
   } = useConversationSession(binding);
-  const { stopPrompt, submitPrompt, updatePromptSettings } =
-    useConversationActions(binding);
   const {
     canCompose,
     followupRequest,
     isPlanningMode,
+    isRequestActive,
     isSendingPrompt,
     promptSettings,
     promptDraft,
     setPlanningMode,
     setPromptDraft,
-  } = usePromptDraft(binding);
+    stopPrompt,
+    submitPrompt,
+    updatePromptSettings,
+  } = usePrompt(binding);
   const controller = useLandingScreenController({
     isOpeningProject,
     uiError,
@@ -79,7 +79,7 @@ export function LandingScreen({
       hasCurrentWorkspace={hasCurrentWorkspace}
       isBusy={controller.isBusy}
       isOpeningProject={isOpeningProject}
-      isRequestActive={activeRequestIds.length > 0}
+      isRequestActive={isRequestActive}
       isSendingPrompt={isSendingPrompt}
       onOpenClone={controller.openCloneDialog}
       onOpenFolder={() => void controller.handleOpenWorkspacePicker()}

@@ -3,6 +3,7 @@ import type {
   FollowupRequest,
   PromptSettings,
 } from "@/services/desktop/types/contracts";
+import type { WorkspacePromptSettingsUpdateInput } from "@/app/types/sessionClientActions";
 
 export interface FollowupSubmitInput {
   cancelled: boolean;
@@ -19,11 +20,7 @@ export interface PromptComposerProps {
   binding?: ChatBinding | null;
 }
 
-export interface PromptSettingsUpdateInput {
-  providerId: string;
-  modelId: string;
-  reasoningEffort?: string | null;
-}
+export type PromptSettingsUpdateInput = WorkspacePromptSettingsUpdateInput;
 
 export interface PromptInputCardProps {
   canCompose: boolean;

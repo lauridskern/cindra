@@ -1,32 +1,33 @@
 import {
   useConversationSession,
-  usePromptDraft,
 } from "../hooks/useSession";
-import { useConversationActions } from "../hooks/useConversationActions";
+import { usePrompt } from "../hooks/usePrompt";
 import { FollowupComposer } from "./FollowupComposer";
 import { PromptInputCard } from "./PromptInputCard";
 import { SessionTodoDock } from "./conversation-panel/SessionTodoDock";
 import type { PromptComposerProps } from "./types/prompt";
 
 export function PromptComposer({ binding }: PromptComposerProps) {
-  const { stopPrompt, submitPrompt, updatePromptSettings } =
-    useConversationActions(binding);
-  const { activeRequestIds, todos } = useConversationSession(binding);
   const {
     canCompose,
     followupRequest,
     isPlanningMode,
+    isRequestActive,
     isSendingPrompt,
     promptSettings,
     promptDraft,
     setPlanningMode,
     setPromptDraft,
-  } = usePromptDraft(binding);
+    stopPrompt,
+    submitPrompt,
+    updatePromptSettings,
+  } = usePrompt(binding);
+  const { todos } = useConversationSession(binding);
 
   return (
     <div className="px-6 pb-6">
       <SessionTodoDock
-        isRequestActive={activeRequestIds.length > 0}
+        isRequestActive={isRequestActive}
         todos={todos}
       />
       {followupRequest != null ? (
@@ -37,7 +38,7 @@ export function PromptComposer({ binding }: PromptComposerProps) {
       ) : (
         <PromptInputCard
           canCompose={canCompose}
-          isRequestActive={activeRequestIds.length > 0}
+          isRequestActive={isRequestActive}
           isSendingPrompt={isSendingPrompt}
           isPlanningMode={isPlanningMode}
           promptSettings={promptSettings}
