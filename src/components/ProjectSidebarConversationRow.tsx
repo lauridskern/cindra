@@ -23,7 +23,7 @@ export function ProjectSidebarConversationRow({
         render={<button type="button" draggable />}
         isActive={isSelected}
         className={cn(
-          "h-auto w-full items-center justify-start gap-2 py-1.5 text-left font-medium",
+          "h-auto w-full items-center gap-2 py-1.5 text-left font-medium",
           isSelected &&
             "bg-sidebar-accent text-sidebar-accent-foreground dark:bg-sidebar-accent dark:text-sidebar-accent-foreground",
         )}
