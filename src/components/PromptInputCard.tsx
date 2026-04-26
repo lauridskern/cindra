@@ -1,6 +1,4 @@
-import {
-  useRef,
-} from "react";
+import { useRef } from "react";
 import {
   ArrowUpIcon,
   ChevronDownIcon,
@@ -89,6 +87,10 @@ export function PromptInputCard({
     }
 
     handleSubmit();
+  }
+
+  function handlePlanningModeToggle() {
+    setPlanningMode(!isPlanningMode);
   }
 
   return (
@@ -232,21 +234,23 @@ export function PromptInputCard({
                 </DropdownMenuGroup>
               </DropdownMenuContent>
             </DropdownMenu>
-            <Toggle
+            <Button
+              type="button"
               variant="outline"
               size="sm"
               aria-label="Toggle planning mode"
-              pressed={isPlanningMode}
+              aria-pressed={isPlanningMode}
               className={cn(
                 "text-muted-foreground hover:bg-transparent hover:text-foreground",
-                isPlanningMode && "text-foreground",
+                isPlanningMode &&
+                  "border-yellow-500/60 bg-yellow-500/10 text-foreground hover:bg-yellow-500/15",
               )}
               disabled={isControlDisabled}
-              onPressedChange={setPlanningMode}
+              onClick={handlePlanningModeToggle}
             >
               <MapIcon data-icon="inline-start" />
-              {isPlanningMode ? <span className="text-xs">Plan</span> : null}
-            </Toggle>
+              <span className="text-xs">Plan</span>
+            </Button>
           </ButtonGroup>
           <Button
             type="button"
