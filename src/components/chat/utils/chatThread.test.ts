@@ -128,6 +128,7 @@ describe("buildChatThreadItems", () => {
     }
 
     expect(workItem.isRunning).toBe(false);
+    expect(workItem.failedStepCount).toBe(0);
     expect(workItem.activities.map((activity) => activity.summary)).toEqual([
       "Thinking",
       "Ran 1 command",
@@ -141,7 +142,7 @@ describe("buildChatThreadItems", () => {
     });
   });
 
-  test("keeps a single running work row at the end for active requests", () => {
+  test("keeps a single running work row before the last assistant message for active requests", () => {
     const items = buildChatThreadItems(
       [
         assistantMessage("assistant-1", "req-1", "Checking files."),
@@ -166,17 +167,18 @@ describe("buildChatThreadItems", () => {
 
     expect(items.map((item) => item.kind)).toEqual([
       "message",
-      "message",
       "request_work",
+      "message",
     ]);
 
-    const workItem = items[2];
+    const workItem = items[1];
     expect(workItem.kind).toBe("request_work");
     if (workItem.kind !== "request_work") {
       return;
     }
 
     expect(workItem.isRunning).toBe(true);
+    expect(workItem.failedStepCount).toBe(0);
     expect(workItem.activities).toHaveLength(1);
     expect(workItem.activities[0]?.summary).toBe("Ran 1 command");
     expect(
@@ -235,11 +237,61 @@ describe("buildChatThreadItems", () => {
     );
 
     expect(workItems).toHaveLength(2);
+    expect(workItems[0]?.failedStepCount).toBe(0);
+    expect(workItems[1]?.failedStepCount).toBe(0);
     expect(workItems[0]?.activities.map((activity) => activity.summary)).toEqual([
       "Ran 1 command",
     ]);
     expect(workItems[1]?.activities.map((activity) => activity.summary)).toEqual([
       "Updated 1 file",
     ]);
+  });
+
+  test("tracks the number of failed activity steps on a completed request", () => {
+    const items = buildChatThreadItems(
+      [
+        userMessage("user-1", "req-1", "change a file"),
+        toolStartMessage("tool-start-1", "req-1", "call-1", {
+          kind: "shell",
+          command: "false",
+          cwd: null,
+          description: null,
+        }),
+        {
+          kind: "tool_end",
+          id: "tool-end-1",
+          requestId: "req-1",
+          name: "shell",
+          callId: "call-1",
+          summary: "Command failed",
+          isError: true,
+          detail: {
+            kind: "text",
+            text: "Command failed",
+          },
+        },
+        toolStartMessage("tool-start-2", "req-1", "call-2", {
+          kind: "file_update",
+          path: "src/example.ts",
+          operation: "replace",
+        }),
+        toolEndMessage("tool-end-2", "req-1", "call-2", {
+          kind: "file_diff",
+          path: "src/example.ts",
+          patch: "diff --git a/src/example.ts b/src/example.ts",
+        }),
+        assistantMessage("assistant-1", "req-1", "Done."),
+      ],
+      [],
+    );
+
+    const workItem = items.find(
+      (item): item is Extract<typeof item, { kind: "request_work" }> =>
+        item.kind === "request_work",
+    );
+
+    expect(workItem).toBeDefined();
+    expect(workItem?.failedStepCount).toBe(1);
+    expect(workItem?.hasError).toBe(true);
   });
 });

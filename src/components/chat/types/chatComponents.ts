@@ -185,7 +185,7 @@ export interface ToolStartRowProps {
 }
 
 export interface WorkHeaderLabelProps {
-  hasError: boolean;
+  failedStepCount: number;
   isRunning: boolean;
   requestTiming?: RequestTimingInfo;
 }

@@ -313,13 +313,15 @@ export function buildChatThreadItems(
     );
 
     if (activities.length > 0 || isRunning) {
+      const failedStepCount = activities.filter((activity) => activity.hasError).length;
       workItemsByScopeId.set(scopeId, {
         kind: "request_work",
         key: `request-work:${scopeId}`,
         requestId,
         activities,
         isRunning,
-        hasError: activities.some((activity) => activity.hasError),
+        hasError: failedStepCount > 0,
+        failedStepCount,
       });
     }
   }
@@ -333,14 +335,6 @@ export function buildChatThreadItems(
   for (const scopeId of scopeIdsInEncounterOrder) {
     const workItem = workItemsByScopeId.get(scopeId);
     if (workItem == null) {
-      continue;
-    }
-
-    if (workItem.isRunning) {
-      trailingWorkItems.push({
-        ...workItem,
-        key: buildRequestWorkKey(scopeId, null, true),
-      });
       continue;
     }
 

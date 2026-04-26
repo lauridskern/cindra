@@ -1,6 +1,7 @@
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { useState } from "react";
 
+import type { RequestTimingInfo } from "@/app/types/sessionContext";
 import { formatDurationLabel } from "@/utils/time";
 
 import { CHAT_MUTED_TEXT_CLASS } from "./constants/chatStyles";
@@ -12,31 +13,58 @@ import type {
   WorkHeaderLabelProps,
 } from "./types/chatComponents";
 
+interface WorkHeaderLabelOptions {
+  failedStepCount: number;
+  isRunning: boolean;
+  requestTiming?: RequestTimingInfo;
+  nowMs?: number;
+}
+
+function formatFailedStepCountLabel(failedStepCount: number): string {
+  return `Completed with ${failedStepCount} failed step${failedStepCount === 1 ? "" : "s"}`;
+}
+
+export function getWorkHeaderLabelText({
+  failedStepCount,
+  isRunning,
+  requestTiming,
+  nowMs,
+}: WorkHeaderLabelOptions): string {
+  if (requestTiming == null) {
+    if (isRunning) {
+      return "Working";
+    }
+
+    return failedStepCount > 0
+      ? formatFailedStepCountLabel(failedStepCount)
+      : "Worked";
+  }
+
+  const endTime = requestTiming.completedAtMs ?? nowMs ?? Date.now();
+  const durationLabel = formatDurationLabel(endTime - requestTiming.startedAtMs);
+
+  if (isRunning) {
+    return `Working for ${durationLabel}`;
+  }
+
+  return failedStepCount > 0
+    ? `${formatFailedStepCountLabel(failedStepCount)} after ${durationLabel}`
+    : `Worked for ${durationLabel}`;
+}
+
 function WorkHeaderLabel({
-  hasError,
+  failedStepCount,
   isRunning,
   requestTiming,
 }: WorkHeaderLabelProps) {
   const now = useRunningNow(isRunning);
 
-  let label = "Worked";
-  if (requestTiming == null) {
-    if (isRunning) {
-      label = "Working";
-    } else {
-      label = hasError ? "Failed" : "Worked";
-    }
-  } else {
-    const endTime = requestTiming.completedAtMs ?? now;
-    const durationLabel = formatDurationLabel(
-      endTime - requestTiming.startedAtMs,
-    );
-    label = isRunning
-      ? `Working for ${durationLabel}`
-      : hasError
-        ? `Failed after ${durationLabel}`
-        : `Worked for ${durationLabel}`;
-  }
+  const label = getWorkHeaderLabelText({
+    failedStepCount,
+    isRunning,
+    requestTiming,
+    nowMs: now,
+  });
 
   return <ChatStatusLabel active={isRunning} text={label} />;
 }
@@ -52,7 +80,7 @@ export function ChatWorkRow({
   const header = (
     <>
       <WorkHeaderLabel
-        hasError={item.hasError}
+        failedStepCount={item.failedStepCount}
         isRunning={item.isRunning}
         requestTiming={requestTiming}
       />

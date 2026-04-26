@@ -53,4 +53,5 @@ export type ChatThreadItem =
       activities: ActivityItem[];
       isRunning: boolean;
       hasError: boolean;
+      failedStepCount: number;
     };
