@@ -75,8 +75,7 @@ impl RuntimeManager {
                     .iter()
                     .rposition(|pending| pending.request_id == request_id);
 
-                pending_index
-                    .map(|index| conversation.pending_anonymous_file_updates.remove(index))
+                pending_index.map(|index| conversation.pending_anonymous_file_updates.remove(index))
             }
         };
         let Some(pending) = pending else {

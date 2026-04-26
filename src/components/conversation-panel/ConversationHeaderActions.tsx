@@ -1,7 +1,9 @@
 import {
   ChevronDownIcon,
   EllipsisIcon,
+  FolderIcon,
   GitCommitHorizontalIcon,
+  GitBranchPlusIcon,
   GitPullRequestCreateIcon,
   LayoutPanelTopIcon,
   SquareTerminalIcon,
@@ -26,9 +28,14 @@ import type { AppTarget, AppTargetId } from "./model";
 
 interface ConversationHeaderActionsProps {
   canCloseChat?: () => boolean;
+  canHandoffToLocal?: boolean;
+  canHandoffToWorktree?: boolean;
   isGitBusy: boolean;
+  isHandoffBusy: boolean;
   isOpenTargetBusy: boolean;
   onCloseChat?: () => void;
+  onHandoffToLocal?: () => void;
+  onHandoffToWorktree?: () => void;
   onOpenCommitDialog: () => void;
   onOpenPreview?: () => void;
   onOpenTerminal?: () => void;
@@ -41,9 +48,14 @@ interface ConversationHeaderActionsProps {
 
 export function ConversationHeaderActions({
   canCloseChat,
+  canHandoffToLocal = false,
+  canHandoffToWorktree = false,
   isGitBusy,
+  isHandoffBusy,
   isOpenTargetBusy,
   onCloseChat,
+  onHandoffToLocal,
+  onHandoffToWorktree,
   onOpenCommitDialog,
   onOpenPreview,
   onOpenTerminal,
@@ -204,6 +216,28 @@ export function ConversationHeaderActions({
               <SquareTerminalIcon />
               Open Terminal
             </DropdownMenuItem>
+            {canHandoffToWorktree ? (
+              <DropdownMenuItem
+                disabled={isHandoffBusy}
+                onClick={() => {
+                  onHandoffToWorktree?.();
+                }}
+              >
+                <GitBranchPlusIcon />
+                Handoff to worktree
+              </DropdownMenuItem>
+            ) : null}
+            {canHandoffToLocal ? (
+              <DropdownMenuItem
+                disabled={isHandoffBusy}
+                onClick={() => {
+                  onHandoffToLocal?.();
+                }}
+              >
+                <FolderIcon />
+                Handoff to local
+              </DropdownMenuItem>
+            ) : null}
             <DropdownMenuSeparator />
             <DropdownMenuItem
               variant="destructive"

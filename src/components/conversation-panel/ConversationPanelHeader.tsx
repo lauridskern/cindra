@@ -12,6 +12,7 @@ import { cn } from "@/utils/cn";
 import { handleWindowDragStart } from "@/utils/window";
 
 import { BranchSwitcherMenu } from "./BranchSwitcherMenu";
+import { ChatHandoffDialog } from "./ChatHandoffDialog";
 import { CommitChangesDialog } from "./CommitChangesDialog";
 import { ConversationHeaderActions } from "./ConversationHeaderActions";
 import { ProjectSwitcherMenu } from "./ProjectSwitcherMenu";
@@ -45,25 +46,36 @@ export function ConversationPanelHeader({
     conversationTitle,
     currentProjectLabel,
     filteredBranches,
+    handoffBranchName,
+    handoffTarget,
     isBranchMenuOpen,
     isCommitDialogOpen,
     isCommitPending,
     isGitActionPending,
+    isHandoffDialogOpen,
+    isHandoffPending,
     isManagedChat,
     isOpenTargetPending,
     isProjectChangePending,
+    canHandoffToLocal,
+    canHandoffToWorktree,
     openTargets,
     projects,
     resolvedPreferredAppId,
     selectedProjectPath,
     setBranchQuery,
     setCommitMessage,
+    setHandoffBranchName,
     handleBranchCreate,
     handleBranchMenuOpenChange,
     handleBranchSelect,
     handleCommitDialogClose,
     handleCommitDialogOpenChange,
     handleCommitSubmit,
+    handleHandoffDialogClose,
+    handleHandoffDialogOpenChange,
+    handleHandoffSubmit,
+    handleStartHandoff,
     handleOpenTarget,
     handleProjectSelect,
     handlePush,
@@ -144,9 +156,18 @@ export function ConversationPanelHeader({
 
         <ConversationHeaderActions
           canCloseChat={canCloseChat}
+          canHandoffToLocal={canHandoffToLocal}
+          canHandoffToWorktree={canHandoffToWorktree}
           isGitBusy={isGitActionPending}
+          isHandoffBusy={isHandoffPending}
           isOpenTargetBusy={isOpenTargetPending}
           onCloseChat={onCloseChat}
+          onHandoffToLocal={() => {
+            void handleStartHandoff("local");
+          }}
+          onHandoffToWorktree={() => {
+            void handleStartHandoff("worktree");
+          }}
           onOpenCommitDialog={openCommitDialog}
           onOpenPreview={onOpenPreview}
           onOpenTerminal={onOpenTerminal}
@@ -166,6 +187,17 @@ export function ConversationPanelHeader({
         onCommitMessageChange={setCommitMessage}
         onOpenChange={handleCommitDialogOpenChange}
         onSubmit={handleCommitSubmit}
+      />
+
+      <ChatHandoffDialog
+        branchName={handoffBranchName}
+        isOpen={isHandoffDialogOpen}
+        isSubmitting={isHandoffPending}
+        onBranchNameChange={setHandoffBranchName}
+        onClose={handleHandoffDialogClose}
+        onOpenChange={handleHandoffDialogOpenChange}
+        onSubmit={handleHandoffSubmit}
+        target={handoffTarget}
       />
     </>
   );

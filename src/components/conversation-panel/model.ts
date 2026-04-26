@@ -31,6 +31,8 @@ export type PendingHeaderAction =
   | "create-branch"
   | "commit"
   | "push"
+  | "handoff-local"
+  | "handoff-worktree"
   | "open-target";
 
 export const appTargets: readonly AppTarget[] = [

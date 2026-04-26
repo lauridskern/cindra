@@ -1,5 +1,6 @@
 import type { ChatBinding } from "@/services/desktop/contracts";
 
+import { ChatHandoffDialog } from "./ChatHandoffDialog";
 import { CommitChangesDialog } from "./CommitChangesDialog";
 import { ConversationHeaderActions } from "./ConversationHeaderActions";
 import { useConversationHeaderState } from "./useConversationHeaderState";
@@ -20,17 +21,28 @@ export function ConversationDockviewHeaderActions({
   onOpenTerminal,
 }: ConversationDockviewHeaderActionsProps) {
   const {
+    canHandoffToLocal,
+    canHandoffToWorktree,
     commitMessage,
+    handoffBranchName,
+    handoffTarget,
     isCommitDialogOpen,
     isCommitPending,
     isGitActionPending,
+    isHandoffDialogOpen,
+    isHandoffPending,
     isOpenTargetPending,
     openTargets,
     resolvedPreferredAppId,
     setCommitMessage,
+    setHandoffBranchName,
     handleCommitDialogClose,
     handleCommitDialogOpenChange,
     handleCommitSubmit,
+    handleHandoffDialogClose,
+    handleHandoffDialogOpenChange,
+    handleHandoffSubmit,
+    handleStartHandoff,
     handleOpenTarget,
     handlePush,
     openCommitDialog,
@@ -42,9 +54,18 @@ export function ConversationDockviewHeaderActions({
       <div className="relative z-20 ml-auto flex shrink-0 items-center gap-1.5 pointer-events-auto">
         <ConversationHeaderActions
           canCloseChat={canCloseChat}
+          canHandoffToLocal={canHandoffToLocal}
+          canHandoffToWorktree={canHandoffToWorktree}
           isGitBusy={isGitActionPending}
+          isHandoffBusy={isHandoffPending}
           isOpenTargetBusy={isOpenTargetPending}
           onCloseChat={onCloseChat}
+          onHandoffToLocal={() => {
+            void handleStartHandoff("local");
+          }}
+          onHandoffToWorktree={() => {
+            void handleStartHandoff("worktree");
+          }}
           onOpenCommitDialog={openCommitDialog}
           onOpenPreview={onOpenPreview}
           onOpenTerminal={onOpenTerminal}
@@ -64,6 +85,17 @@ export function ConversationDockviewHeaderActions({
         onCommitMessageChange={setCommitMessage}
         onOpenChange={handleCommitDialogOpenChange}
         onSubmit={handleCommitSubmit}
+      />
+
+      <ChatHandoffDialog
+        branchName={handoffBranchName}
+        isOpen={isHandoffDialogOpen}
+        isSubmitting={isHandoffPending}
+        onBranchNameChange={setHandoffBranchName}
+        onClose={handleHandoffDialogClose}
+        onOpenChange={handleHandoffDialogOpenChange}
+        onSubmit={handleHandoffSubmit}
+        target={handoffTarget}
       />
     </>
   );

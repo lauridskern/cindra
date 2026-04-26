@@ -12,12 +12,16 @@ let ensureConversationViewCallCount = 0;
 let getPromptSettingsCallCount = 0;
 let getRuntimeStatusCallCount = 0;
 let createManagedChatCallCount = 0;
+let handoffChatCallCount = 0;
 let openWorkspaceCallCount = 0;
 let renameWorkspaceCallCount = 0;
 let renameSavedWorkspaceCallCount = 0;
 let selectConversationCallCount = 0;
 let stopPromptCallCount = 0;
 let createManagedChatImpl: () => Promise<SessionSnapshot>;
+let handoffChatImpl: (
+  input: import("../services/desktop/contracts").HandoffChatInput,
+) => Promise<SessionSnapshot>;
 let openWorkspaceImpl: (workspacePath: string) => Promise<SessionSnapshot>;
 let renameWorkspaceImpl: (
   workspacePath: string,
@@ -95,7 +99,9 @@ const runtimeStatusFixture: RuntimeStatus = {
   configured: true,
   gitBranchName: "main",
   gitBranches: ["main"],
+  gitMainWorkspacePath: "/workspace/agent-ui",
   gitRepoName: "agent-ui",
+  gitWorkspaceKind: "local",
   workspaceName: "Agent UI",
   workspacePath: "/workspace/agent-ui",
 };
@@ -136,6 +142,12 @@ mock.module("../services/desktop/client", () => ({
     createManagedChatCallCount += 1;
     return await createManagedChatImpl();
   },
+  handoffChat: async (
+    input: import("../services/desktop/contracts").HandoffChatInput,
+  ) => {
+    handoffChatCallCount += 1;
+    return await handoffChatImpl(input);
+  },
   openWorkspace: async (workspacePath: string) => {
     openWorkspaceCallCount += 1;
     return await openWorkspaceImpl(workspacePath);
@@ -154,6 +166,7 @@ mock.module("../services/desktop/client", () => ({
 
 const { SessionActionsContext } = await import("./SessionContext");
 const { SessionProvider } = await import("./SessionProvider");
+const { getPromptDraftKey } = await import("./sessionSnapshot");
 const { resetSessionStore, sessionStore } = await import("./sessionStore");
 
 describe("SessionProvider", () => {
@@ -162,6 +175,7 @@ describe("SessionProvider", () => {
     getPromptSettingsCallCount = 0;
     getRuntimeStatusCallCount = 0;
     createManagedChatCallCount = 0;
+    handoffChatCallCount = 0;
     openWorkspaceCallCount = 0;
     renameWorkspaceCallCount = 0;
     renameSavedWorkspaceCallCount = 0;
@@ -184,6 +198,63 @@ describe("SessionProvider", () => {
           },
         ],
       });
+    handoffChatImpl = async (input) =>
+      createSnapshot(
+        input.target === "worktree"
+          ? "/workspace/agent-ui-worktree"
+          : "/workspace/agent-ui",
+        input.conversationId ?? "chat-1",
+        {
+          activeConversationId: input.conversationId,
+          activeWorkspacePath:
+            input.target === "worktree"
+              ? "/workspace/agent-ui-worktree"
+              : "/workspace/agent-ui",
+          conversationViews:
+            input.conversationId == null
+              ? []
+              : [
+                  {
+                    activeRequestIds: [],
+                    conversationId: input.conversationId,
+                    followup: null,
+                    messages: [],
+                    todos: [],
+                    workspacePath:
+                      input.target === "worktree"
+                        ? "/workspace/agent-ui-worktree"
+                        : "/workspace/agent-ui",
+                  },
+                ],
+          workspaces: [
+            {
+              configurationError: null,
+              configured: true,
+              conversations:
+                input.conversationId == null
+                  ? []
+                  : [
+                      {
+                        conversationId: input.conversationId,
+                        hasPendingFollowup: false,
+                        isDraft: false,
+                        isRunning: false,
+                        title: "Selected chat",
+                        updatedAt: "2026-04-21T00:00:00.000Z",
+                      },
+                    ],
+              kind: "project",
+              selectedConversationId: input.conversationId,
+              workspaceName:
+                input.target === "worktree" ? "Agent UI Worktree" : "Agent UI",
+              workspacePath:
+                input.target === "worktree"
+                  ? "/workspace/agent-ui-worktree"
+                  : "/workspace/agent-ui",
+            },
+          ],
+        },
+      );
     openWorkspaceImpl = async (workspacePath: string) =>
       createSnapshot(workspacePath, "chat-1");
     renameWorkspaceImpl = async (
@@ -495,6 +566,95 @@ describe("SessionProvider", () => {
       kind: "workspace-draft",
       workspacePath: "/workspace/managed-chat",
     });
+  });
+
+  test("handoffing a chat updates the active selection to the target workspace", async () => {
+    sessionStore.getState().applySessionSnapshot(
+      createSnapshot("/workspace/agent-ui", "chat-1"),
+    );
+
+    let capturedActions:
+      | import("./SessionContext").SessionActionsContextValue
+      | null = null;
+
+    function CaptureActions() {
+      capturedActions = useContext(SessionActionsContext);
+      return null;
+    }
+
+    renderToStaticMarkup(
+      <SessionProvider>
+        <CaptureActions />
+      </SessionProvider>,
+    );
+
+    if (capturedActions == null) {
+      throw new Error("Expected session actions to be available");
+    }
+
+    const actions =
+      capturedActions as import("./SessionContext").SessionActionsContextValue;
+
+    await actions.handoffChat({
+      branchName: "feature/worktree",
+      conversationId: "chat-1",
+      sourceWorkspacePath: "/workspace/agent-ui",
+      target: "worktree",
+    });
+
+    expect(handoffChatCallCount).toBe(1);
+    expect(sessionStore.getState().selection).toEqual({
+      chat: {
+        conversationId: "chat-1",
+        workspacePath: "/workspace/agent-ui-worktree",
+      },
+      kind: "single-chat",
+    });
+  });
+
+  test("handoffing a draft chat moves the prompt draft to the target workspace", async () => {
+    const sourceDraftKey = getPromptDraftKey("/workspace/agent-ui", null);
+    if (sourceDraftKey == null) {
+      throw new Error("Expected a prompt draft key");
+    }
+
+    sessionStore.getState().setPromptDraftValue(sourceDraftKey, "Investigate the bug");
+
+    let capturedActions:
+      | import("./SessionContext").SessionActionsContextValue
+      | null = null;
+
+    function CaptureActions() {
+      capturedActions = useContext(SessionActionsContext);
+      return null;
+    }
+
+    renderToStaticMarkup(
+      <SessionProvider>
+        <CaptureActions />
+      </SessionProvider>,
+    );
+
+    if (capturedActions == null) {
+      throw new Error("Expected session actions to be available");
+    }
+
+    const actions =
+      capturedActions as import("./SessionContext").SessionActionsContextValue;
+
+    await actions.handoffChat({
+      branchName: "feature/draft-handoff",
+      conversationId: null,
+      sourceWorkspacePath: "/workspace/agent-ui",
+      target: "worktree",
+    });
+
+    const targetDraftKey = getPromptDraftKey("/workspace/agent-ui-worktree", null);
+    expect(targetDraftKey).not.toBeNull();
+    expect(sessionStore.getState().promptDraftsByKey[sourceDraftKey]).toBeUndefined();
+    expect(
+      sessionStore.getState().promptDraftsByKey[targetDraftKey as string]?.value,
+    ).toBe("Investigate the bug");
   });
 
   test("renaming a project updates the workspace label in session state", async () => {

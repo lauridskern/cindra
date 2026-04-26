@@ -1,11 +1,12 @@
 use crate::dto::{
     ChatBindingDto, CheckoutGitBranchInput, CloneRepositoryInput, CommitGitChangesInput,
     CompleteProviderAuthInput, CreateGitBranchInput, CreateSavedWorkspaceInput,
-    FollowupResponseDto, PromptSettingsDto, ProviderAuthSessionDto, ProviderSummaryDto,
-    QuickStartProjectInput, QuickStartVisibility, RemoveProviderInput, RuntimeStatusDto,
-    SaveConversationLayoutInput, SendPromptInput, SessionSnapshotDto, StartProviderAuthInput,
-    TerminalCloseInput, TerminalOpenInput, TerminalResizeInput, TerminalSessionDto,
-    TerminalWriteInput, UpdatePromptSettingsInput, UpdateSavedWorkspaceLayoutInput,
+    FollowupResponseDto, HandoffChatInput, PromptSettingsDto, ProviderAuthSessionDto,
+    ProviderSummaryDto, QuickStartProjectInput, QuickStartVisibility, RemoveProviderInput,
+    RuntimeStatusDto, SaveConversationLayoutInput, SendPromptInput, SessionSnapshotDto,
+    StartProviderAuthInput, TerminalCloseInput, TerminalOpenInput, TerminalResizeInput,
+    TerminalSessionDto, TerminalWriteInput, UpdatePromptSettingsInput,
+    UpdateSavedWorkspaceLayoutInput,
 };
 use crate::runtime::{DesktopState, format_error_chain};
 use anyhow::Context;
@@ -217,6 +218,18 @@ pub(crate) async fn create_managed_chat(
     state
         .manager
         .create_managed_chat()
+        .await
+        .map_err(map_command_error)
+}
+
+#[tauri::command]
+pub(crate) async fn handoff_chat(
+    input: HandoffChatInput,
+    state: tauri::State<'_, DesktopState>,
+) -> Result<SessionSnapshotDto, String> {
+    state
+        .manager
+        .handoff_chat(input)
         .await
         .map_err(map_command_error)
 }

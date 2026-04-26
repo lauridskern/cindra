@@ -2,6 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 
 import type {
+  HandoffChatInput,
   CheckoutGitBranchInput,
   ChatBinding,
   CloneRepositoryInput,
@@ -120,6 +121,10 @@ export function startNewChat(workspacePath: string): Promise<SessionSnapshot> {
 
 export function createManagedChat(): Promise<SessionSnapshot> {
   return invokeCommand("create_managed_chat");
+}
+
+export function handoffChat(input: HandoffChatInput): Promise<SessionSnapshot> {
+  return invokeCommand("handoff_chat", { input });
 }
 
 export function sendPrompt(input: SendPromptInput): Promise<SessionSnapshot> {

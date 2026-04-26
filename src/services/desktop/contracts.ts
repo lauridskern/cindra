@@ -1,4 +1,5 @@
 export type {
+  ChatHandoffTarget,
   ChatBinding,
   CommitGitChangesInput,
   CheckoutGitBranchInput,
@@ -13,6 +14,8 @@ export type {
   FollowupOption,
   FollowupRequest,
   FollowupResponse,
+  GitWorkspaceKind,
+  HandoffChatInput,
   OutputPreview,
   PromptModelOption,
   PromptSettings,

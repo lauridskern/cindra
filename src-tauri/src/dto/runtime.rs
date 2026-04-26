@@ -16,6 +16,8 @@ pub struct RuntimeStatusDto {
     pub git_repo_name: Option<String>,
     pub git_branch_name: Option<String>,
     pub git_branches: Vec<String>,
+    pub git_workspace_kind: Option<GitWorkspaceKindDto>,
+    pub git_main_workspace_path: Option<String>,
     pub available_open_targets: Vec<String>,
     pub configured: bool,
     pub configuration_error: Option<String>,
@@ -41,8 +43,15 @@ impl RuntimeStatusDto {
                 .as_ref()
                 .and_then(|details| details.branch_name.clone()),
             git_branches: git_details
-                .map(|details| details.branch_names)
+                .as_ref()
+                .map(|details| details.branch_names.clone())
                 .unwrap_or_default(),
+            git_workspace_kind: git_details
+                .as_ref()
+                .and_then(|details| details.workspace_kind.clone()),
+            git_main_workspace_path: git_details
+                .as_ref()
+                .and_then(|details| details.main_workspace_path.clone()),
             available_open_targets: crate::desktop_open::detect_available_open_targets(),
             configured,
             configuration_error,
@@ -50,14 +59,29 @@ impl RuntimeStatusDto {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct GitWorkspaceDetails {
-    repo_name: Option<String>,
-    branch_name: Option<String>,
-    branch_names: Vec<String>,
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, TS)]
+#[serde(rename_all = "snake_case")]
+#[ts(rename = "GitWorkspaceKind")]
+pub enum GitWorkspaceKindDto {
+    Local,
+    Worktree,
 }
 
-fn read_git_workspace_details(workspace_path: &Path) -> Option<GitWorkspaceDetails> {
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct GitWorkspaceDetails {
+    pub(crate) repo_name: Option<String>,
+    pub(crate) branch_name: Option<String>,
+    pub(crate) branch_names: Vec<String>,
+    pub(crate) workspace_kind: Option<GitWorkspaceKindDto>,
+    pub(crate) main_workspace_path: Option<String>,
+    pub(crate) workspace_root_path: Option<String>,
+    pub(crate) head_commit: Option<String>,
+}
+
+pub(crate) fn read_git_workspace_details(workspace_path: &Path) -> Option<GitWorkspaceDetails> {
+    let workspace_root_path =
+        run_git_raw_command(workspace_path, &["rev-parse", "--show-toplevel"]);
+    let head_commit = run_git_raw_command(workspace_path, &["rev-parse", "HEAD"]);
     let repo_name = run_git_command(workspace_path, &["remote", "get-url", "origin"])
         .and_then(|remote_url| parse_git_remote_name(&remote_url));
     let branch_name = run_git_command(workspace_path, &["rev-parse", "--abbrev-ref", "HEAD"])
@@ -94,8 +118,29 @@ fn read_git_workspace_details(workspace_path: &Path) -> Option<GitWorkspaceDetai
         .chain(remote_branch_names)
         .filter(|candidate| seen_branch_names.insert(candidate.clone()))
         .collect::<Vec<_>>();
+    let main_workspace_path =
+        resolve_main_workspace_path(workspace_path, workspace_root_path.as_deref());
+    let workspace_kind = match (
+        workspace_root_path.as_deref(),
+        main_workspace_path.as_deref(),
+    ) {
+        (Some(workspace_root_path), Some(main_workspace_path))
+            if workspace_root_path == main_workspace_path =>
+        {
+            Some(GitWorkspaceKindDto::Local)
+        }
+        (Some(_), Some(_)) => Some(GitWorkspaceKindDto::Worktree),
+        _ => None,
+    };
 
-    if repo_name.is_none() && branch_name.is_none() && branch_names.is_empty() {
+    if repo_name.is_none()
+        && branch_name.is_none()
+        && branch_names.is_empty()
+        && workspace_kind.is_none()
+        && main_workspace_path.is_none()
+        && workspace_root_path.is_none()
+        && head_commit.is_none()
+    {
         return None;
     }
 
@@ -103,6 +148,10 @@ fn read_git_workspace_details(workspace_path: &Path) -> Option<GitWorkspaceDetai
         repo_name,
         branch_name,
         branch_names,
+        workspace_kind,
+        main_workspace_path,
+        workspace_root_path,
+        head_commit,
     })
 }
 
@@ -110,6 +159,12 @@ fn run_git_command(workspace_path: &Path, args: &[&str]) -> Option<String> {
     let mut values = run_git_lines_command(workspace_path, args)?;
     values.retain(|value| value != "HEAD");
     values.into_iter().next()
+}
+
+fn run_git_raw_command(workspace_path: &Path, args: &[&str]) -> Option<String> {
+    run_git_lines_command(workspace_path, args)?
+        .into_iter()
+        .next()
 }
 
 fn run_git_lines_command(workspace_path: &Path, args: &[&str]) -> Option<Vec<String>> {
@@ -134,6 +189,41 @@ fn run_git_lines_command(workspace_path: &Path, args: &[&str]) -> Option<Vec<Str
     }
 
     Some(values)
+}
+
+fn resolve_main_workspace_path(
+    workspace_path: &Path,
+    workspace_root_path: Option<&str>,
+) -> Option<String> {
+    let raw_common_dir = run_git_raw_command(
+        workspace_path,
+        &["rev-parse", "--path-format=absolute", "--git-common-dir"],
+    )
+    .or_else(|| run_git_raw_command(workspace_path, &["rev-parse", "--git-common-dir"]))?;
+    let common_dir_path = resolve_git_path(workspace_path, workspace_root_path, &raw_common_dir)?;
+    let main_workspace_path = common_dir_path.parent()?.to_path_buf();
+    canonicalize_or_normalize_path(main_workspace_path)
+}
+
+fn resolve_git_path(
+    workspace_path: &Path,
+    workspace_root_path: Option<&str>,
+    raw_path: &str,
+) -> Option<std::path::PathBuf> {
+    let candidate = std::path::PathBuf::from(raw_path);
+    if candidate.is_absolute() {
+        return Some(candidate);
+    }
+
+    let base_path = workspace_root_path
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|| workspace_path.to_path_buf());
+    Some(base_path.join(candidate))
+}
+
+fn canonicalize_or_normalize_path(path: std::path::PathBuf) -> Option<String> {
+    let resolved = path.canonicalize().unwrap_or(path);
+    Some(resolved.to_string_lossy().into_owned())
 }
 
 fn parse_git_remote_name(remote_url: &str) -> Option<String> {
@@ -303,6 +393,24 @@ pub struct SendPromptInput {
     pub prompt: String,
     pub conversation_id: Option<String>,
     pub agent_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, TS)]
+#[serde(rename_all = "snake_case")]
+#[ts(rename = "ChatHandoffTarget")]
+pub enum ChatHandoffTargetDto {
+    Local,
+    Worktree,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(rename = "HandoffChatInput")]
+pub struct HandoffChatInput {
+    pub source_workspace_path: String,
+    pub conversation_id: Option<String>,
+    pub target: ChatHandoffTargetDto,
+    pub branch_name: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, TS)]
