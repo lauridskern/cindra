@@ -28,8 +28,7 @@ export function buildChatThreadItems(
   const seenScopeIds = new Set<string>();
   const scopeRequestIds = new Map<string, string>();
   const currentScopeIndexByRequestId = new Map<string, number>();
-  const lastAssistantOrErrorMessageKeyByScopeId = new Map<string, string>();
-  const lastNonUserMessageKeyByScopeId = new Map<string, string>();
+  const firstNonUserMessageKeyByScopeId = new Map<string, string>();
   let currentGroup: ActivityGroupBuilder | null = null;
 
   const buildScopeId = (requestId: string, scopeIndex: number) =>
@@ -185,9 +184,8 @@ export function buildChatThreadItems(
           key: message.id,
           message,
         });
-        lastNonUserMessageKeyByScopeId.set(scopeId, message.id);
-        if (message.kind === "assistant" || message.kind === "error") {
-          lastAssistantOrErrorMessageKeyByScopeId.set(scopeId, message.id);
+        if (!firstNonUserMessageKeyByScopeId.has(scopeId)) {
+          firstNonUserMessageKeyByScopeId.set(scopeId, message.id);
         }
         break;
       }
@@ -232,7 +230,9 @@ export function buildChatThreadItems(
         {
           const scopeId = getCurrentScopeId(message.requestId);
           trackScopeId(scopeId, message.requestId);
-          lastNonUserMessageKeyByScopeId.set(scopeId, message.id);
+          if (!firstNonUserMessageKeyByScopeId.has(scopeId)) {
+            firstNonUserMessageKeyByScopeId.set(scopeId, message.id);
+          }
         }
         items.push({
           kind: "message",
@@ -252,7 +252,9 @@ export function buildChatThreadItems(
           {
             const scopeId = getCurrentScopeId(message.requestId);
             trackScopeId(scopeId, message.requestId);
-            lastNonUserMessageKeyByScopeId.set(scopeId, message.id);
+            if (!firstNonUserMessageKeyByScopeId.has(scopeId)) {
+              firstNonUserMessageKeyByScopeId.set(scopeId, message.id);
+            }
           }
           items.push({
             kind: "message",
@@ -340,8 +342,7 @@ export function buildChatThreadItems(
 
     const insertionKey = findRequestWorkInsertionKey(
       scopeId,
-      lastAssistantOrErrorMessageKeyByScopeId,
-      lastNonUserMessageKeyByScopeId,
+      firstNonUserMessageKeyByScopeId,
     );
     if (insertionKey == null) {
       trailingWorkItems.push({
@@ -482,14 +483,9 @@ function buildRequestWorkKey(
 
 function findRequestWorkInsertionKey(
   scopeId: string,
-  lastAssistantOrErrorMessageKeyByScopeId: Map<string, string>,
-  lastNonUserMessageKeyByScopeId: Map<string, string>,
+  firstNonUserMessageKeyByScopeId: Map<string, string>,
 ): string | null {
-  return (
-    lastAssistantOrErrorMessageKeyByScopeId.get(scopeId) ??
-    lastNonUserMessageKeyByScopeId.get(scopeId) ??
-    null
-  );
+  return firstNonUserMessageKeyByScopeId.get(scopeId) ?? null;
 }
 
 function splitActivityOperationGroups(

@@ -62,7 +62,7 @@ function toolEndMessage(
 }
 
 describe("buildChatThreadItems", () => {
-  test("places a single work row before the last assistant message of a completed request", () => {
+  test("places a single work row before the first non-user message of a completed request", () => {
     const items = buildChatThreadItems(
       [
         userMessage("user-1", "req-1", "add a random comment"),
@@ -115,13 +115,13 @@ describe("buildChatThreadItems", () => {
 
     expect(items.map((item) => item.kind)).toEqual([
       "message",
-      "message",
-      "message",
       "request_work",
+      "message",
+      "message",
       "message",
     ]);
 
-    const workItem = items[3];
+    const workItem = items[1];
     expect(workItem.kind).toBe("request_work");
     if (workItem.kind !== "request_work") {
       return;
@@ -135,14 +135,18 @@ describe("buildChatThreadItems", () => {
       "Explored 1 file",
       "Updated 1 file",
     ]);
-    expect(items[4]).toEqual({
+    expect(items[2]).toEqual({
       kind: "message",
-      key: "assistant-3",
-      message: assistantMessage("assistant-3", "req-1", "Done."),
+      key: "assistant-1",
+      message: assistantMessage(
+        "assistant-1",
+        "req-1",
+        "Let me first check what source files are available.",
+      ),
     });
   });
 
-  test("keeps a single running work row before the last assistant message for active requests", () => {
+  test("keeps a single running work row before the first non-user message for active requests", () => {
     const items = buildChatThreadItems(
       [
         assistantMessage("assistant-1", "req-1", "Checking files."),
@@ -166,12 +170,12 @@ describe("buildChatThreadItems", () => {
     );
 
     expect(items.map((item) => item.kind)).toEqual([
-      "message",
       "request_work",
+      "message",
       "message",
     ]);
 
-    const workItem = items[1];
+    const workItem = items[0];
     expect(workItem.kind).toBe("request_work");
     if (workItem.kind !== "request_work") {
       return;
@@ -222,12 +226,12 @@ describe("buildChatThreadItems", () => {
 
     expect(items.map((item) => item.kind)).toEqual([
       "message",
-      "message",
       "request_work",
       "message",
       "message",
       "message",
       "request_work",
+      "message",
       "message",
     ]);
 
