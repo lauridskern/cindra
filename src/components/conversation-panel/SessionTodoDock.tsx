@@ -98,12 +98,9 @@ function SessionTodoDockCard({
           <CollapsibleContent className="-mt-2">
             <Separator />
             <CardContent className="pt-3">
-              <div className="flex flex-col gap-2">
+              <div className="flex flex-col gap-1">
                 {todos.map((todo) => (
-                  <div
-                    key={todo.id}
-                    className="flex items-start gap-2 text-sm/relaxed"
-                  >
+                  <div key={todo.id} className="flex items-start gap-2 text-xs">
                     <TodoStatusIcon status={todo.status} />
                     <span className={todoTextClassName(todo.status)}>
                       {todo.content}

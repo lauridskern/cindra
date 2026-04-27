@@ -14,7 +14,7 @@ function UserChatMessage({ text }: TextOnlyMessageProps) {
   return (
     <article className="flex w-full justify-end select-text">
       <div
-        className="w-fit rounded-3xl bg-neutral-200/60 px-5 py-3 text-sm/6 text-neutral-950 dark:bg-neutral-800/60 dark:text-neutral-100"
+        className="w-fit rounded-xl bg-neutral-200/60 px-3.5 py-1.5 text-sm text-neutral-950 dark:bg-neutral-800/60 dark:text-neutral-100"
         style={{ maxWidth: "min(42rem, 85%)" }}
       >
         <ChatInlineText as="p" text={text} />
