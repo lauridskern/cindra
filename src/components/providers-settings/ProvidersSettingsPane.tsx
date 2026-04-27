@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ExternalLinkIcon, LoaderCircle, Trash2Icon } from "lucide-react";
 
-import { ensureWorkspacePromptSettingsLoaded } from "@/app/sessionStore";
+import {
+  ensureWorkspacePromptSettingsLoaded,
+  getUiActiveWorkspacePath,
+} from "@/app/sessionStore";
 import { useSessionStore } from "@/hooks/useSession";
 import {
   completeProviderAuth,
@@ -50,7 +53,9 @@ import {
 } from "./utils/providerAuth";
 
 export function ProvidersSettingsPane() {
-  const workspacePath = useSessionStore((state) => state.activeWorkspacePath);
+  const workspacePath = useSessionStore((state) =>
+    getUiActiveWorkspacePath(state),
+  );
   const startRequestVersionRef = useRef(0);
 
   const [providers, setProviders] = useState<ProviderSummary[]>([]);

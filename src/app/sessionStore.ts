@@ -777,6 +777,14 @@ export async function ensureWorkspacePromptSettingsLoaded(
       sessionStore
         .getState()
         .setWorkspacePromptSettings(workspacePath, promptSettings);
+      try {
+        const runtimeStatus = await desktopClient.getRuntimeStatus(workspacePath);
+        sessionStore
+          .getState()
+          .setWorkspaceRuntimeStatus(workspacePath, runtimeStatus);
+      } catch {
+        sessionStore.getState().setWorkspaceRuntimeStatus(workspacePath, null);
+      }
       return promptSettings;
     } catch {
       sessionStore.getState().setWorkspacePromptSettings(workspacePath, null);

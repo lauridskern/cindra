@@ -26,7 +26,6 @@ import {
 } from "@/components/ui/DropdownMenu";
 import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
-import { Toggle } from "@/components/ui/Toggle";
 import { useAutosizeTextarea } from "@/hooks/useAutosizeTextarea";
 import { usePromptModelPicker } from "@/hooks/usePromptModelPicker";
 import { cn } from "@/utils/cn";
@@ -41,6 +40,7 @@ export function PromptInputCard({
   placeholder = "Ask about this workspace…",
   promptSettings,
   promptDraft,
+  isInputDisabled = false,
   setPlanningMode,
   setPromptDraft,
   stopPrompt,
@@ -48,10 +48,14 @@ export function PromptInputCard({
   updatePromptSettings,
 }: PromptInputCardProps) {
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
-  const isControlDisabled = isSendingPrompt || isRequestActive || !canCompose;
+  const isControlDisabled =
+    isSendingPrompt || isRequestActive || !canCompose || isInputDisabled;
   const isWorking = isRequestActive;
   const isSubmitDisabled =
-    !canCompose || isSendingPrompt || promptDraft.trim().length === 0;
+    !canCompose ||
+    isSendingPrompt ||
+    isInputDisabled ||
+    promptDraft.trim().length === 0;
   const {
     handleModelChange,
     handleModelMenuOpenChange,
@@ -73,7 +77,7 @@ export function PromptInputCard({
   useAutosizeTextarea(textareaRef, promptDraft);
 
   function handleSubmit() {
-    if (!canCompose || promptDraft.trim().length === 0) {
+    if (isSubmitDisabled) {
       return;
     }
 
@@ -110,7 +114,7 @@ export function PromptInputCard({
           <Textarea
             ref={textareaRef}
             id="prompt"
-            className="m-1 max-h-80 overflow-y-auto rounded-none border-0 bg-transparent px-0 py-0 text-base leading-7 shadow-none outline-none ring-0 placeholder:text-muted-foreground/80 focus-visible:border-transparent focus-visible:ring-0 focus-visible:ring-offset-0 dark:bg-transparent"
+            className="m-1 max-h-80 overflow-y-auto rounded-none border-0 bg-transparent px-0 py-0 text-sm shadow-none outline-none ring-0 placeholder:text-muted-foreground/80 focus-visible:border-transparent focus-visible:ring-0 focus-visible:ring-offset-0 dark:bg-transparent"
             placeholder={placeholder}
             value={promptDraft}
             onChange={(event) => setPromptDraft(event.target.value)}
@@ -140,10 +144,7 @@ export function PromptInputCard({
                     variant="outline"
                     size="sm"
                     className="text-muted-foreground hover:bg-transparent hover:text-foreground"
-                    disabled={
-                      isControlDisabled ||
-                      !hasAvailableModels
-                    }
+                    disabled={isControlDisabled || !hasAvailableModels}
                   />
                 }
               >
@@ -212,11 +213,11 @@ export function PromptInputCard({
                   />
                 }
               >
-                  <span>
-                    {selectedReasoning == null
-                      ? "Reasoning"
-                      : formatReasoningEffortLabel(selectedReasoning)}
-                  </span>
+                <span>
+                  {selectedReasoning == null
+                    ? "Reasoning"
+                    : formatReasoningEffortLabel(selectedReasoning)}
+                </span>
                 <ChevronDownIcon />
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="w-40">

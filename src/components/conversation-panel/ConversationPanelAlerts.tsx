@@ -22,7 +22,7 @@ export function ConversationPanelAlerts({
           role="alert"
         >
           {activeWorkspaceConfigurationError ??
-            "No session is configured. Configure the terminal session first."}
+            "No provider is configured. Configure at least one provider in Settings."}
         </div>
       ) : null}
     </>

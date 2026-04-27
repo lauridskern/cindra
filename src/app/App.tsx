@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { PanelImperativeHandle } from "react-resizable-panels";
 import {
   ArrowLeftIcon,
@@ -22,6 +22,7 @@ import { TooltipProvider } from "../components/ui/Tooltip";
 import { useSystemThemeClass } from "../hooks/useSystemThemeClass";
 import { useSessionActions, useSessionStore } from "../hooks/useSession";
 import { SessionProvider } from "./SessionProvider";
+import { SettingsNavigationProvider } from "./settingsNavigation";
 import {
   DEFAULT_SIDEBAR_WIDTH,
   MAX_SIDEBAR_WIDTH,
@@ -85,6 +86,15 @@ function AppShell() {
   const [selectedSettingsSection, setSelectedSettingsSection] =
     useState<SettingsSection>("general");
   const sidebarPanelRef = useRef<PanelImperativeHandle | null>(null);
+  const openProvidersSettings = useCallback(() => {
+    setIsDesktopSidebarVisible(true);
+    setSelectedSettingsSection("providers");
+    setIsSettingsViewOpen(true);
+  }, []);
+  const settingsNavigation = useMemo(
+    () => ({ openProviderSettings: openProvidersSettings }),
+    [openProvidersSettings],
+  );
 
   useLayoutEffect(() => {
     const panel = sidebarPanelRef.current;
@@ -196,7 +206,9 @@ function AppShell() {
                     />
                   )
                 ) : (
-                  <WorkspaceBoard />
+                  <SettingsNavigationProvider value={settingsNavigation}>
+                    <WorkspaceBoard />
+                  </SettingsNavigationProvider>
                 )}
               </section>
             </ResizablePanel>

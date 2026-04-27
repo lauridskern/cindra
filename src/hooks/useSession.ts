@@ -96,6 +96,31 @@ function getScopedConversationSummary(
   );
 }
 
+function isWorkspaceConfigured(
+  meta: WorkspaceMetaState,
+  workspace: ReturnType<typeof getScopedWorkspace>,
+): boolean {
+  if (meta.runtimeStatus != null) {
+    return meta.runtimeStatus.configured;
+  }
+
+  if ((meta.promptSettings?.availableModels.length ?? 0) > 0) {
+    return true;
+  }
+
+  return workspace?.configured ?? true;
+}
+
+function getScopedWorkspace(
+  state: SessionStoreState,
+  binding: ChatBinding | null | undefined,
+) {
+  const workspacePath = getScopedWorkspacePath(state, binding);
+  return workspacePath == null
+    ? null
+    : (state.workspacesByPath[workspacePath] ?? null);
+}
+
 export function useSessionActions() {
   return useRequiredContext(
     useContext(SessionActionsContext),
@@ -182,10 +207,7 @@ export function useConversationSession(binding?: ChatBinding | null) {
     useShallow((state) => {
       const currentWorkspacePath = getScopedWorkspacePath(state, binding);
       const currentConversationId = getScopedConversationId(state, binding);
-      const currentWorkspace =
-        currentWorkspacePath == null
-          ? null
-          : (state.workspacesByPath[currentWorkspacePath] ?? null);
+      const currentWorkspace = getScopedWorkspace(state, binding);
       const currentView = getScopedConversationView(state, binding);
 
       return {
@@ -194,8 +216,7 @@ export function useConversationSession(binding?: ChatBinding | null) {
           meta.runtimeStatus?.configurationError ??
           currentWorkspace?.configurationError ??
           null,
-        activeWorkspaceConfigured:
-          meta.runtimeStatus?.configured ?? currentWorkspace?.configured ?? true,
+        activeWorkspaceConfigured: isWorkspaceConfigured(meta, currentWorkspace),
         activeWorkspaceLabel: getUiWorkspaceLabel(
           currentWorkspacePath,
           meta.runtimeStatus,
@@ -255,14 +276,13 @@ export function usePromptDraft(binding?: ChatBinding | null) {
         scopedPromptDraftKey == null
           ? null
           : (state.promptDraftsByKey[scopedPromptDraftKey] ?? null);
-      const currentWorkspace =
-        currentWorkspacePath == null
-          ? null
-          : (state.workspacesByPath[currentWorkspacePath] ?? null);
+      const currentWorkspace = getScopedWorkspace(state, binding);
       const currentView = getScopedConversationView(state, binding);
       const followupRequest = currentView?.followup ?? null;
-      const activeWorkspaceConfigured =
-        meta.runtimeStatus?.configured ?? currentWorkspace?.configured ?? true;
+      const activeWorkspaceConfigured = isWorkspaceConfigured(
+        meta,
+        currentWorkspace,
+      );
       const isConversationRunning =
         getScopedConversationSummary(state, binding)?.isRunning ?? false;
 
