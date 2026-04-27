@@ -1,11 +1,11 @@
 import type { QuickStartProjectInput } from "@/services/desktop/types/contracts";
 
-export interface LandingScreenProps {
+export interface NewChatScreenProps {
   binding?: import("@/services/desktop/types/contracts").ChatBinding | null;
   embedded?: boolean;
 }
 
-export interface LandingScreenControllerProps {
+export interface NewChatScreenControllerProps {
   isOpeningProject: boolean;
   uiError: string | null;
 }

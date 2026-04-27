@@ -8,18 +8,18 @@ import {
   REPOSITORY_NAME_PATTERN,
   initialCloneFormState,
   initialQuickStartFormState,
-} from "../constants/landingScreen";
+} from "../constants/newChatScreen";
 import { deriveDirectoryNameFromRepositoryUrl } from "../utils/projectSetup";
 import type {
-  LandingScreenControllerProps,
+  NewChatScreenControllerProps,
   PendingAction,
   QuickStartFormState,
-} from "../types/landingScreen";
+} from "../types/newChatScreen";
 
-export function useLandingScreenController({
+export function useNewChatScreenController({
   isOpeningProject,
   uiError,
-}: LandingScreenControllerProps) {
+}: NewChatScreenControllerProps) {
   const { openProject, openWorkspacePicker } = useSessionActions();
   const [cloneDialogOpen, setCloneDialogOpen] = useState(false);
   const [quickStartDialogOpen, setQuickStartDialogOpen] = useState(false);

@@ -1,7 +1,7 @@
 import type {
   CloneFormState,
   QuickStartFormState,
-} from "../types/landingScreen";
+} from "../types/newChatScreen";
 
 export const REPOSITORY_NAME_PATTERN = /^[A-Za-z0-9._-]+$/;
 

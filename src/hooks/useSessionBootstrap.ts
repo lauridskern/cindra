@@ -46,14 +46,15 @@ export function useSessionBootstrap({
           return
         }
 
-        const latestWorkspacePath =
-          snapshot.activeWorkspacePath == null
-            ? resolveLatestWorkspacePath(
-                snapshot,
-                window.localStorage.getItem(LATEST_WORKSPACE_STORAGE_KEY),
-              )
-            : null
+        if (snapshot.activeWorkspacePath != null) {
+          setSessionSnapshot(snapshot)
+          return
+        }
 
+        const latestWorkspacePath = resolveLatestWorkspacePath(
+          snapshot,
+          window.localStorage.getItem(LATEST_WORKSPACE_STORAGE_KEY),
+        )
         if (latestWorkspacePath != null) {
           try {
             const draftSnapshot = await desktopClient.startNewChat(latestWorkspacePath)
@@ -67,6 +68,20 @@ export function useSessionBootstrap({
             if (isMounted() === false || receivedSessionUpdateRef.current) {
               return
             }
+          }
+        }
+
+        try {
+          const draftSnapshot = await desktopClient.createManagedChat()
+          if (isMounted() === false || receivedSessionUpdateRef.current) {
+            return
+          }
+
+          setSessionSnapshot(draftSnapshot)
+          return
+        } catch {
+          if (isMounted() === false || receivedSessionUpdateRef.current) {
+            return
           }
         }
 

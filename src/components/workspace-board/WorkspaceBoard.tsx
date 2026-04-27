@@ -13,7 +13,7 @@ import {
 } from "dockview-react";
 
 import { ConversationPanel } from "@/components/ConversationPanel";
-import { LandingScreen } from "@/components/landing-screen/LandingScreen";
+import { NewChatScreen } from "@/components/new-chat-screen/NewChatScreen";
 import { DemoConversationPanel } from "@/components/demo-chat/DemoConversationPanel";
 import {
   useBoardSelection,
@@ -52,12 +52,13 @@ import { applySavedWorkspaceLayout } from "./utils/savedLayout";
 export function WorkspaceBoard() {
   const selection = useBoardSelection();
   const selectionKey = useBoardSelectionKey();
-  const { selectConversation } = useSessionActions();
+  const { selectConversation, startNewChat } = useSessionActions();
   const setSelection = useSessionStore((state) => state.setBoardSelection);
   const [layoutResetNonce, setLayoutResetNonce] = useState(0);
   const outerApiRef = useRef<DockviewApi | null>(null);
   const disposablesRef = useRef<Array<{ dispose(): void }>>([]);
   const fallbackBindingsRef = useRef<ChatBinding[] | null>(null);
+  const emptySelectionRequestRef = useRef(false);
   const selectionRef = useRef(sessionStore.getState().selection);
   const theme = useDockviewTheme();
   const persistWorkspaceLayout = useCallback(
@@ -88,6 +89,20 @@ export function WorkspaceBoard() {
       disposablesRef.current = [];
     };
   }, []);
+
+  useEffect(() => {
+    if (selection.kind !== "empty") {
+      emptySelectionRequestRef.current = false;
+      return;
+    }
+
+    if (emptySelectionRequestRef.current) {
+      return;
+    }
+
+    emptySelectionRequestRef.current = true;
+    void startNewChat();
+  }, [selection.kind, startNewChat]);
 
   const applyOuterLayoutConstraints = useCallback(
     (api: DockviewApi) => {
@@ -522,7 +537,7 @@ export function WorkspaceBoard() {
   );
 
   if (selection.kind === "empty") {
-    return <LandingScreen />;
+    return <NewChatScreen />;
   }
 
   if (selection.kind === "workspace-draft") {
@@ -533,7 +548,7 @@ export function WorkspaceBoard() {
     return import.meta.env.DEV ? (
       <DemoConversationPanel />
     ) : (
-      <LandingScreen />
+      <NewChatScreen />
     );
   }
 

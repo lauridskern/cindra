@@ -2,7 +2,7 @@ import { ChatThread } from "@/components/chat/ChatThread";
 import { ConversationPanelAlerts } from "@/components/conversation-panel/ConversationPanelAlerts";
 import { ConversationPanelHeader } from "@/components/conversation-panel/ConversationPanelHeader";
 import { ConversationSurface } from "@/components/conversation-panel/ConversationSurface";
-import { LandingScreen } from "@/components/landing-screen/LandingScreen";
+import { NewChatScreen } from "@/components/new-chat-screen/NewChatScreen";
 import { PromptComposer } from "@/components/PromptComposer";
 import { useConversationSession } from "@/hooks/useSession";
 import type { ConversationPanelProps } from "./types/conversation";
@@ -31,7 +31,7 @@ export function ConversationPanel({
   } = useConversationSession(binding);
 
   if (!hasCurrentWorkspace) {
-    return <LandingScreen />;
+    return <NewChatScreen />;
   }
 
   const showNewChatScreen =
@@ -54,7 +54,7 @@ export function ConversationPanel({
       ) : null}
 
       {showNewChatScreen ? (
-        <LandingScreen binding={binding} embedded />
+        <NewChatScreen binding={binding} embedded />
       ) : (
         <>
           <ConversationPanelAlerts
