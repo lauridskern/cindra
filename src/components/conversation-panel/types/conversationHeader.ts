@@ -119,7 +119,6 @@ export interface SessionTodoDockProps {
 
 export interface SessionTodoDockCardProps {
   isBusy: boolean;
-  previewTodo: SessionTodo | null;
   summary: string;
   todos: SessionTodo[];
 }

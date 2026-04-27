@@ -30,8 +30,6 @@ import type {
 import {
   buildTodoSummary,
   isActiveTodo,
-  previewLabel,
-  selectPreviewTodo,
   todoTextClassName,
 } from "./utils/sessionTodo";
 
@@ -50,7 +48,6 @@ export function SessionTodoDock({
     <SessionTodoDockCard
       key={isBusy ? "busy" : "idle"}
       isBusy={isBusy}
-      previewTodo={selectPreviewTodo(todos)}
       summary={buildTodoSummary(todos)}
       todos={todos}
     />
@@ -59,7 +56,6 @@ export function SessionTodoDock({
 
 function SessionTodoDockCard({
   isBusy,
-  previewTodo,
   summary,
   todos,
 }: SessionTodoDockCardProps) {
@@ -78,11 +74,8 @@ function SessionTodoDockCard({
           setIsIdleCollapsed(!nextOpen);
         }}
       >
-        <Card
-          size="sm"
-          className="border border-border/70 bg-background/90 shadow-sm"
-        >
-          <CardHeader className="gap-3">
+        <Card size="sm">
+          <CardHeader className="">
             <CollapsibleTrigger className="group flex w-full items-start justify-between gap-3 text-left">
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
@@ -100,23 +93,9 @@ function SessionTodoDockCard({
                 )}
               </span>
             </CollapsibleTrigger>
-
-            {previewTodo != null ? (
-              <div className="rounded-md bg-muted/50 px-3 py-2">
-                <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
-                  {previewLabel(previewTodo.status)}
-                </p>
-                <div className="mt-1 flex items-start gap-2 text-sm/relaxed">
-                  <TodoStatusIcon status={previewTodo.status} />
-                  <span className={todoTextClassName(previewTodo.status)}>
-                    {previewTodo.content}
-                  </span>
-                </div>
-              </div>
-            ) : null}
           </CardHeader>
 
-          <CollapsibleContent>
+          <CollapsibleContent className="-mt-2">
             <Separator />
             <CardContent className="pt-3">
               <div className="flex flex-col gap-2">
