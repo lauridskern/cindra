@@ -1,6 +1,7 @@
 mod commands;
 mod desktop_open;
 pub mod dto;
+mod forge_config_home;
 mod runtime;
 mod terminal;
 
@@ -22,12 +23,12 @@ use commands::{
     commit_git_changes, complete_provider_auth, create_git_branch, create_managed_chat,
     create_saved_workspace, delete_saved_workspace, ensure_conversation_view,
     get_conversation_layout, get_prompt_settings, get_runtime_status, get_saved_workspace,
-    get_session_snapshot, list_providers, open_external_url, open_in_target,
-    open_path_in_target, open_workspace, pick_directory, pick_workspace, push_git_branch,
-    quick_start_project, remove_provider, rename_saved_workspace, rename_workspace,
-    respond_followup, save_conversation_layout, select_conversation, send_prompt,
-    start_new_chat, start_provider_auth, stop_prompt, terminal_close, terminal_open,
-    terminal_resize, terminal_write, update_prompt_settings, update_saved_workspace_layout,
+    get_session_snapshot, list_providers, open_external_url, open_in_target, open_path_in_target,
+    open_workspace, pick_directory, pick_workspace, push_git_branch, quick_start_project,
+    remove_provider, rename_saved_workspace, rename_workspace, respond_followup,
+    save_conversation_layout, select_conversation, send_prompt, start_new_chat,
+    start_provider_auth, stop_prompt, terminal_close, terminal_open, terminal_resize,
+    terminal_write, update_prompt_settings, update_saved_workspace_layout,
 };
 use persistence::project_store::ProjectStore;
 use runtime::DesktopState;
@@ -52,6 +53,8 @@ pub fn run() {
                 .path()
                 .app_data_dir()
                 .map_err(|error| anyhow::anyhow!(error.to_string()))?;
+            let home_dir = app.path().home_dir().ok();
+            forge_config_home::initialize_app_forge_config(&app_dir, home_dir.as_deref())?;
             let projects = Arc::new(ProjectStore::new(
                 app_dir.join("projects.db"),
                 app_dir.join("managed-chats"),

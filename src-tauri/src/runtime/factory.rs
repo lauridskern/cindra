@@ -17,7 +17,7 @@ pub(crate) type DesktopServices = ForgeServices<DesktopRepo>;
 pub(crate) type DesktopApi = ForgeAPI<DesktopServices, DesktopRepo>;
 
 pub(crate) const MISSING_SESSION_MESSAGE: &str =
-    "No Forge session is configured. Configure Forge in the terminal first.";
+    "No provider is configured. Configure at least one provider in Settings.";
 
 #[derive(Clone)]
 pub(crate) struct ForgeRuntime {

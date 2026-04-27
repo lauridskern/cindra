@@ -10,7 +10,7 @@ use anyhow::Context;
 use forge_api::API;
 use forge_domain::{
     AnyProvider, AuthContextRequest, AuthContextResponse, AuthMethod, ConfigOperation,
-    ConversationId, Effort, Model, ModelConfig, ProviderId,
+    ConversationId, Effort, Model, ModelConfig, ProviderId, ProviderModels,
 };
 use tokio::sync::{Mutex, mpsc, oneshot};
 use uuid::Uuid;
@@ -165,7 +165,9 @@ impl RuntimeManager {
             };
 
             let runtime = self.prepare_workspace(&workspace_path).await?;
-            build_prompt_settings(&runtime).await
+            let prompt_settings = build_prompt_settings(&runtime).await?;
+            self.refresh_cached_runtime_config(&workspace_path).await;
+            Ok(prompt_settings)
         })
         .await
     }
@@ -357,6 +359,9 @@ impl RuntimeManager {
                 .await
                 .remove(&input.auth_session_id);
 
+            self.ensure_provider_scope_default_session_config(&pending.runtime_scope, &runtime)
+                .await?;
+
             let provider = runtime.api.get_provider(&pending.provider_id).await?;
             Ok(map_provider_summary(provider))
         })
@@ -501,15 +506,12 @@ impl RuntimeManager {
             let display_prompt = user_prompt_text_for_display(&prompt);
 
             let runtime = self.prepare_workspace(&workspace_path).await?;
+            let session_config = self
+                .ensure_workspace_default_session_config(&workspace_path, &runtime)
+                .await?;
 
-            if runtime.config.session.is_none() {
-                anyhow::bail!(
-                    "{}",
-                    runtime
-                        .configuration_error
-                        .clone()
-                        .unwrap_or_else(|| MISSING_SESSION_MESSAGE.to_string())
-                );
+            if session_config.is_none() {
+                anyhow::bail!("{}", MISSING_SESSION_MESSAGE);
             }
 
             let mut conversation_id = if let Some(conversation_id) = input.conversation_id.clone() {
@@ -1108,6 +1110,30 @@ impl RuntimeManager {
         }
     }
 
+    async fn ensure_workspace_default_session_config(
+        &self,
+        workspace_path: &str,
+        runtime: &ForgeRuntime,
+    ) -> anyhow::Result<Option<ModelConfig>> {
+        let session_config = ensure_default_session_config(runtime).await?;
+        self.refresh_cached_runtime_config(workspace_path).await;
+        Ok(session_config)
+    }
+
+    async fn ensure_provider_scope_default_session_config(
+        &self,
+        runtime_scope: &ProviderRuntimeScope,
+        runtime: &ForgeRuntime,
+    ) -> anyhow::Result<Option<ModelConfig>> {
+        let session_config = ensure_default_session_config(runtime).await?;
+
+        if let ProviderRuntimeScope::Workspace(workspace_path) = runtime_scope {
+            self.refresh_cached_runtime_config(workspace_path).await;
+        }
+
+        Ok(session_config)
+    }
+
     async fn generate_saved_workspace_name(
         &self,
         chats: &[crate::dto::ChatBindingDto],
@@ -1138,14 +1164,11 @@ async fn build_prompt_settings(runtime: &ForgeRuntime) -> anyhow::Result<PromptS
     let current_config = runtime.api.get_session_config().await;
     let current_effort = runtime.api.get_reasoning_effort().await?;
     let mut all_provider_models = runtime.api.get_all_provider_models().await?;
+    sort_provider_models(&mut all_provider_models);
 
-    all_provider_models.iter_mut().for_each(|provider_models| {
-        provider_models
-            .models
-            .sort_by(|left, right| left.id.as_str().cmp(right.id.as_str()))
-    });
-    all_provider_models
-        .sort_by(|left, right| left.provider_id.as_ref().cmp(right.provider_id.as_ref()));
+    let current_config =
+        ensure_default_session_config_from_models(runtime, current_config, &all_provider_models)
+            .await?;
 
     let available_models = all_provider_models
         .into_iter()
@@ -1217,6 +1240,69 @@ async fn build_prompt_settings(runtime: &ForgeRuntime) -> anyhow::Result<PromptS
         selected_provider_id,
         selected_model_id,
         selected_reasoning_effort,
+    })
+}
+
+async fn ensure_default_session_config(
+    runtime: &ForgeRuntime,
+) -> anyhow::Result<Option<ModelConfig>> {
+    let current_config = runtime.api.get_session_config().await;
+    let mut all_provider_models = runtime.api.get_all_provider_models().await?;
+    sort_provider_models(&mut all_provider_models);
+
+    ensure_default_session_config_from_models(runtime, current_config, &all_provider_models).await
+}
+
+fn sort_provider_models(all_provider_models: &mut [ProviderModels]) {
+    all_provider_models.iter_mut().for_each(|provider_models| {
+        provider_models
+            .models
+            .sort_by(|left, right| left.id.as_str().cmp(right.id.as_str()))
+    });
+    all_provider_models
+        .sort_by(|left, right| left.provider_id.as_ref().cmp(right.provider_id.as_ref()));
+}
+
+async fn ensure_default_session_config_from_models(
+    runtime: &ForgeRuntime,
+    current_config: Option<ModelConfig>,
+    all_provider_models: &[ProviderModels],
+) -> anyhow::Result<Option<ModelConfig>> {
+    if let Some(current_config) = current_config {
+        if session_config_is_available(&current_config, all_provider_models) {
+            return Ok(Some(current_config));
+        }
+    }
+
+    let Some(default_config) = all_provider_models.iter().find_map(|provider_models| {
+        provider_models
+            .models
+            .first()
+            .map(|model| ModelConfig::new(provider_models.provider_id.clone(), model.id.clone()))
+    }) else {
+        return Ok(None);
+    };
+
+    runtime
+        .api
+        .update_config(vec![ConfigOperation::SetSessionConfig(
+            default_config.clone(),
+        )])
+        .await?;
+
+    Ok(Some(default_config))
+}
+
+fn session_config_is_available(
+    config: &ModelConfig,
+    all_provider_models: &[ProviderModels],
+) -> bool {
+    all_provider_models.iter().any(|provider_models| {
+        provider_models.provider_id == config.provider
+            && provider_models
+                .models
+                .iter()
+                .any(|model| model.id == config.model)
     })
 }
 
