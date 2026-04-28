@@ -9,42 +9,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "320119579fcad9c21884f5c4861d16174d0e06250625266f50fe6898340abefa"
 
 [[package]]
-name = "agent_ui"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "async-trait",
- "bytes",
- "diesel",
- "forge_api",
- "forge_app",
- "forge_config",
- "forge_domain",
- "forge_infra",
- "forge_repo",
- "forge_services",
- "futures",
- "log",
- "portable-pty",
- "reqwest 0.12.28",
- "reqwest-eventsource",
- "roxmltree",
- "rustls 0.23.38",
- "serde",
- "serde_json",
- "similar",
- "tauri",
- "tauri-build",
- "tauri-plugin-dialog",
- "tauri-plugin-log",
- "tokio",
- "tonic",
- "ts-rs",
- "url",
- "uuid",
-]
-
-[[package]]
 name = "ahash"
 version = "0.7.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -941,6 +905,42 @@ dependencies = [
  "serde",
  "wasm-bindgen",
  "windows-link 0.2.1",
+]
+
+[[package]]
+name = "cindra"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "bytes",
+ "diesel",
+ "forge_api",
+ "forge_app",
+ "forge_config",
+ "forge_domain",
+ "forge_infra",
+ "forge_repo",
+ "forge_services",
+ "futures",
+ "log",
+ "portable-pty",
+ "reqwest 0.12.28",
+ "reqwest-eventsource",
+ "roxmltree",
+ "rustls 0.23.38",
+ "serde",
+ "serde_json",
+ "similar",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-dialog",
+ "tauri-plugin-log",
+ "tokio",
+ "tonic",
+ "ts-rs",
+ "url",
+ "uuid",
 ]
 
 [[package]]

@@ -1,13 +1,13 @@
 [package]
-name = "agent_ui"
+name = "cindra"
 version = "0.1.0"
-description = "Forge-backed Tauri chat prototype"
+description = "Desktop coding agent interface powered by Forgecode"
 authors = ["Laurids"]
-license = "UNLICENSED"
-repository = "https://github.com/laurids/agent-ui"
+license = "AGPL-3.0-or-later"
+repository = "https://github.com/laurids/cindra"
 edition = "2024"
 rust-version = "1.94"
-default-run = "agent_ui"
+default-run = "cindra"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

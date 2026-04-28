@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "agent-ui",
+      "name": "cindra",
       "dependencies": {
         "@base-ui/react": "^1.4.0",
         "@fontsource-variable/geist": "^5.2.8",

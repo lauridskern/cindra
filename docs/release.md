@@ -9,7 +9,7 @@ This project uses a minimal GitHub Actions release flow for signed macOS builds.
 - Artifacts: signed and notarized macOS DMGs for:
   - Apple Silicon: `aarch64-apple-darwin`
   - Intel: `x86_64-apple-darwin`
-- Publishing: a draft GitHub Release named `Agent UI vX.Y.Z`.
+- Publishing: a draft GitHub Release named `Cindra vX.Y.Z`.
 
 ## Required GitHub Secrets
 

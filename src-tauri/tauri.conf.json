@@ -1,8 +1,8 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
-  "productName": "Agent UI",
+  "productName": "Cindra",
   "version": "0.1.0",
-  "identifier": "com.agentui.desktop",
+  "identifier": "dev.cindra.desktop",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:5173",
@@ -13,7 +13,7 @@
     "macOSPrivateApi": true,
     "windows": [
       {
-        "title": "Agent UI",
+        "title": "Cindra",
         "width": 1280,
         "height": 860,
         "dragDropEnabled": false,
