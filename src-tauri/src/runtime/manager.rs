@@ -1,6 +1,7 @@
 use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::future::Future;
+use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::sync::Arc;
@@ -12,6 +13,8 @@ use forge_domain::{
     AnyProvider, AuthContextRequest, AuthContextResponse, AuthMethod, ConfigOperation,
     ConversationId, Effort, Model, ModelConfig, ProviderId, ProviderModels,
 };
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::{Mutex, mpsc, oneshot};
 use uuid::Uuid;
 
@@ -21,9 +24,10 @@ use crate::dto::{
     ChatBindingDto, CompleteProviderAuthInput, CreateSavedWorkspaceInput, FollowupRequestDto,
     FollowupResponseDto, PromptModelOptionDto, PromptSettingsDto, ProviderAuthMethodDto,
     ProviderAuthMethodKindDto, ProviderAuthSessionDto, ProviderAuthSessionKindDto,
-    ProviderSummaryDto, ProviderUrlParamDto, RemoveProviderInput, RuntimeStatusDto,
-    SaveConversationLayoutInput, SendPromptInput, SessionMessageDto, SessionSnapshotDto,
-    StartProviderAuthInput, UpdatePromptSettingsInput, UpdateSavedWorkspaceLayoutInput,
+    ProviderOAuthCallbackDto, ProviderSummaryDto, ProviderUrlParamDto, RemoveProviderInput,
+    RuntimeStatusDto, SaveConversationLayoutInput, SendPromptInput, SessionMessageDto,
+    SessionSnapshotDto, StartProviderAuthInput, UpdatePromptSettingsInput,
+    UpdateSavedWorkspaceLayoutInput,
 };
 use crate::persistence::project_store::ProjectStore;
 
@@ -52,6 +56,18 @@ struct PendingProviderAuthSession {
 }
 
 #[derive(Clone)]
+struct ParsedProviderOAuthCallback {
+    authorization_code: Option<String>,
+    error_message: Option<String>,
+    state: String,
+}
+
+#[derive(Default)]
+struct ProviderOAuthCallbackListenerState {
+    is_running: bool,
+}
+
+#[derive(Clone)]
 pub struct RuntimeManager {
     pub(super) emitter: Arc<dyn UiEventEmitter>,
     pub(super) followups: Arc<FollowupBridge>,
@@ -59,6 +75,7 @@ pub struct RuntimeManager {
     pub(super) state: Arc<Mutex<RuntimeState>>,
     pub(super) factory: Arc<RuntimeFactory>,
     pending_provider_auth_sessions: Arc<Mutex<HashMap<String, PendingProviderAuthSession>>>,
+    provider_oauth_callback_listener: Arc<Mutex<ProviderOAuthCallbackListenerState>>,
     pub(super) stop_request_senders: Arc<Mutex<HashMap<String, oneshot::Sender<()>>>>,
 }
 
@@ -75,6 +92,9 @@ impl RuntimeManager {
             state: shared_runtime_state(),
             factory: Arc::new(RuntimeFactory::new(followups)),
             pending_provider_auth_sessions: Arc::new(Mutex::new(HashMap::new())),
+            provider_oauth_callback_listener: Arc::new(Mutex::new(
+                ProviderOAuthCallbackListenerState::default(),
+            )),
             stop_request_senders: Arc::new(Mutex::new(HashMap::new())),
         }
     }
@@ -288,6 +308,10 @@ impl RuntimeManager {
                 },
             );
 
+            if matches!(request, AuthContextRequest::Code(_)) {
+                self.ensure_provider_oauth_callback_listener().await;
+            }
+
             Ok(map_provider_auth_session(
                 auth_session_id,
                 &input.auth_method,
@@ -367,6 +391,149 @@ impl RuntimeManager {
             Ok(map_provider_summary(provider))
         })
         .await
+    }
+
+    async fn handle_provider_oauth_callback_url(&self, url: url::Url) -> bool {
+        let Some(callback) = parse_provider_oauth_callback_url(&url) else {
+            return false;
+        };
+
+        let pending = {
+            let sessions = self.pending_provider_auth_sessions.lock().await;
+            sessions
+                .iter()
+                .find_map(|(auth_session_id, pending)| match &pending.request {
+                    AuthContextRequest::Code(request)
+                        if request.state.as_str() == callback.state.as_str() =>
+                    {
+                        Some((
+                            auth_session_id.clone(),
+                            pending.provider_id.as_ref().to_string(),
+                        ))
+                    }
+                    _ => None,
+                })
+        };
+
+        let Some((auth_session_id, provider_id)) = pending else {
+            return false;
+        };
+
+        let _ = self
+            .emitter
+            .emit_provider_oauth_callback(ProviderOAuthCallbackDto {
+                auth_session_id,
+                provider_id,
+                authorization_code: callback.authorization_code.clone(),
+                error_message: callback.error_message.clone(),
+            });
+
+        true
+    }
+
+    async fn ensure_provider_oauth_callback_listener(&self) {
+        {
+            let mut state = self.provider_oauth_callback_listener.lock().await;
+            if state.is_running {
+                return;
+            }
+
+            state.is_running = true;
+        }
+
+        let manager = self.clone();
+        tokio::spawn(async move {
+            manager.run_provider_oauth_callback_listener().await;
+        });
+    }
+
+    async fn run_provider_oauth_callback_listener(self) {
+        const CALLBACK_ADDRS: &[&str] = &["127.0.0.1:1455", "[::1]:1455"];
+
+        let mut listeners = Vec::new();
+        for addr in CALLBACK_ADDRS {
+            match TcpListener::bind(addr).await {
+                Ok(listener) => listeners.push(listener),
+                Err(error) if error.kind() == ErrorKind::AddrInUse => {}
+                Err(error) => {
+                    log::warn!(
+                        "Failed to bind provider OAuth callback listener on {addr}: {error}"
+                    );
+                }
+            }
+        }
+
+        if listeners.is_empty() {
+            self.provider_oauth_callback_listener
+                .lock()
+                .await
+                .is_running = false;
+            return;
+        }
+
+        for listener in listeners {
+            let manager = self.clone();
+            tokio::spawn(async move {
+                manager
+                    .accept_provider_oauth_callback_connections(listener)
+                    .await;
+            });
+        }
+
+        std::future::pending::<()>().await;
+    }
+
+    async fn accept_provider_oauth_callback_connections(self, listener: TcpListener) {
+        loop {
+            let (stream, _) = match listener.accept().await {
+                Ok(accepted) => accepted,
+                Err(error) => {
+                    log::warn!("Failed to accept provider OAuth callback: {error}");
+                    continue;
+                }
+            };
+
+            let manager = self.clone();
+            tokio::spawn(async move {
+                manager.handle_provider_oauth_callback_stream(stream).await;
+            });
+        }
+    }
+
+    async fn handle_provider_oauth_callback_stream(&self, mut stream: TcpStream) {
+        let mut buffer = vec![0_u8; 8192];
+        let bytes_read = match stream.read(&mut buffer).await {
+            Ok(bytes_read) => bytes_read,
+            Err(error) => {
+                log::warn!("Failed to read provider OAuth callback request: {error}");
+                return;
+            }
+        };
+
+        let request = String::from_utf8_lossy(&buffer[..bytes_read]);
+        let request_target = request
+            .lines()
+            .next()
+            .and_then(|line| line.split_whitespace().nth(1));
+
+        let Some(request_target) = request_target else {
+            let _ = write_provider_oauth_callback_response(&mut stream, 400, false).await;
+            return;
+        };
+
+        let callback_url = match url::Url::parse(&format!("http://localhost:1455{request_target}"))
+        {
+            Ok(url) => url,
+            Err(error) => {
+                log::warn!("Failed to parse provider OAuth callback URL: {error}");
+                let _ = write_provider_oauth_callback_response(&mut stream, 400, false).await;
+                return;
+            }
+        };
+
+        let handled = self.handle_provider_oauth_callback_url(callback_url).await;
+        let status = if handled { 200 } else { 400 };
+        let _ = write_provider_oauth_callback_response(&mut stream, status, handled).await;
     }
 
     pub async fn remove_provider(
@@ -1333,6 +1500,85 @@ fn reasoning_efforts_for_model(provider_id: &ProviderId, model: &Model) -> Vec<S
         .iter()
         .map(|effort| (*effort).to_string())
         .collect()
+}
+
+fn parse_provider_oauth_callback_url(url: &url::Url) -> Option<ParsedProviderOAuthCallback> {
+    let is_localhost_callback = url.scheme() == "http"
+        && matches!(url.host_str(), Some("localhost" | "127.0.0.1" | "::1"))
+        && url.port_or_known_default() == Some(1455)
+        && url.path() == "/auth/callback";
+
+    if !is_localhost_callback {
+        return None;
+    }
+
+    let mut authorization_code = None;
+    let mut error = None;
+    let mut error_description = None;
+    let mut state = None;
+
+    for (name, value) in url.query_pairs() {
+        match name.as_ref() {
+            "code" => authorization_code = Some(value.into_owned()),
+            "error" => error = Some(value.into_owned()),
+            "error_description" => error_description = Some(value.into_owned()),
+            "state" => state = Some(value.into_owned()),
+            _ => {}
+        }
+    }
+
+    let state = state?;
+    let authorization_code = authorization_code.filter(|value| !value.trim().is_empty());
+    let error_message = match (error, error_description) {
+        (Some(error), Some(description)) if !description.trim().is_empty() => {
+            Some(format!("{error}: {description}"))
+        }
+        (Some(error), _) => Some(error),
+        (None, Some(description))
+            if authorization_code.is_none() && !description.trim().is_empty() =>
+        {
+            Some(description)
+        }
+        _ if authorization_code.is_none() => {
+            Some("OAuth callback did not include an authorization code.".to_string())
+        }
+        _ => None,
+    };
+
+    Some(ParsedProviderOAuthCallback {
+        authorization_code,
+        error_message,
+        state,
+    })
+}
+
+async fn write_provider_oauth_callback_response(
+    stream: &mut TcpStream,
+    status_code: u16,
+    success: bool,
+) -> std::io::Result<()> {
+    let (status_text, title, message) = if success {
+        (
+            "OK",
+            "Authentication complete",
+            "Authentication completed. You can return to Cindra to finish setup.",
+        )
+    } else {
+        (
+            "Bad Request",
+            "Authentication not completed",
+            "Cindra could not match this authentication response. Return to the app and try again.",
+        )
+    };
+    let body = format!(
+        "<!doctype html><html><head><meta charset=\"utf-8\"><title>{title}</title><style>body{{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;margin:3rem;line-height:1.5;color:#111827}}main{{max-width:42rem}}</style></head><body><main><h1>{title}</h1><p>{message}</p></main></body></html>"
+    );
+    let response = format!(
+        "HTTP/1.1 {status_code} {status_text}\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+        body.len()
+    );
+
+    stream.write_all(response.as_bytes()).await
 }
 
 fn map_provider_summary(provider: AnyProvider) -> ProviderSummaryDto {

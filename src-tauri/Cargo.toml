@@ -42,7 +42,7 @@ similar = "3.1.0"
 tauri = { version = "2.10.3", features = ["macos-private-api"] }
 tauri-plugin-dialog = "2"
 tauri-plugin-log = "2"
-tokio = { version = "1.51.0", features = ["macros", "rt-multi-thread", "sync", "time"] }
+tokio = { version = "1.51.0", features = ["io-util", "macros", "net", "rt-multi-thread", "sync", "time"] }
 tonic = { version = "0.14.5", features = ["tls-webpki-roots"] }
 ts-rs = "12.0.1"
 url = { version = "2.5.8", features = ["serde"] }
