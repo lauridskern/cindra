@@ -32,6 +32,7 @@ describe("getWorkHeaderLabelText", () => {
         isRunning: true,
         requestTiming: {
           startedAtMs: 2_000,
+          completedAtMs: null,
         },
         nowMs: 5_000,
       }),

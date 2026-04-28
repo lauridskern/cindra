@@ -39,6 +39,9 @@ jobs:
       - name: Test
         run: bun run test
 
+      - name: Build
+        run: bun run build
+
   build_macos:
     name: Build macOS ${{ matrix.label }}
     needs: preflight
