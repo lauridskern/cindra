@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { getWorkHeaderLabelText } from "./ChatWorkRow";
+import { getWorkHeaderLabelText } from "./utils/workHeaderLabel";
 
 describe("getWorkHeaderLabelText", () => {
   test("reports completed requests with failed steps explicitly", () => {
