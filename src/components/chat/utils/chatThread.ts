@@ -28,7 +28,7 @@ export function buildChatThreadItems(
   const seenScopeIds = new Set<string>();
   const scopeRequestIds = new Map<string, string>();
   const currentScopeIndexByRequestId = new Map<string, number>();
-  const firstNonUserMessageKeyByScopeId = new Map<string, string>();
+  const scopeAnchorMessageKeyByScopeId = new Map<string, string>();
   let currentGroup: ActivityGroupBuilder | null = null;
 
   const buildScopeId = (requestId: string, scopeIndex: number) =>
@@ -167,6 +167,9 @@ export function buildChatThreadItems(
         flushGroup();
         const scopeId = startNextScope(message.requestId);
         trackScopeId(scopeId, message.requestId);
+        if (!scopeAnchorMessageKeyByScopeId.has(scopeId)) {
+          scopeAnchorMessageKeyByScopeId.set(scopeId, message.id);
+        }
         items.push({
           kind: "message",
           key: message.id,
@@ -184,9 +187,6 @@ export function buildChatThreadItems(
           key: message.id,
           message,
         });
-        if (!firstNonUserMessageKeyByScopeId.has(scopeId)) {
-          firstNonUserMessageKeyByScopeId.set(scopeId, message.id);
-        }
         break;
       }
       case "reasoning": {
@@ -230,9 +230,6 @@ export function buildChatThreadItems(
         {
           const scopeId = getCurrentScopeId(message.requestId);
           trackScopeId(scopeId, message.requestId);
-          if (!firstNonUserMessageKeyByScopeId.has(scopeId)) {
-            firstNonUserMessageKeyByScopeId.set(scopeId, message.id);
-          }
         }
         items.push({
           kind: "message",
@@ -252,9 +249,6 @@ export function buildChatThreadItems(
           {
             const scopeId = getCurrentScopeId(message.requestId);
             trackScopeId(scopeId, message.requestId);
-            if (!firstNonUserMessageKeyByScopeId.has(scopeId)) {
-              firstNonUserMessageKeyByScopeId.set(scopeId, message.id);
-            }
           }
           items.push({
             kind: "message",
@@ -328,7 +322,7 @@ export function buildChatThreadItems(
     }
   }
 
-  const workItemInsertionsByMessageKey = new Map<
+  const workItemInsertionsAfterMessageKey = new Map<
     string,
     Extract<ChatThreadItem, { kind: "request_work" }>[]
   >();
@@ -342,33 +336,28 @@ export function buildChatThreadItems(
 
     const insertionKey = findRequestWorkInsertionKey(
       scopeId,
-      firstNonUserMessageKeyByScopeId,
+      scopeAnchorMessageKeyByScopeId,
     );
     if (insertionKey == null) {
-      trailingWorkItems.push({
-        ...workItem,
-        key: buildRequestWorkKey(scopeId, null, false),
-      });
+      trailingWorkItems.push(workItem);
       continue;
     }
 
-    const existingInsertions = workItemInsertionsByMessageKey.get(insertionKey) ?? [];
-    workItemInsertionsByMessageKey.set(insertionKey, [
+    const existingInsertions =
+      workItemInsertionsAfterMessageKey.get(insertionKey) ?? [];
+    workItemInsertionsAfterMessageKey.set(insertionKey, [
       ...existingInsertions,
-      {
-        ...workItem,
-        key: buildRequestWorkKey(scopeId, insertionKey, false),
-      },
+      workItem,
     ]);
   }
 
   const finalItems: ChatThreadItem[] = [];
   for (const item of items) {
-    const insertions = workItemInsertionsByMessageKey.get(item.key);
+    finalItems.push(item);
+    const insertions = workItemInsertionsAfterMessageKey.get(item.key);
     if (insertions != null) {
       finalItems.push(...insertions);
     }
-    finalItems.push(item);
   }
 
   finalItems.push(...trailingWorkItems);
@@ -473,19 +462,11 @@ function finalizeRequestActivities(
   }));
 }
 
-function buildRequestWorkKey(
-  scopeId: string,
-  insertionKey: string | null,
-  isRunning: boolean,
-): string {
-  return `request-work:${scopeId}:${isRunning ? "running" : insertionKey ?? "trailing"}`;
-}
-
 function findRequestWorkInsertionKey(
   scopeId: string,
-  firstNonUserMessageKeyByScopeId: Map<string, string>,
+  scopeAnchorMessageKeyByScopeId: Map<string, string>,
 ): string | null {
-  return firstNonUserMessageKeyByScopeId.get(scopeId) ?? null;
+  return scopeAnchorMessageKeyByScopeId.get(scopeId) ?? null;
 }
 
 function splitActivityOperationGroups(
