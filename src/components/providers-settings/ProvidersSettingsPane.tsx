@@ -9,6 +9,7 @@ import { useSessionStore } from "@/hooks/useSession";
 import {
   completeProviderAuth,
   listProviders,
+  listenProviderOAuthCallback,
   openExternalUrl,
   removeProvider,
   startProviderAuth,
@@ -16,6 +17,7 @@ import {
 import type {
   ProviderAuthMethodKind,
   ProviderAuthSession,
+  ProviderOAuthCallback,
   ProviderSummary,
 } from "@/services/desktop/types/contracts";
 import { Button } from "@/components/ui/Button";
@@ -201,6 +203,48 @@ export function ProvidersSettingsPane() {
       }
     }
   }
+
+  useEffect(() => {
+    let isDisposed = false;
+    let unlisten: (() => void) | null = null;
+
+    async function subscribeToOAuthCallbacks() {
+      unlisten = await listenProviderOAuthCallback(
+        (payload: ProviderOAuthCallback) => {
+          if (isDisposed) {
+            return;
+          }
+
+          if (
+            authFlow?.kind !== "o_auth_code" ||
+            payload.authSessionId !== authFlow.authSessionId ||
+            payload.providerId !== dialogProviderId
+          ) {
+            return;
+          }
+
+          if (payload.errorMessage) {
+            setActionError(payload.errorMessage);
+            return;
+          }
+
+          if (payload.authorizationCode) {
+            setAuthorizationCodeDraft(payload.authorizationCode);
+            setActionError(null);
+          }
+        },
+      );
+    }
+
+    void subscribeToOAuthCallbacks();
+
+    return () => {
+      isDisposed = true;
+      if (unlisten) {
+        void unlisten();
+      }
+    };
+  }, [authFlow, dialogProviderId]);
 
   function closeSetupDialog() {
     setIsDialogOpen(false);
@@ -629,8 +673,9 @@ export function ProvidersSettingsPane() {
               {authFlow?.kind === "o_auth_code" ? (
                 <div className="flex flex-col gap-4">
                   <p className="text-sm text-muted-foreground">
-                    Open the auth page, then paste the returned authorization
-                    code here.
+                    Open the auth page. Cindra will capture the callback and
+                    fill the authorization code automatically. If that does not
+                    happen, paste the returned code here.
                   </p>
                   <div className="flex flex-col gap-2">
                     <Label htmlFor="provider-authorization-code">
