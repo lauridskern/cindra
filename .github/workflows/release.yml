@@ -89,7 +89,7 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         with:
           tagName: ${{ github.ref_name }}
-          releaseName: Agent UI ${{ github.ref_name }}
+          releaseName: Cindra ${{ github.ref_name }}
           releaseDraft: true
           prerelease: false
           args: --target ${{ matrix.target }} --bundles dmg
