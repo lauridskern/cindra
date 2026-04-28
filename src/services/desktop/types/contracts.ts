@@ -20,6 +20,7 @@ export type {
   ProviderAuthMethodKind,
   ProviderAuthSession,
   ProviderAuthSessionKind,
+  ProviderOAuthCallback,
   ProviderSummary,
   ProviderUrlParam,
   ProviderUrlParamValue,

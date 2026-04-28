@@ -61,6 +61,8 @@ export type ProviderAuthSessionKind = "api_key" | "device_code" | "o_auth_code";
 
 export type ProviderAuthSession = { kind: ProviderAuthSessionKind, authSessionId: string, requiresApiKey: boolean, apiKeyHint: string | null, urlParameters: Array<ProviderUrlParam>, verificationUri: string | null, verificationUriComplete: string | null, userCode: string | null, expiresInSeconds: bigint | null, authorizationUrl: string | null, };
 
+export type ProviderOAuthCallback = { authSessionId: string, providerId: string, authorizationCode: string | null, errorMessage: string | null, };
+
 export type StartProviderAuthInput = { workspacePath: string | null, providerId: string, authMethod: ProviderAuthMethodKind, };
 
 export type CompleteProviderAuthInput = { authSessionId: string, apiKey: string | null, authorizationCode: string | null, urlParameters: Array<ProviderUrlParamValue>, };

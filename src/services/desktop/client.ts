@@ -6,6 +6,7 @@ import {
   TERMINAL_ERROR_EVENT_NAME,
   TERMINAL_EXIT_EVENT_NAME,
   TERMINAL_OUTPUT_EVENT_NAME,
+  PROVIDER_OAUTH_CALLBACK_EVENT_NAME,
 } from "./constants/events";
 import type {
   CheckoutGitBranchInput,
@@ -17,6 +18,7 @@ import type {
   CreateGitBranchInput,
   FollowupResponse,
   ProviderAuthSession,
+  ProviderOAuthCallback,
   ProviderSummary,
   PromptSettings,
   QuickStartProjectInput,
@@ -303,6 +305,12 @@ export async function listenSessionUpdates(
   handler: (payload: SessionSnapshot) => void,
 ): Promise<UnlistenFn> {
   return listenEvent(SESSION_UPDATED_EVENT_NAME, handler);
+}
+
+export async function listenProviderOAuthCallback(
+  handler: (payload: ProviderOAuthCallback) => void,
+): Promise<UnlistenFn> {
+  return listenEvent(PROVIDER_OAUTH_CALLBACK_EVENT_NAME, handler);
 }
 
 export async function listenTerminalOutput(

@@ -272,6 +272,16 @@ pub struct ProviderAuthSessionDto {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, TS)]
 #[serde(rename_all = "camelCase")]
+#[ts(rename = "ProviderOAuthCallback")]
+pub struct ProviderOAuthCallbackDto {
+    pub auth_session_id: String,
+    pub provider_id: String,
+    pub authorization_code: Option<String>,
+    pub error_message: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, TS)]
+#[serde(rename_all = "camelCase")]
 #[ts(rename = "StartProviderAuthInput")]
 pub struct StartProviderAuthInput {
     pub workspace_path: Option<String>,

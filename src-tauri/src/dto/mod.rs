@@ -13,9 +13,9 @@ pub use runtime::{
     CheckoutGitBranchInput, CloneRepositoryInput, CommitGitChangesInput, CompleteProviderAuthInput,
     CreateGitBranchInput, CreateSavedWorkspaceInput, PromptModelOptionDto, PromptSettingsDto,
     ProviderAuthMethodDto, ProviderAuthMethodKindDto, ProviderAuthSessionDto,
-    ProviderAuthSessionKindDto, ProviderSummaryDto, ProviderUrlParamDto, ProviderUrlParamValueDto,
-    QuickStartProjectInput, QuickStartVisibility, RemoveProviderInput, RuntimeStatusDto,
-    SaveConversationLayoutInput, SendPromptInput, StartProviderAuthInput,
+    ProviderAuthSessionKindDto, ProviderOAuthCallbackDto, ProviderSummaryDto, ProviderUrlParamDto,
+    ProviderUrlParamValueDto, QuickStartProjectInput, QuickStartVisibility, RemoveProviderInput,
+    RuntimeStatusDto, SaveConversationLayoutInput, SendPromptInput, StartProviderAuthInput,
     UpdatePromptSettingsInput, UpdateSavedWorkspaceLayoutInput,
 };
 pub use session::{
