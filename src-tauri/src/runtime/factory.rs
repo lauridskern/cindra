@@ -22,6 +22,7 @@ pub(crate) const MISSING_SESSION_MESSAGE: &str =
 #[derive(Clone)]
 pub(crate) struct ForgeRuntime {
     pub(crate) api: Arc<DesktopApi>,
+    pub(crate) services: Arc<DesktopServices>,
     pub(crate) config: ForgeConfig,
     pub(crate) configuration_error: Option<String>,
 }
@@ -48,10 +49,11 @@ impl RuntimeFactory {
         let repo = Arc::new(ForgeRepo::new(infra));
         let services = Arc::new(ForgeServices::new(repo.clone()));
         services.set_active_agent_id(AgentId::default()).await?;
-        let api = Arc::new(ForgeAPI::new(services, repo));
+        let api = Arc::new(ForgeAPI::new(services.clone(), repo));
 
         Ok(ForgeRuntime {
             api,
+            services,
             config,
             configuration_error,
         })

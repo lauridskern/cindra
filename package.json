@@ -7,6 +7,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "postinstall": "bash scripts/apply-forgecode-patches.sh",
     "gen:desktop-contracts": "cargo run --quiet --manifest-path src-tauri/Cargo.toml --bin generate_desktop_contracts",
     "build": "bun run gen:desktop-contracts && tsc -b && vite build",
     "lint": "bun run gen:desktop-contracts && eslint .",

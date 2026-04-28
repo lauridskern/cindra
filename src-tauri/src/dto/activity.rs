@@ -110,8 +110,8 @@ pub fn map_tool_call_detail(tool_call: &ToolCallFull) -> ToolCallDetailDto {
     match ToolCatalog::try_from(tool_call.clone()) {
         Ok(ToolCatalog::Read(input)) => ToolCallDetailDto::FileRead {
             path: input.file_path,
-            start_line: input.start_line,
-            end_line: input.end_line,
+            start_line: input.range.as_ref().and_then(|range| range.start_line),
+            end_line: input.range.as_ref().and_then(|range| range.end_line),
         },
         Ok(ToolCatalog::Write(input)) => ToolCallDetailDto::FileUpdate {
             path: input.file_path,

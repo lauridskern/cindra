@@ -1,0 +1,42 @@
+diff --git a/crates/forge_tool_macros/src/lib.rs b/crates/forge_tool_macros/src/lib.rs
+index a298bda3..65aaf4fc 100644
+--- a/crates/forge_tool_macros/src/lib.rs
++++ b/crates/forge_tool_macros/src/lib.rs
+@@ -32,11 +32,34 @@ pub fn derive_description(input: TokenStream) -> TokenStream {
+ 
+     // If we have a description file, read it at compile time
+     let doc_string = if let Some(file_path) = description_file {
+-        std::fs::read_to_string(&file_path)
++        let manifest_dir =
++            std::env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR should be set");
++        let manifest_dir = std::path::PathBuf::from(manifest_dir);
++        let workspace_root = manifest_dir
++            .parent()
++            .and_then(|dir| dir.parent())
++            .map(std::path::Path::to_path_buf);
++        let candidates = [
++            std::path::PathBuf::from(&file_path),
++            manifest_dir.join(&file_path),
++            workspace_root
++                .as_ref()
++                .map(|root| root.join(&file_path))
++                .unwrap_or_default(),
++        ];
++
++        let resolved_path = candidates
++            .into_iter()
++            .find(|candidate| candidate.exists())
++            .unwrap_or_else(|| std::path::PathBuf::from(&file_path));
++
++        std::fs::read_to_string(&resolved_path)
+             .unwrap_or_else(|e| {
+                 panic!(
+-                    "Failed to read tool description file '{}': {}",
+-                    file_path, e
++                    "Failed to read tool description file '{}' (resolved from '{}'): {}",
++                    resolved_path.display(),
++                    file_path,
++                    e
+                 )
+             })
+             .trim()

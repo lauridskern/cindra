@@ -1,3 +1,4 @@
+use forge_app::ForgeApp;
 use forge_domain::{AgentId, ChatRequest, ChatResponse, ConversationId, Event};
 use futures::StreamExt;
 use tokio::sync::oneshot;
@@ -57,9 +58,8 @@ impl RuntimeManager {
             .unwrap_or_default();
 
         let stream = match with_followup_context(context, async {
-            runtime
-                .api
-                .chat_with_agent(
+            ForgeApp::new(runtime.services.clone())
+                .chat(
                     selected_agent_id,
                     ChatRequest::new(Event::new(prompt), parsed_conversation_id),
                 )

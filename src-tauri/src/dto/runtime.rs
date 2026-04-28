@@ -206,6 +206,7 @@ pub enum ProviderAuthMethodKindDto {
     OAuthDevice,
     OAuthCode,
     GoogleAdc,
+    AwsProfile,
     CodexDevice,
 }
 

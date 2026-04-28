@@ -315,6 +315,7 @@ impl RuntimeManager {
                 AuthContextRequest::ApiKey(request) => {
                     let api_key = match pending.auth_method_kind {
                         ProviderAuthMethodKindDto::GoogleAdc => "google_adc_marker".to_string(),
+                        ProviderAuthMethodKindDto::AwsProfile => "aws_profile_marker".to_string(),
                         ProviderAuthMethodKindDto::ApiKey => input
                             .api_key
                             .clone()
@@ -1361,6 +1362,7 @@ fn map_provider_auth_method_kind(method: &AuthMethod) -> ProviderAuthMethodKindD
         AuthMethod::OAuthDevice(_) => ProviderAuthMethodKindDto::OAuthDevice,
         AuthMethod::OAuthCode(_) => ProviderAuthMethodKindDto::OAuthCode,
         AuthMethod::GoogleAdc => ProviderAuthMethodKindDto::GoogleAdc,
+        AuthMethod::AwsProfile => ProviderAuthMethodKindDto::AwsProfile,
         AuthMethod::CodexDevice(_) => ProviderAuthMethodKindDto::CodexDevice,
     }
 }
@@ -1371,6 +1373,7 @@ fn provider_auth_method_label(kind: &ProviderAuthMethodKindDto) -> &'static str 
         ProviderAuthMethodKindDto::OAuthDevice => "OAuth device",
         ProviderAuthMethodKindDto::OAuthCode => "OAuth",
         ProviderAuthMethodKindDto::GoogleAdc => "Google ADC",
+        ProviderAuthMethodKindDto::AwsProfile => "AWS profile",
         ProviderAuthMethodKindDto::CodexDevice => "OpenAI device",
     }
 }

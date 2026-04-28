@@ -1,0 +1,23 @@
+diff --git a/crates/forge_repo/Cargo.toml b/crates/forge_repo/Cargo.toml
+index d556bd0b..12866061 100644
+--- a/crates/forge_repo/Cargo.toml
++++ b/crates/forge_repo/Cargo.toml
+@@ -60,6 +60,7 @@ prost-types = "0.14.3"
+ tonic-prost = "0.14.5"
+ 
+ [build-dependencies]
++protoc-bin-vendored = "3"
+ tonic-prost-build = "0.14.5"
+ 
+ [dev-dependencies]
+diff --git a/crates/forge_repo/build.rs b/crates/forge_repo/build.rs
+index ea379ca6..9e39894a 100644
+--- a/crates/forge_repo/build.rs
++++ b/crates/forge_repo/build.rs
+@@ -1,4 +1,6 @@
+ fn main() -> Result<(), Box<dyn std::error::Error>> {
++    let protoc = protoc_bin_vendored::protoc_bin_path()?;
++    unsafe { std::env::set_var("PROTOC", protoc) };
+     tonic_prost_build::compile_protos("proto/forge.proto")?;
+     Ok(())
+ }
