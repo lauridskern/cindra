@@ -1,6 +1,6 @@
 # Cindra
 
-Cindra is a desktop interface for running coding-agent workflows on top of Forgecode. It pairs a local Tauri shell with a React workspace UI for project chats, terminal output, and multi-conversation work.
+Cindra is a desktop interface for running coding-agent workflows on top of [Forgecode](https://github.com/tailcallhq/forgecode), the #1 harness for agentic coding. It pairs a local Tauri shell with a React workspace UI for project chats, terminal output, and multi-conversation work.
 
 ## Status
 
@@ -11,7 +11,7 @@ Cindra is early software. Expect sharp edges while the app, packaging, and Forge
 - Tauri 2 desktop shell
 - React, Vite, and TypeScript frontend
 - Rust command layer
-- Forgecode vendored in `vendor/forgecode`
+- [Forgecode](https://github.com/tailcallhq/forgecode) vendored in `vendor/forgecode`
 - Bun for JavaScript package management
 
 ## Prerequisites
