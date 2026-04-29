@@ -2,7 +2,7 @@ import { useState, type ReactNode } from "react";
 
 import { useConversationSession, useSessionActions } from "@/hooks/useSession";
 
-import { Button } from "./ui/button";
+import { Button } from "./ui/Button";
 import {
   Dialog,
   DialogContent,
@@ -10,9 +10,9 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "./ui/dialog";
-import { Input } from "./ui/input";
-import { Label } from "./ui/label";
+} from "./ui/Dialog";
+import { Input } from "./ui/Input";
+import { Label } from "./ui/Label";
 
 interface NewChatTriggerProps {
   children: (props: { isBusy: boolean; openNewChat: () => void }) => ReactNode;

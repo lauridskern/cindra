@@ -1,8 +1,8 @@
 import { useEffect, useRef } from "react";
 
-import type { ChatHandoffTarget } from "@/services/desktop/contracts";
+import type { ChatHandoffDialogProps } from "./types/conversationHeader";
 
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/ui/Button";
 import {
   Dialog,
   DialogContent,
@@ -10,19 +10,8 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-
-interface ChatHandoffDialogProps {
-  branchName: string;
-  isOpen: boolean;
-  isSubmitting: boolean;
-  onBranchNameChange: (value: string) => void;
-  onClose: () => void;
-  onOpenChange: (open: boolean) => void;
-  onSubmit: () => Promise<void>;
-  target: ChatHandoffTarget | null;
-}
+} from "@/components/ui/Dialog";
+import { Input } from "@/components/ui/Input";
 
 export function ChatHandoffDialog({
   branchName,
@@ -59,7 +48,7 @@ export function ChatHandoffDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md" showCloseButton={!isSubmitting}>
         <div className="space-y-4">
           <DialogHeader>
             <DialogTitle>{title}</DialogTitle>
@@ -73,6 +62,7 @@ export function ChatHandoffDialog({
             }}
             onKeyDown={(event) => {
               if (event.key === "Enter" && !isSubmitting) {
+                event.preventDefault();
                 void onSubmit();
               }
             }}
