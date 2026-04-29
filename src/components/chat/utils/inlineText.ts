@@ -1,28 +1,33 @@
-import { FILENAME_PATTERN } from "../constants/inlineText";
 import type { InlineTextSegment } from "../types/inlineText";
+import { getChatLinkMatches, type ChatLinkParseOptions } from "./chatLinks";
 
-export function getInlineTextSegments(text: string): InlineTextSegment[] {
+export function getInlineTextSegments(
+  text: string,
+  options: ChatLinkParseOptions = {},
+): InlineTextSegment[] {
   const segments: InlineTextSegment[] = [];
-  let match: RegExpExecArray | null;
-  let lastIndex = 0;
+  let cursor = 0;
 
-  FILENAME_PATTERN.lastIndex = 0;
-
-  while ((match = FILENAME_PATTERN.exec(text)) !== null) {
-    const [fullMatch, filename] = match;
-    const matchStart = match.index;
-    const matchEnd = matchStart + fullMatch.length;
-
-    if (matchStart > lastIndex) {
-      segments.push({ kind: "text", value: text.slice(lastIndex, matchStart) });
+  for (const match of getChatLinkMatches(text, options)) {
+    if (match.start < cursor) {
+      continue;
     }
 
-    segments.push({ kind: "filename", value: filename });
-    lastIndex = matchEnd;
+    if (match.start > cursor) {
+      segments.push({ kind: "text", value: text.slice(cursor, match.start) });
+    }
+
+    if (match.kind === "url") {
+      segments.push({ kind: "url", value: match.value });
+    } else {
+      segments.push({ kind: "file", value: match.value, path: match.path ?? match.value });
+    }
+
+    cursor = match.end;
   }
 
-  if (lastIndex < text.length) {
-    segments.push({ kind: "text", value: text.slice(lastIndex) });
+  if (cursor < text.length) {
+    segments.push({ kind: "text", value: text.slice(cursor) });
   }
 
   return segments;

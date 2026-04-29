@@ -10,14 +10,18 @@ import type {
   TextOnlyMessageProps,
 } from "./types/chatComponents";
 
-function UserChatMessage({ text }: TextOnlyMessageProps) {
+interface UserChatMessageProps extends TextOnlyMessageProps {
+  workspacePath: string | null;
+}
+
+function UserChatMessage({ text, workspacePath }: UserChatMessageProps) {
   return (
     <article className="flex w-full justify-end select-text">
       <div
         className="w-fit rounded-xl bg-neutral-200/60 px-3.5 py-1.5 text-sm text-neutral-950 dark:bg-neutral-800/60 dark:text-neutral-100"
         style={{ maxWidth: "min(42rem, 85%)" }}
       >
-        <ChatInlineText as="p" text={text} />
+        <ChatInlineText as="p" text={text} workspacePath={workspacePath} />
       </div>
     </article>
   );
@@ -26,23 +30,29 @@ function UserChatMessage({ text }: TextOnlyMessageProps) {
 function MarkdownChatMessage({
   text,
   toneClassName,
+  workspacePath,
 }: MarkdownChatMessageProps) {
   return (
     <article className="max-w-3xl">
-      <ChatMarkdown text={text} className={toneClassName} />
+      <ChatMarkdown
+        text={text}
+        className={toneClassName}
+        workspacePath={workspacePath}
+      />
     </article>
   );
 }
 
-export function ChatMessageRow({ message }: ChatMessageRowProps) {
+export function ChatMessageRow({ message, workspacePath }: ChatMessageRowProps) {
   switch (message.kind) {
     case "user":
-      return <UserChatMessage text={message.text} />;
+      return <UserChatMessage text={message.text} workspacePath={workspacePath} />;
     case "assistant":
       return (
         <MarkdownChatMessage
           text={message.text}
           toneClassName={CHAT_BODY_TONE_CLASS}
+          workspacePath={workspacePath}
         />
       );
     case "reasoning":
@@ -50,6 +60,7 @@ export function ChatMessageRow({ message }: ChatMessageRowProps) {
         <MarkdownChatMessage
           text={message.text}
           toneClassName={CHAT_REASONING_TONE_CLASS}
+          workspacePath={workspacePath}
         />
       );
     default:

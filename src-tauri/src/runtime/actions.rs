@@ -2,6 +2,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use anyhow::Context;
+use url::Url;
 
 use crate::desktop_open;
 use crate::dto::RuntimeStatusDto;
@@ -194,12 +195,132 @@ impl RuntimeManager {
 }
 
 fn resolve_path_for_target(workspace_path: &Path, path: &str) -> PathBuf {
-    let raw_path = Path::new(path);
+    let clean_path = strip_file_path_metadata(path.trim());
+    let raw_path = Path::new(&clean_path);
     if raw_path.is_absolute() {
         raw_path.to_path_buf()
     } else {
         workspace_path.join(raw_path)
     }
+}
+
+fn strip_file_path_metadata(path: &str) -> String {
+    let (without_scheme, file_url_hash) = parse_file_url_path(path).unwrap_or_else(|| {
+        let without_file_scheme = path.strip_prefix("file://").unwrap_or(path).to_string();
+        let hash = without_file_scheme
+            .split_once('#')
+            .map(|(_, hash)| format!("#{hash}"));
+        (without_file_scheme, hash)
+    });
+
+    let without_fragment = without_scheme.split('#').next().unwrap_or(&without_scheme);
+    let without_query = without_fragment
+        .split('?')
+        .next()
+        .unwrap_or(without_fragment);
+    let mut value = append_position_from_hash(without_query.to_string(), file_url_hash.as_deref());
+
+    if let Some(index) = value.rfind(':') {
+        if value[index + 1..].chars().all(|character| character.is_ascii_digit())
+            && !is_windows_drive_colon(&value, index)
+        {
+            value.truncate(index);
+            if let Some(index) = value.rfind(':') {
+                if value[index + 1..].chars().all(|character| character.is_ascii_digit())
+                    && !is_windows_drive_colon(&value, index)
+                {
+                    value.truncate(index);
+                }
+            }
+        }
+    }
+
+    value
+}
+
+fn parse_file_url_path(path: &str) -> Option<(String, Option<String>)> {
+    let parsed = Url::parse(path).ok()?;
+    if parsed.scheme() != "file" {
+        return None;
+    }
+
+    let mut parsed_path = parsed.path().to_string();
+    if let Some(host) = parsed.host_str().filter(|host| *host != "localhost") {
+        parsed_path = if host.len() == 2
+            && host.as_bytes().first().is_some_and(|byte| byte.is_ascii_alphabetic())
+            && host.ends_with(':')
+        {
+            format!("{host}{parsed_path}")
+        } else {
+            format!("//{host}{parsed_path}")
+        };
+    }
+
+    if parsed_path.starts_with('/') && is_windows_drive_prefix_at(&parsed_path, 1) {
+        parsed_path.remove(0);
+    }
+
+    Some((
+        urlencoding::decode(&parsed_path)
+            .map(|decoded| decoded.into_owned())
+            .unwrap_or(parsed_path),
+        parsed.fragment().map(|fragment| format!("#{fragment}")),
+    ))
+}
+
+fn append_position_from_hash(mut path: String, hash: Option<&str>) -> String {
+    if has_position_suffix(&path) {
+        return path;
+    }
+
+    let Some(hash) = hash else {
+        return path;
+    };
+    let Some(position) = hash.strip_prefix("#L") else {
+        return path;
+    };
+
+    let mut parts = position.split('C');
+    let Some(line) = parts.next().filter(|value| digits_only(value)) else {
+        return path;
+    };
+    path.push(':');
+    path.push_str(line);
+
+    if let Some(column) = parts.next().filter(|value| digits_only(value)) {
+        path.push(':');
+        path.push_str(column);
+    }
+
+    path
+}
+
+fn has_position_suffix(path: &str) -> bool {
+    let Some(index) = path.rfind(':') else {
+        return false;
+    };
+
+    digits_only(&path[index + 1..]) && !is_windows_drive_colon(path, index)
+}
+
+fn digits_only(value: &str) -> bool {
+    !value.is_empty() && value.chars().all(|character| character.is_ascii_digit())
+}
+
+fn is_windows_drive_prefix_at(value: &str, index: usize) -> bool {
+    value
+        .as_bytes()
+        .get(index)
+        .is_some_and(|byte| byte.is_ascii_alphabetic())
+        && value.as_bytes().get(index + 1).is_some_and(|byte| *byte == b':')
+        && value
+            .as_bytes()
+            .get(index + 2)
+            .is_some_and(|byte| *byte == b'\\' || *byte == b'/')
+}
+
+fn is_windows_drive_colon(value: &str, index: usize) -> bool {
+    index == 1 && is_windows_drive_prefix_at(value, 0)
 }
 
 fn validate_non_empty_value(value: &str, label: &str) -> anyhow::Result<String> {
