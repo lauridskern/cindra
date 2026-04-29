@@ -73,21 +73,25 @@ export interface ChatContextCompactedRowProps {
 
 export interface ChatMessageRowProps {
   message: ChatContentMessage;
+  workspacePath: string | null;
 }
 
 export interface ChatMarkdownProps {
   text: string;
   className?: string;
+  workspacePath?: string | null;
 }
 
 export interface ChatInlineChildrenProps {
   children: ReactNode;
+  workspacePath?: string | null;
 }
 
 export interface ChatInlineTextProps {
   as?: "p" | "span";
   className?: string;
   text: string;
+  workspacePath?: string | null;
 }
 
 export interface ChatStatusLabelProps {
@@ -135,15 +139,24 @@ export interface FileDiffResultProps {
 export interface MarkdownChatMessageProps {
   text: string;
   toneClassName: string;
+  workspacePath: string | null;
 }
 
-export interface FilenameButtonProps {
+export interface FilePathButtonProps {
   label: string;
+  path: string;
+  workspacePath?: string | null;
+}
+
+export interface UrlButtonProps {
+  label: string;
+  url: string;
 }
 
 export interface InlineTextSegmentsProps {
   keyPrefix: string;
   text: string;
+  workspacePath?: string | null;
 }
 
 export interface RenderChatThreadItemOptions {
