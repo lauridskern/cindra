@@ -135,15 +135,16 @@ pub(crate) fn select_empty_draft_conversation_id(
 
 fn collect_transient_tool_result_details(
     messages: &[SessionMessageDto],
-) -> HashMap<String, ToolResultDetailDto> {
+) -> HashMap<ToolResultDetailKey, ToolResultDetailDto> {
     messages
         .iter()
         .filter_map(|message| match message {
             SessionMessageDto::ToolEnd {
                 id,
+                call_id,
                 detail: Some(detail @ ToolResultDetailDto::FileDiff { .. }),
                 ..
-            } => Some((id.clone(), detail.clone())),
+            } => Some((ToolResultDetailKey::new(id, call_id), detail.clone())),
             _ => None,
         })
         .collect()
@@ -151,16 +152,141 @@ fn collect_transient_tool_result_details(
 
 fn apply_transient_tool_result_details(
     messages: &mut [SessionMessageDto],
-    transient_details: &HashMap<String, ToolResultDetailDto>,
+    transient_details: &HashMap<ToolResultDetailKey, ToolResultDetailDto>,
 ) {
     for message in messages {
-        let SessionMessageDto::ToolEnd { id, detail, .. } = message else {
+        let SessionMessageDto::ToolEnd {
+            id,
+            call_id,
+            detail,
+            ..
+        } = message
+        else {
             continue;
         };
-        let Some(transient_detail) = transient_details.get(id) else {
+        let Some(transient_detail) = transient_details.get(&ToolResultDetailKey::new(id, call_id))
+        else {
             continue;
         };
 
         *detail = Some(transient_detail.clone());
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+enum ToolResultDetailKey {
+    CallId(String),
+    MessageId(String),
+}
+
+impl ToolResultDetailKey {
+    fn new(id: &str, call_id: &Option<String>) -> Self {
+        if let Some(call_id) = call_id.as_ref().filter(|call_id| !call_id.is_empty()) {
+            return Self::CallId(call_id.clone());
+        }
+
+        Self::MessageId(normalize_history_tool_end_id(id).to_string())
+    }
+}
+
+fn normalize_history_tool_end_id(id: &str) -> &str {
+    if let Some(index) = id.strip_prefix("history-tool-end:") {
+        return index;
+    }
+
+    let Some(index) = id.strip_prefix("tool-end:") else {
+        return id;
+    };
+
+    index.rsplit_once(':').map_or(index, |(_, suffix)| suffix)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn file_diff(path: &str) -> ToolResultDetailDto {
+        ToolResultDetailDto::FileDiff {
+            path: path.to_string(),
+            patch: "diff --git a/file b/file".to_string(),
+        }
+    }
+
+    fn tool_end(
+        id: &str,
+        call_id: Option<&str>,
+        detail: Option<ToolResultDetailDto>,
+    ) -> SessionMessageDto {
+        SessionMessageDto::ToolEnd {
+            id: id.to_string(),
+            request_id: "request".to_string(),
+            name: "patch".to_string(),
+            call_id: call_id.map(str::to_string),
+            summary: None,
+            is_error: false,
+            detail,
+        }
+    }
+
+    #[test]
+    fn restores_transient_diff_details_by_tool_call_id() {
+        let transient = vec![tool_end(
+            "tool-end:request:3",
+            Some("call_patch"),
+            Some(file_diff("src/example.ts")),
+        )];
+        let details = collect_transient_tool_result_details(&transient);
+        let mut reloaded = vec![tool_end("history-tool-end:9", Some("call_patch"), None)];
+
+        apply_transient_tool_result_details(&mut reloaded, &details);
+
+        assert_eq!(
+            reloaded,
+            vec![tool_end(
+                "history-tool-end:9",
+                Some("call_patch"),
+                Some(file_diff("src/example.ts")),
+            )]
+        );
+    }
+
+    #[test]
+    fn restores_transient_diff_details_by_normalized_message_index() {
+        let transient = vec![tool_end(
+            "tool-end:request:4",
+            None,
+            Some(file_diff("src/example.ts")),
+        )];
+        let details = collect_transient_tool_result_details(&transient);
+        let mut reloaded = vec![tool_end("history-tool-end:4", None, None)];
+
+        apply_transient_tool_result_details(&mut reloaded, &details);
+
+        assert_eq!(
+            reloaded,
+            vec![tool_end(
+                "history-tool-end:4",
+                None,
+                Some(file_diff("src/example.ts")),
+            )]
+        );
+    }
+
+    #[test]
+    fn ignores_non_diff_tool_details_when_collecting_transient_details() {
+        let transient = vec![SessionMessageDto::ToolEnd {
+            id: "tool-end:request:4".to_string(),
+            request_id: "request".to_string(),
+            name: "patch".to_string(),
+            call_id: None,
+            summary: None,
+            is_error: false,
+            detail: Some(ToolResultDetailDto::Text {
+                text: "ok".to_string(),
+            }),
+        }];
+        let details = collect_transient_tool_result_details(&transient);
+
+        assert!(details.is_empty());
     }
 }
