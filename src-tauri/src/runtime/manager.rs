@@ -806,11 +806,31 @@ impl RuntimeManager {
             conversation.active_request_ids.clone()
         };
 
-        for request_id in active_request_ids {
-            if let Some(sender) = self.take_stop_request_sender(&request_id).await {
+        for request_id in &active_request_ids {
+            if let Some(sender) = self.take_stop_request_sender(request_id).await {
                 let _ = sender.send(());
             }
         }
+
+        {
+            let mut state = self.state.lock().await;
+            if let Some(conversation) = state.conversations.get_mut(&input.conversation_id) {
+                conversation.active_request_ids.clear();
+                conversation
+                    .pending_file_updates
+                    .retain(|_, pending| !active_request_ids.contains(&pending.request_id));
+                conversation
+                    .pending_anonymous_file_updates
+                    .retain(|pending| !active_request_ids.contains(&pending.request_id));
+            }
+            state
+                .pending_followups_by_conversation
+                .remove(&input.conversation_id);
+            state.ui_error = None;
+        }
+
+        let snapshot = self.snapshot().await?;
+        self.emit_snapshot(snapshot)?;
 
         Ok(())
     }
