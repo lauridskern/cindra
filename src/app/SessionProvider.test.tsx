@@ -21,7 +21,7 @@ let selectConversationCallCount = 0;
 let stopPromptCallCount = 0;
 let createManagedChatImpl: () => Promise<SessionSnapshot>;
 let handoffChatImpl: (
-  input: import("../services/desktop/contracts").HandoffChatInput,
+  input: import("../services/desktop/types/contracts").HandoffChatInput,
 ) => Promise<SessionSnapshot>;
 let openWorkspaceImpl: (workspacePath: string) => Promise<SessionSnapshot>;
 let renameWorkspaceImpl: (
@@ -144,7 +144,7 @@ mock.module("../services/desktop/client", () => ({
     return await createManagedChatImpl();
   },
   handoffChat: async (
-    input: import("../services/desktop/contracts").HandoffChatInput,
+    input: import("../services/desktop/types/contracts").HandoffChatInput,
   ) => {
     handoffChatCallCount += 1;
     return await handoffChatImpl(input);
@@ -575,7 +575,7 @@ describe("SessionProvider", () => {
     );
 
     let capturedActions:
-      | import("./SessionContext").SessionActionsContextValue
+      | SessionActionsContextValue
       | null = null;
 
     function CaptureActions() {
@@ -594,7 +594,7 @@ describe("SessionProvider", () => {
     }
 
     const actions =
-      capturedActions as import("./SessionContext").SessionActionsContextValue;
+      capturedActions as SessionActionsContextValue;
 
     await actions.handoffChat({
       branchName: "feature/worktree",
@@ -622,7 +622,7 @@ describe("SessionProvider", () => {
     sessionStore.getState().setPromptDraftValue(sourceDraftKey, "Investigate the bug");
 
     let capturedActions:
-      | import("./SessionContext").SessionActionsContextValue
+      | SessionActionsContextValue
       | null = null;
 
     function CaptureActions() {
@@ -641,7 +641,7 @@ describe("SessionProvider", () => {
     }
 
     const actions =
-      capturedActions as import("./SessionContext").SessionActionsContextValue;
+      capturedActions as SessionActionsContextValue;
 
     await actions.handoffChat({
       branchName: "feature/draft-handoff",
