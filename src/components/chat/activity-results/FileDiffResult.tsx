@@ -24,6 +24,8 @@ const LazyPatchDiff = lazy(async () => {
   return { default: module.PatchDiff };
 });
 
+const diffBodyClassName = "max-h-[min(36rem,60vh)] overflow-auto overscroll-contain";
+
 function FileDiffLoadingBody() {
   return (
     <div className="flex min-h-32 items-center justify-center gap-2 px-3 py-6 text-xs/relaxed text-neutral-500 dark:text-neutral-400">
@@ -102,23 +104,27 @@ export function FileDiffResult({ result, workspacePath }: FileDiffResultProps) {
       footer={footer}
     >
       {isGitPatch ? (
-        <Suspense fallback={<FileDiffLoadingBody />}>
-          <LazyPatchDiff
-            patch={result.patch}
-            disableWorkerPool
-            className="block max-w-full overflow-hidden text-xs/relaxed"
-            options={{
-              diffIndicators: "bars",
-              diffStyle: "unified",
-              lineDiffType: "word-alt",
-              overflow: "scroll",
-              disableFileHeader: true,
-              themeType: "system",
-            }}
-          />
-        </Suspense>
+        <div className={diffBodyClassName}>
+          <Suspense fallback={<FileDiffLoadingBody />}>
+            <LazyPatchDiff
+              patch={result.patch}
+              disableWorkerPool
+              className="block max-w-full text-xs/relaxed"
+              options={{
+                diffIndicators: "bars",
+                diffStyle: "unified",
+                lineDiffType: "word-alt",
+                overflow: "scroll",
+                disableFileHeader: true,
+                themeType: "system",
+              }}
+            />
+          </Suspense>
+        </div>
       ) : (
-        <ActivityResultPreformattedBody text={result.patch} />
+        <div className={diffBodyClassName}>
+          <ActivityResultPreformattedBody text={result.patch} />
+        </div>
       )}
     </ActivityResultCard>
   );
