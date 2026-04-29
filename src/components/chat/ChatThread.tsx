@@ -33,8 +33,12 @@ export function ChatThread({
       }
       getEstimatedItemSize={estimateChatThreadItemSize}
       initialScrollAtEnd={items.length > 0}
-      maintainScrollAtEnd
-      maintainScrollAtEndThreshold={0.3}
+      maintainScrollAtEnd={{
+        on: {
+          dataChange: true,
+        },
+      }}
+      maintainScrollAtEndThreshold={0.08}
       estimatedItemSize={88}
       style={{ height: "100%" }}
       contentContainerStyle={{
