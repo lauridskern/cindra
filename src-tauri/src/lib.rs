@@ -26,8 +26,8 @@ use commands::{
     get_session_snapshot, handoff_chat, list_providers, open_external_url, open_in_target,
     open_path_in_target, open_workspace, pick_directory, pick_workspace, push_git_branch,
     quick_start_project, remove_provider, rename_saved_workspace, rename_workspace,
-    respond_followup, save_conversation_layout, select_conversation, send_prompt,
-    start_new_chat, start_provider_auth, stop_prompt, terminal_close, terminal_open,
+    respond_followup, save_conversation_layout, search_workspace_files, select_conversation,
+    send_prompt, start_new_chat, start_provider_auth, stop_prompt, terminal_close, terminal_open,
     terminal_resize, terminal_write, update_prompt_settings, update_saved_workspace_layout,
 };
 use persistence::project_store::ProjectStore;
@@ -73,6 +73,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             pick_workspace,
             pick_directory,
+            search_workspace_files,
             open_workspace,
             get_runtime_status,
             get_session_snapshot,

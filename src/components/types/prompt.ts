@@ -30,6 +30,7 @@ export interface PromptInputCardProps {
   placeholder?: string;
   promptSettings: PromptSettings | null;
   promptDraft: string;
+  workspacePath?: string | null;
   isInputDisabled?: boolean;
   setPlanningMode: (value: boolean) => void;
   setPromptDraft: (value: string) => void;

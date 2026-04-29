@@ -10,12 +10,156 @@ use crate::dto::{
 };
 use crate::runtime::{DesktopState, format_error_chain};
 use anyhow::Context;
+use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use tauri_plugin_dialog::{DialogExt, FilePath};
 
+const DEFAULT_WORKSPACE_FILE_SEARCH_LIMIT: usize = 50;
+const MAX_WORKSPACE_FILE_SEARCH_LIMIT: usize = 100;
+const MAX_WORKSPACE_FILE_SCAN_ENTRIES: usize = 10_000;
+const IGNORED_WORKSPACE_FILE_DIRS: &[&str] = &[
+    ".git",
+    ".cache",
+    ".next",
+    ".turbo",
+    ".venv",
+    "build",
+    "dist",
+    "node_modules",
+    "out",
+    "target",
+    "vendor",
+    "venv",
+];
+
 fn map_command_error(error: anyhow::Error) -> String {
     format_error_chain(&error)
+}
+
+fn normalize_file_search_query(query: Option<&str>) -> Vec<String> {
+    query
+        .unwrap_or_default()
+        .split(|character: char| character.is_whitespace() || character == '/')
+        .map(str::trim)
+        .filter(|token| !token.is_empty())
+        .map(|token| token.to_lowercase())
+        .collect()
+}
+
+fn is_ignored_workspace_file_dir(path: &Path) -> bool {
+    let Some(name) = path.file_name().and_then(|name| name.to_str()) else {
+        return false;
+    };
+
+    IGNORED_WORKSPACE_FILE_DIRS
+        .iter()
+        .any(|ignored| name.eq_ignore_ascii_case(ignored))
+}
+
+fn relative_workspace_file_path(workspace_path: &Path, file_path: &Path) -> Option<String> {
+    let relative = file_path.strip_prefix(workspace_path).ok()?;
+    let normalized = relative.to_string_lossy().replace('\\', "/");
+
+    if normalized.is_empty() {
+        None
+    } else {
+        Some(normalized)
+    }
+}
+
+fn workspace_file_matches_query(path: &str, query_tokens: &[String]) -> bool {
+    if query_tokens.is_empty() {
+        return true;
+    }
+
+    let normalized_path = path.to_lowercase();
+    query_tokens
+        .iter()
+        .all(|token| normalized_path.contains(token))
+}
+
+fn workspace_file_rank(path: &str, query_tokens: &[String]) -> (usize, usize, String) {
+    if query_tokens.is_empty() {
+        return (0, path.len(), path.to_string());
+    }
+
+    let normalized_path = path.to_lowercase();
+    let normalized_name = normalized_path
+        .rsplit('/')
+        .next()
+        .unwrap_or(&normalized_path);
+    let first_token = query_tokens.first().map(String::as_str).unwrap_or_default();
+    let match_rank = if normalized_name == first_token {
+        0
+    } else if normalized_name.starts_with(first_token) {
+        1
+    } else if normalized_path.starts_with(first_token) {
+        2
+    } else if normalized_name.contains(first_token) {
+        3
+    } else {
+        4
+    };
+
+    (match_rank, path.len(), path.to_string())
+}
+
+fn search_workspace_file_paths(
+    workspace_path: &Path,
+    query_tokens: &[String],
+    limit: usize,
+) -> anyhow::Result<Vec<String>> {
+    let mut directories = vec![workspace_path.to_path_buf()];
+    let mut files = Vec::new();
+    let mut scanned_entries = 0usize;
+
+    while let Some(directory) = directories.pop() {
+        if scanned_entries >= MAX_WORKSPACE_FILE_SCAN_ENTRIES {
+            break;
+        }
+
+        let mut entries = fs::read_dir(&directory)
+            .with_context(|| format!("Failed to read {}", directory.display()))?
+            .filter_map(Result::ok)
+            .collect::<Vec<_>>();
+        entries.sort_by_key(|entry| entry.path());
+
+        for entry in entries {
+            if scanned_entries >= MAX_WORKSPACE_FILE_SCAN_ENTRIES {
+                break;
+            }
+            scanned_entries += 1;
+
+            let path = entry.path();
+            let Ok(file_type) = entry.file_type() else {
+                continue;
+            };
+
+            if file_type.is_dir() {
+                if !is_ignored_workspace_file_dir(&path) {
+                    directories.push(path);
+                }
+                continue;
+            }
+
+            if !file_type.is_file() {
+                continue;
+            }
+
+            let Some(relative_path) = relative_workspace_file_path(workspace_path, &path) else {
+                continue;
+            };
+
+            if workspace_file_matches_query(&relative_path, query_tokens) {
+                files.push(relative_path);
+            }
+        }
+    }
+
+    files.sort_by_key(|path| workspace_file_rank(path, query_tokens));
+    files.truncate(limit);
+    Ok(files)
 }
 
 #[tauri::command]
@@ -40,6 +184,31 @@ pub(crate) async fn pick_directory(
     }
 
     Ok(dialog.blocking_pick_folder().and_then(file_path_to_string))
+}
+
+#[tauri::command]
+pub(crate) async fn search_workspace_files(
+    workspace_path: String,
+    query: Option<String>,
+    limit: Option<usize>,
+) -> Result<Vec<String>, String> {
+    let result = || -> anyhow::Result<Vec<String>> {
+        let workspace_path = PathBuf::from(workspace_path.trim())
+            .canonicalize()
+            .context("Failed to resolve workspace path")?;
+        if !workspace_path.is_dir() {
+            anyhow::bail!("Workspace path is not a directory.");
+        }
+
+        let query_tokens = normalize_file_search_query(query.as_deref());
+        let limit = limit
+            .unwrap_or(DEFAULT_WORKSPACE_FILE_SEARCH_LIMIT)
+            .clamp(1, MAX_WORKSPACE_FILE_SEARCH_LIMIT);
+
+        search_workspace_file_paths(&workspace_path, &query_tokens, limit)
+    };
+
+    result().map_err(map_command_error)
 }
 
 #[tauri::command]

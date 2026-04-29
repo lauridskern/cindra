@@ -66,6 +66,18 @@ export function pickDirectory(title?: string): Promise<string | null> {
   return invokeCommand("pick_directory", { title });
 }
 
+export function searchWorkspaceFiles(
+  workspacePath: string,
+  query?: string,
+  limit?: number,
+): Promise<string[]> {
+  return invokeCommand("search_workspace_files", {
+    workspacePath,
+    query: query ?? null,
+    limit: limit ?? null,
+  });
+}
+
 export function openWorkspace(path: string): Promise<SessionSnapshot> {
   return invokeCommand("open_workspace", { path });
 }
