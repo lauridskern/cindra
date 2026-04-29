@@ -1,6 +1,4 @@
-import type {
-  TranscriptMessage,
-} from "@/services/desktop/types/contracts";
+import type { TranscriptMessage } from "@/services/desktop/types/contracts";
 
 import { TOOL_DEBUG_TITLES } from "../constants/chatThread";
 import type {
@@ -10,6 +8,30 @@ import type {
   ChatThreadItem,
   FlushActivityGroupOptions,
 } from "../types/chatThread";
+
+const SYSTEM_REMINDER_PATTERN = /<system_reminder\b[^>]*>[\s\S]*?<\/system_reminder>/giu;
+
+function removeSystemReminderMarkup(text: string): string {
+  return text
+    .replace(SYSTEM_REMINDER_PATTERN, "")
+    .replace(/\n{3,}/gu, "\n\n")
+    .trim();
+}
+
+function sanitizeTranscriptMessage(
+  message: TranscriptMessage,
+): TranscriptMessage | null {
+  switch (message.kind) {
+    case "assistant":
+    case "reasoning":
+    case "status_output": {
+      const text = removeSystemReminderMarkup(message.text);
+      return text.length === 0 ? null : { ...message, text };
+    }
+    default:
+      return message;
+  }
+}
 
 function shouldDisplayOperationInActivity(operation: ActivityOperation): boolean {
   return (
@@ -161,7 +183,12 @@ export function buildChatThreadItems(
     return currentGroup;
   };
 
-  for (const message of messages) {
+  for (const rawMessage of messages) {
+    const message = sanitizeTranscriptMessage(rawMessage);
+    if (message == null) {
+      continue;
+    }
+
     switch (message.kind) {
       case "user":
       case "context_compacted": {

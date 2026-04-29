@@ -125,4 +125,43 @@ describe("buildChatThreadItems", () => {
       isRunning: true,
     });
   });
+
+  test("removes raw system reminder markup from assistant messages", () => {
+    const requestId = "req-reminder";
+    const items = buildChatThreadItems(
+      [
+        buildUserMessage(requestId, "Summarize progress"),
+        buildAssistantMessage(
+          requestId,
+          "Done.\n\n<system_reminder>Please complete todos.</system_reminder>",
+        ),
+      ],
+      [],
+    );
+
+    expect(items).toHaveLength(2);
+    expect(items[1]).toMatchObject({
+      kind: "message",
+      message: {
+        kind: "assistant",
+        text: "Done.",
+      },
+    });
+  });
+
+  test("drops assistant messages that only contain system reminders", () => {
+    const requestId = "req-reminder-only";
+    const items = buildChatThreadItems(
+      [
+        buildUserMessage(requestId, "Check todos"),
+        buildAssistantMessage(
+          requestId,
+          "<system_reminder>Please complete todos.</system_reminder>",
+        ),
+      ],
+      [],
+    );
+
+    expect(items.map((item) => item.key)).toEqual([`user:${requestId}`]);
+  });
 });
