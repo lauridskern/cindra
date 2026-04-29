@@ -1,0 +1,50 @@
+{
+  "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
+  "productName": "Cindra Dev",
+  "version": "0.1.1",
+  "identifier": "dev.cindra.desktop.dev",
+  "build": {
+    "frontendDist": "../dist",
+    "devUrl": "http://localhost:5173",
+    "beforeDevCommand": "bun run dev",
+    "beforeBuildCommand": "bun run build"
+  },
+  "app": {
+    "macOSPrivateApi": true,
+    "windows": [
+      {
+        "title": "Cindra Dev",
+        "width": 1280,
+        "height": 860,
+        "dragDropEnabled": false,
+        "resizable": true,
+        "fullscreen": false,
+        "transparent": true,
+        "titleBarStyle": "Overlay",
+        "hiddenTitle": true,
+        "trafficLightPosition": {
+          "x": 15,
+          "y": 18
+        },
+        "backgroundColor": "#00000001",
+        "windowEffects": {
+          "effects": ["sidebar"]
+        }
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons-dev/32x32.png",
+      "icons-dev/128x128.png",
+      "icons-dev/128x128@2x.png",
+      "icons-dev/icon.icns",
+      "icons-dev/icon.ico"
+    ]
+  }
+}
