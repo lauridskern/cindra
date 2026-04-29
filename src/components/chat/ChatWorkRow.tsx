@@ -1,5 +1,5 @@
-import { ChevronDown, ChevronRight } from "lucide-react";
 import { useState } from "react";
+import { ChevronDown, ChevronRight } from "lucide-react";
 
 import { CHAT_MUTED_TEXT_CLASS } from "./constants/chatStyles";
 import { useRunningNow } from "./hooks/useRunningNow";
@@ -17,7 +17,6 @@ function WorkHeaderLabel({
   requestTiming,
 }: WorkHeaderLabelProps) {
   const now = useRunningNow(isRunning);
-
   const label = getWorkHeaderLabelText({
     failedStepCount,
     isRunning,

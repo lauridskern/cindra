@@ -204,7 +204,6 @@ export function ProjectSidebar({
           onMouseDown={handleWindowDragStart}
         />
         <ProjectSidebarActions
-          onStartNewChat={() => handleStartNewChat()}
           onOpenWorkspacePicker={() => void handleOpenWorkspacePicker()}
         />
       </SidebarHeader>

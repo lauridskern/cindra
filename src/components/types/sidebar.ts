@@ -15,7 +15,6 @@ export interface ProjectSidebarProps {
 
 export interface ProjectSidebarActionsProps {
   onOpenWorkspacePicker: () => void;
-  onStartNewChat: () => void;
 }
 
 export interface ProjectSidebarConversationRowProps {

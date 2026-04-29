@@ -2,6 +2,7 @@ import type { ComponentProps, RefObject } from "react";
 import type { LucideIcon } from "lucide-react";
 import type {
   ChatBinding,
+  ChatHandoffTarget,
   SessionTodo,
 } from "@/services/desktop/types/contracts";
 
@@ -27,6 +28,8 @@ export type PendingHeaderAction =
   | "create-branch"
   | "commit"
   | "push"
+  | "handoff-local"
+  | "handoff-worktree"
   | "open-target";
 
 export interface ProjectSwitchOption {
@@ -73,9 +76,14 @@ export interface ConversationDockviewTabProps {
 
 export interface ConversationHeaderActionsProps {
   canCloseChat?: () => boolean;
+  canHandoffToLocal?: boolean;
+  canHandoffToWorktree?: boolean;
   isGitBusy: boolean;
+  isHandoffBusy: boolean;
   isOpenTargetBusy: boolean;
   onCloseChat?: () => void;
+  onHandoffToLocal?: () => void;
+  onHandoffToWorktree?: () => void;
   onOpenCommitDialog: () => void;
   onOpenPreview?: () => void;
   onOpenTerminal?: () => void;
@@ -84,6 +92,17 @@ export interface ConversationHeaderActionsProps {
   openTargets: ReadonlyArray<AppTarget>;
   preferredAppId: AppTargetId;
   showGitActions?: boolean;
+}
+
+export interface ChatHandoffDialogProps {
+  branchName: string;
+  isOpen: boolean;
+  isSubmitting: boolean;
+  onBranchNameChange: (value: string) => void;
+  onClose: () => void;
+  onOpenChange: (open: boolean) => void;
+  onSubmit: () => Promise<void>;
+  target: ChatHandoffTarget | null;
 }
 
 export interface ConversationPanelAlertsProps {

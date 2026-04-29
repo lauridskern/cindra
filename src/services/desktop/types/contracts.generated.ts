@@ -71,7 +71,13 @@ export type RemoveProviderInput = { workspacePath: string | null, providerId: st
 
 export type SendPromptInput = { workspacePath: string, prompt: string, conversationId: string | null, agentId: string | null, };
 
-export type RuntimeStatus = { workspacePath: string | null, workspaceName: string | null, gitRepoName: string | null, gitBranchName: string | null, gitBranches: Array<string>, availableOpenTargets: Array<string>, configured: boolean, configurationError: string | null, };
+export type ChatHandoffTarget = "local" | "worktree";
+
+export type HandoffChatInput = { sourceWorkspacePath: string, conversationId: string | null, target: ChatHandoffTarget, branchName: string | null, };
+
+export type RuntimeStatus = { workspacePath: string | null, workspaceName: string | null, gitRepoName: string | null, gitBranchName: string | null, gitBranches: Array<string>, gitWorkspaceKind: GitWorkspaceKind | null, gitMainWorkspacePath: string | null, availableOpenTargets: Array<string>, configured: boolean, configurationError: string | null, };
+
+export type GitWorkspaceKind = "local" | "worktree";
 
 export type CloneRepositoryInput = { repositoryUrl: string, parentDirectory: string, directoryName: string, };
 

@@ -6,7 +6,11 @@ import {
   useConversationSummary,
   useSessionStore,
 } from "@/hooks/useSession";
-import type { ChatBinding, WorkspaceSession } from "@/services/desktop/types/contracts";
+import type {
+  ChatBinding,
+  ChatHandoffTarget,
+  WorkspaceSession,
+} from "@/services/desktop/types/contracts";
 
 import { appTargets } from "../constants/conversationHeader";
 import { usePreferredOpenTarget } from "./usePreferredOpenTarget";
@@ -26,6 +30,10 @@ export function useConversationHeaderState(binding?: ChatBinding | null) {
   const [branchQuery, setBranchQuery] = React.useState("");
   const [isBranchMenuOpen, setIsBranchMenuOpen] = React.useState(false);
   const [isCommitDialogOpen, setIsCommitDialogOpen] = React.useState(false);
+  const [isHandoffDialogOpen, setIsHandoffDialogOpen] = React.useState(false);
+  const [handoffBranchName, setHandoffBranchName] = React.useState("");
+  const [handoffTarget, setHandoffTarget] =
+    React.useState<ChatHandoffTarget | null>(null);
   const [commitMessage, setCommitMessage] = React.useState("");
   const [pendingHeaderAction, setPendingHeaderAction] =
     React.useState<PendingHeaderAction | null>(null);
@@ -38,6 +46,7 @@ export function useConversationHeaderState(binding?: ChatBinding | null) {
     checkoutBranch,
     commitChanges,
     createBranch,
+    handoffChat,
     openProject,
     openInTarget,
     pushBranch,
@@ -56,6 +65,7 @@ export function useConversationHeaderState(binding?: ChatBinding | null) {
   const repoName = runtimeStatus?.gitRepoName ?? null;
   const branchName = runtimeStatus?.gitBranchName ?? null;
   const branchNames = runtimeStatus?.gitBranches ?? EMPTY_STRING_ARRAY;
+  const gitWorkspaceKind = runtimeStatus?.gitWorkspaceKind ?? null;
   const availableOpenTargets =
     runtimeStatus?.availableOpenTargets ?? EMPTY_STRING_ARRAY;
   const openTargets = appTargets.filter((target) =>
@@ -93,12 +103,23 @@ export function useConversationHeaderState(binding?: ChatBinding | null) {
     pendingHeaderAction === "checkout" ||
     pendingHeaderAction === "create-branch" ||
     pendingHeaderAction === "commit" ||
-    pendingHeaderAction === "push";
+    pendingHeaderAction === "push" ||
+    pendingHeaderAction === "handoff-local" ||
+    pendingHeaderAction === "handoff-worktree";
   const isCommitPending = pendingHeaderAction === "commit";
+  const isHandoffPending =
+    pendingHeaderAction === "handoff-local" ||
+    pendingHeaderAction === "handoff-worktree";
   const isOpenTargetPending = pendingHeaderAction === "open-target";
   const isProjectChangePending = pendingHeaderAction === "switch-project";
   const isManagedChat = workspaceKind === "managed_chat";
   const showGitActions = !isManagedChat;
+  const activeConversationId =
+    conversationSummary?.conversationId ?? binding?.conversationId ?? null;
+  const canHandoffToLocal =
+    workspacePath != null && gitWorkspaceKind === "worktree";
+  const canHandoffToWorktree =
+    workspacePath != null && gitWorkspaceKind != null;
   const conversationTitle =
     conversationSummary?.title ?? (isManagedChat ? "New chat" : activeWorkspaceLabel);
   const selectedProjectPath = isManagedChat ? null : workspacePath;
@@ -199,6 +220,85 @@ export function useConversationHeaderState(binding?: ChatBinding | null) {
     handleCommitDialogOpenChange(false);
   }
 
+  function resetHandoffDialog() {
+    setIsHandoffDialogOpen(false);
+    setHandoffTarget(null);
+    setHandoffBranchName("");
+  }
+
+  function handleHandoffDialogOpenChange(open: boolean) {
+    if (isHandoffPending) {
+      return;
+    }
+
+    setIsHandoffDialogOpen(open);
+    if (!open) {
+      resetHandoffDialog();
+    }
+  }
+
+  function handleHandoffDialogClose() {
+    handleHandoffDialogOpenChange(false);
+  }
+
+  async function handleStartHandoff(target: ChatHandoffTarget) {
+    if (workspacePath == null) {
+      return;
+    }
+
+    if (target === "worktree") {
+      setHandoffTarget("worktree");
+      setHandoffBranchName("");
+      setIsHandoffDialogOpen(true);
+      return;
+    }
+
+    if (gitWorkspaceKind === "worktree" && branchName == null) {
+      setHandoffTarget("local");
+      setHandoffBranchName("");
+      setIsHandoffDialogOpen(true);
+      return;
+    }
+
+    setPendingHeaderAction("handoff-local");
+    try {
+      await handoffChat({
+        branchName: null,
+        conversationId: activeConversationId,
+        sourceWorkspacePath: workspacePath,
+        target: "local",
+      });
+    } finally {
+      setPendingHeaderAction(null);
+    }
+  }
+
+  async function handleHandoffSubmit() {
+    if (workspacePath == null || handoffTarget == null) {
+      return;
+    }
+
+    const trimmedBranchName = handoffBranchName.trim();
+    if (trimmedBranchName.length === 0) {
+      return;
+    }
+
+    setPendingHeaderAction(
+      handoffTarget === "worktree" ? "handoff-worktree" : "handoff-local",
+    );
+    try {
+      await handoffChat({
+        branchName: trimmedBranchName,
+        conversationId: activeConversationId,
+        sourceWorkspacePath: workspacePath,
+        target: handoffTarget,
+      });
+      resetHandoffDialog();
+    } finally {
+      setPendingHeaderAction(null);
+    }
+  }
+
   function openCommitDialog() {
     setIsCommitDialogOpen(true);
   }
@@ -229,13 +329,19 @@ export function useConversationHeaderState(binding?: ChatBinding | null) {
     conversationTitle,
     currentProjectLabel,
     filteredBranches,
+    handoffBranchName,
+    handoffTarget,
     isBranchMenuOpen,
     isCommitDialogOpen,
     isCommitPending,
     isGitActionPending,
+    isHandoffDialogOpen,
+    isHandoffPending,
     isManagedChat,
     isOpenTargetPending,
     isProjectChangePending,
+    canHandoffToLocal,
+    canHandoffToWorktree,
     openTargets,
     projects,
     repoName,
@@ -243,12 +349,17 @@ export function useConversationHeaderState(binding?: ChatBinding | null) {
     selectedProjectPath,
     setBranchQuery,
     setCommitMessage,
+    setHandoffBranchName,
     handleBranchCreate,
     handleBranchMenuOpenChange,
     handleBranchSelect,
     handleCommitDialogClose,
     handleCommitDialogOpenChange,
     handleCommitSubmit,
+    handleHandoffDialogClose,
+    handleHandoffDialogOpenChange,
+    handleHandoffSubmit,
+    handleStartHandoff,
     handleOpenTarget,
     handleProjectSelect,
     handlePush,

@@ -2,9 +2,13 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use anyhow::Context;
+use forge_api::API;
+use forge_domain::ConversationId;
 
 use crate::desktop_open;
-use crate::dto::RuntimeStatusDto;
+use crate::dto::{
+    ChatHandoffTargetDto, HandoffChatInput, RuntimeStatusDto, read_git_workspace_details,
+};
 
 use super::RuntimeManager;
 
@@ -134,6 +138,70 @@ impl RuntimeManager {
         .await
     }
 
+    pub async fn handoff_chat(
+        &self,
+        input: HandoffChatInput,
+    ) -> anyhow::Result<crate::dto::SessionSnapshotDto> {
+        self.with_recorded_ui_error(async {
+            let source_workspace_path = self
+                .workspace_path_for_action(&input.source_workspace_path)
+                .await?;
+            let source_git_details = read_git_workspace_details(&source_workspace_path)
+                .context("Worktree handoff is only available inside a git workspace.")?;
+            let conversation_id = normalize_optional_value(input.conversation_id);
+            let target_workspace_path = match input.target {
+                ChatHandoffTargetDto::Local => {
+                    self.prepare_local_workspace_for_handoff(
+                        &source_workspace_path,
+                        &source_git_details,
+                        input.branch_name.as_deref(),
+                    )
+                    .await?
+                }
+                ChatHandoffTargetDto::Worktree => {
+                    let branch_name = validate_non_empty_value(
+                        input.branch_name.as_deref().unwrap_or_default(),
+                        "Branch name",
+                    )?;
+                    self.create_git_worktree_from_workspace(
+                        &source_workspace_path,
+                        &source_git_details,
+                        &branch_name,
+                    )?
+                }
+            };
+            let target_workspace_path_string = target_workspace_path.to_string_lossy().into_owned();
+
+            if let Some(conversation_id) = conversation_id {
+                let parsed_conversation_id = ConversationId::parse(&conversation_id)?;
+                let source_runtime = self
+                    .ensure_workspace_runtime(source_workspace_path.to_string_lossy().as_ref())
+                    .await?;
+                let conversation = source_runtime
+                    .api
+                    .conversation(&parsed_conversation_id)
+                    .await?;
+
+                if let Some(conversation) = conversation {
+                    self.prepare_workspace(&target_workspace_path_string)
+                        .await?;
+                    let target_runtime = self
+                        .ensure_workspace_runtime(&target_workspace_path_string)
+                        .await?;
+                    target_runtime.api.upsert_conversation(conversation).await?;
+                    self.refresh_workspace_conversations(&target_workspace_path_string)
+                        .await?;
+                    return self
+                        .select_conversation(target_workspace_path_string, conversation_id)
+                        .await;
+                }
+            }
+
+            self.start_new_chat(target_workspace_path_string).await
+        })
+        .await
+    }
+
     pub async fn open_in_target(
         &self,
         workspace_path: String,
@@ -191,6 +259,92 @@ impl RuntimeManager {
 
         Ok(PathBuf::from(workspace_path))
     }
+
+    async fn prepare_local_workspace_for_handoff(
+        &self,
+        source_workspace_path: &Path,
+        source_git_details: &crate::dto::GitWorkspaceDetails,
+        branch_name: Option<&str>,
+    ) -> anyhow::Result<PathBuf> {
+        let local_workspace_path = source_git_details
+            .main_workspace_path
+            .as_deref()
+            .or(source_git_details.workspace_root_path.as_deref())
+            .context("Failed to resolve the local workspace for this repository.")?;
+        let local_workspace_path = self.workspace_path_for_action(local_workspace_path).await?;
+        let branch_name = normalize_optional_str(branch_name);
+
+        if let Some(branch_name) = branch_name {
+            create_or_checkout_branch(
+                &local_workspace_path,
+                &branch_name,
+                source_git_details.head_commit.as_deref(),
+            )?;
+        }
+
+        if local_workspace_path != source_workspace_path {
+            self.projects.add_project(local_workspace_path.as_path())?;
+        }
+
+        Ok(local_workspace_path)
+    }
+
+    fn create_git_worktree_from_workspace(
+        &self,
+        _source_workspace_path: &Path,
+        source_git_details: &crate::dto::GitWorkspaceDetails,
+        branch_name: &str,
+    ) -> anyhow::Result<PathBuf> {
+        let repo_root = source_git_details
+            .main_workspace_path
+            .as_deref()
+            .or(source_git_details.workspace_root_path.as_deref())
+            .context("Failed to resolve the repository root for this workspace.")?;
+        let repo_root = PathBuf::from(repo_root);
+        let parent_dir = repo_root.parent().context(
+            "Git repository is at the filesystem root. Cannot create a sibling worktree.",
+        )?;
+        let directory_name = worktree_directory_name(branch_name);
+        let worktree_path = parent_dir.join(directory_name);
+
+        run_git_command(
+            &repo_root,
+            &["check-ref-format", "--branch", branch_name],
+            "git check-ref-format",
+        )?;
+
+        if worktree_path.exists() {
+            if git_command_succeeds(&worktree_path, &["rev-parse", "--is-inside-work-tree"])? {
+                let canonical = canonicalize_existing_path(worktree_path)?;
+                self.projects.add_project(canonical.as_path())?;
+                return Ok(canonical);
+            }
+
+            anyhow::bail!(
+                "Directory '{}' already exists and is not a git worktree.",
+                worktree_path.display()
+            );
+        }
+
+        let worktree_path_string = worktree_path.to_string_lossy().into_owned();
+        if git_ref_exists(&repo_root, &format!("refs/heads/{branch_name}"))? {
+            run_git_command(
+                &repo_root,
+                &["worktree", "add", &worktree_path_string, branch_name],
+                "git worktree add",
+            )?;
+        } else {
+            run_git_command(
+                &repo_root,
+                &["worktree", "add", "-b", branch_name, &worktree_path_string],
+                "git worktree add -b",
+            )?;
+        }
+
+        let canonical = canonicalize_existing_path(worktree_path)?;
+        self.projects.add_project(canonical.as_path())?;
+        Ok(canonical)
+    }
 }
 
 fn resolve_path_for_target(workspace_path: &Path, path: &str) -> PathBuf {
@@ -209,6 +363,20 @@ fn validate_non_empty_value(value: &str, label: &str) -> anyhow::Result<String> 
     }
 
     Ok(trimmed.to_string())
+}
+
+fn normalize_optional_value(value: Option<String>) -> Option<String> {
+    value.and_then(|value| {
+        let trimmed = value.trim();
+        (!trimmed.is_empty()).then(|| trimmed.to_string())
+    })
+}
+
+fn normalize_optional_str(value: Option<&str>) -> Option<String> {
+    value.and_then(|value| {
+        let trimmed = value.trim();
+        (!trimmed.is_empty()).then(|| trimmed.to_string())
+    })
 }
 
 fn git_ref_exists(workspace_path: &Path, reference: &str) -> anyhow::Result<bool> {
@@ -255,6 +423,48 @@ fn run_git_stdout(
     }
 
     anyhow::bail!("{description} failed.")
+}
+
+fn create_or_checkout_branch(
+    workspace_path: &Path,
+    branch_name: &str,
+    start_point: Option<&str>,
+) -> anyhow::Result<()> {
+    run_git_command(
+        workspace_path,
+        &["check-ref-format", "--branch", branch_name],
+        "git check-ref-format",
+    )?;
+
+    if git_ref_exists(workspace_path, &format!("refs/heads/{branch_name}"))? {
+        run_git_command(workspace_path, &["checkout", branch_name], "git checkout")?;
+        return Ok(());
+    }
+
+    if let Some(start_point) = start_point {
+        run_git_command(
+            workspace_path,
+            &["checkout", "-b", branch_name, start_point],
+            "git checkout -b",
+        )?;
+    } else {
+        run_git_command(
+            workspace_path,
+            &["checkout", "-b", branch_name],
+            "git checkout -b",
+        )?;
+    }
+
+    Ok(())
+}
+
+fn worktree_directory_name(branch_name: &str) -> String {
+    branch_name.replace('/', "-")
+}
+
+fn canonicalize_existing_path(path: PathBuf) -> anyhow::Result<PathBuf> {
+    path.canonicalize()
+        .with_context(|| format!("Failed to resolve {}", path.display()))
 }
 
 fn run_git_command(workspace_path: &Path, args: &[&str], description: &str) -> anyhow::Result<()> {

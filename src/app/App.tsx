@@ -7,6 +7,7 @@ import {
   PenSquare,
 } from "lucide-react";
 
+import { NewChatTrigger } from "../components/NewChatTrigger";
 import { ProvidersSettingsPane } from "../components/providers-settings/ProvidersSettingsPane";
 import { ProjectSidebar } from "../components/ProjectSidebar";
 import { PaneSurface } from "../components/ui/PaneSurface";
@@ -20,7 +21,7 @@ import {
 import { SidebarProvider, useSidebar } from "../components/ui/Sidebar";
 import { TooltipProvider } from "../components/ui/Tooltip";
 import { useSystemThemeClass } from "../hooks/useSystemThemeClass";
-import { useSessionActions, useSessionStore } from "../hooks/useSession";
+import { useSessionStore } from "../hooks/useSession";
 import { SessionProvider } from "./SessionProvider";
 import { SettingsNavigationProvider } from "./settingsNavigation";
 import {
@@ -77,7 +78,6 @@ function AppSidebarControl({
 
 function AppShell() {
   useSystemThemeClass();
-  const { startNewChat } = useSessionActions();
   const isSessionBootstrapped = useSessionStore(
     (state) => state.isBootstrapped,
   );
@@ -143,18 +143,21 @@ function AppShell() {
             }}
           />
           {!isDesktopSidebarVisible && !isSettingsViewOpen ? (
-            <Button
-              variant="ghost"
-              size="icon"
-              aria-label="New chat"
-              className="absolute left-26 top-1.5 z-20"
-              onClick={() => {
-                void startNewChat();
-              }}
-            >
-              <PenSquare strokeWidth={2} className="size-3.5" />
-              <span className="sr-only">New chat</span>
-            </Button>
+            <NewChatTrigger>
+              {({ isBusy, openNewChat }) => (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label="New chat"
+                  className="absolute left-26 top-1.5 z-20"
+                  disabled={isBusy}
+                  onClick={openNewChat}
+                >
+                  <PenSquare strokeWidth={2} className="size-3.5" />
+                  <span className="sr-only">New chat</span>
+                </Button>
+              )}
+            </NewChatTrigger>
           ) : null}
           <ResizablePanelGroup orientation="horizontal">
             <ResizablePanel

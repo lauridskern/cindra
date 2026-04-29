@@ -23,12 +23,12 @@ use commands::{
     commit_git_changes, complete_provider_auth, create_git_branch, create_managed_chat,
     create_saved_workspace, delete_saved_workspace, ensure_conversation_view,
     get_conversation_layout, get_prompt_settings, get_runtime_status, get_saved_workspace,
-    get_session_snapshot, list_providers, open_external_url, open_in_target, open_path_in_target,
-    open_workspace, pick_directory, pick_workspace, push_git_branch, quick_start_project,
-    remove_provider, rename_saved_workspace, rename_workspace, respond_followup,
-    save_conversation_layout, select_conversation, send_prompt, start_new_chat,
-    start_provider_auth, stop_prompt, terminal_close, terminal_open, terminal_resize,
-    terminal_write, update_prompt_settings, update_saved_workspace_layout,
+    get_session_snapshot, handoff_chat, list_providers, open_external_url, open_in_target,
+    open_path_in_target, open_workspace, pick_directory, pick_workspace, push_git_branch,
+    quick_start_project, remove_provider, rename_saved_workspace, rename_workspace,
+    respond_followup, save_conversation_layout, select_conversation, send_prompt,
+    start_new_chat, start_provider_auth, stop_prompt, terminal_close, terminal_open,
+    terminal_resize, terminal_write, update_prompt_settings, update_saved_workspace_layout,
 };
 use persistence::project_store::ProjectStore;
 use runtime::DesktopState;
@@ -82,6 +82,7 @@ pub fn run() {
             ensure_conversation_view,
             start_new_chat,
             create_managed_chat,
+            handoff_chat,
             send_prompt,
             stop_prompt,
             update_prompt_settings,

@@ -9,6 +9,7 @@ import {
   PROVIDER_OAUTH_CALLBACK_EVENT_NAME,
 } from "./constants/events";
 import type {
+  HandoffChatInput,
   CheckoutGitBranchInput,
   ChatBinding,
   CloneRepositoryInput,
@@ -123,6 +124,10 @@ export function startNewChat(workspacePath: string): Promise<SessionSnapshot> {
 
 export function createManagedChat(): Promise<SessionSnapshot> {
   return invokeCommand("create_managed_chat");
+}
+
+export function handoffChat(input: HandoffChatInput): Promise<SessionSnapshot> {
+  return invokeCommand("handoff_chat", { input });
 }
 
 export function sendPrompt(input: SendPromptInput): Promise<SessionSnapshot> {

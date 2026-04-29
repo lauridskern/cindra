@@ -1,5 +1,6 @@
 import type {
   ChatBinding,
+  HandoffChatInput,
   SavedWorkspaceDetail,
   SessionSnapshot,
 } from "@/services/desktop/types/contracts";
@@ -29,6 +30,7 @@ export interface SessionActionsContextValue {
   renameSavedWorkspace: (workspaceId: string, name: string) => Promise<void>;
   deleteSavedWorkspace: (workspaceId: string) => Promise<void>;
   startNewChat: (workspacePath?: string) => Promise<SessionSnapshot | null>;
+  handoffChat: (input: HandoffChatInput) => Promise<SessionSnapshot | null>;
   checkoutBranch: (branchName: string) => Promise<void>;
   createBranch: (branchName: string) => Promise<void>;
   commitChanges: (message: string) => Promise<void>;

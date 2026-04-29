@@ -1,7 +1,9 @@
 import {
   ChevronDownIcon,
   EllipsisIcon,
+  FolderIcon,
   GitCommitHorizontalIcon,
+  GitBranchPlusIcon,
   GitPullRequestCreateIcon,
   LayoutPanelTopIcon,
   SquareTerminalIcon,
@@ -26,9 +28,14 @@ import type { ConversationHeaderActionsProps } from "./types/conversationHeader"
 
 export function ConversationHeaderActions({
   canCloseChat,
+  canHandoffToLocal = false,
+  canHandoffToWorktree = false,
   isGitBusy,
+  isHandoffBusy,
   isOpenTargetBusy,
   onCloseChat,
+  onHandoffToLocal,
+  onHandoffToWorktree,
   onOpenCommitDialog,
   onOpenPreview,
   onOpenTerminal,
@@ -189,6 +196,28 @@ export function ConversationHeaderActions({
               <SquareTerminalIcon />
               Open Terminal
             </DropdownMenuItem>
+            {canHandoffToWorktree ? (
+              <DropdownMenuItem
+                disabled={isHandoffBusy}
+                onClick={() => {
+                  onHandoffToWorktree?.();
+                }}
+              >
+                <GitBranchPlusIcon />
+                Handoff to worktree
+              </DropdownMenuItem>
+            ) : null}
+            {canHandoffToLocal ? (
+              <DropdownMenuItem
+                disabled={isHandoffBusy}
+                onClick={() => {
+                  onHandoffToLocal?.();
+                }}
+              >
+                <FolderIcon />
+                Handoff to local
+              </DropdownMenuItem>
+            ) : null}
             <DropdownMenuSeparator />
             <DropdownMenuItem
               variant="destructive"

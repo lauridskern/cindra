@@ -34,7 +34,9 @@ const runtimeStatusFixture: RuntimeStatus = {
   configured: true,
   gitBranchName: "main",
   gitBranches: ["main", "feature/zustand"],
+  gitMainWorkspacePath: "/workspace/agent-ui",
   gitRepoName: "agent-ui",
+  gitWorkspaceKind: "local",
   workspaceName: "Agent UI",
   workspacePath: "/workspace/agent-ui",
 };
