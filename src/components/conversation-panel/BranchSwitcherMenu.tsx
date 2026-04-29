@@ -1,4 +1,4 @@
-import { ChevronDownIcon, GitBranchIcon } from "lucide-react";
+import { ChevronDownIcon, GitBranchIcon, LoaderCircleIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/utils/cn";
@@ -25,6 +25,7 @@ export function BranchSwitcherMenu({
   triggerClassName,
 }: BranchSwitcherMenuProps) {
   const trimmedQuery = branchQuery.trim();
+  const branchActionLabel = "Create branch";
   const itemClassName =
     "flex min-h-7 w-full items-center gap-2 rounded-md px-2 py-1 text-left text-xs/relaxed outline-hidden transition-colors select-none hover:bg-foreground/10 focus-visible:bg-foreground/10 disabled:pointer-events-none disabled:opacity-50 [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-3.5";
 
@@ -72,7 +73,7 @@ export function BranchSwitcherMenu({
               event.preventDefault();
               void onCreateBranch();
             }}
-            placeholder="Search branches"
+            placeholder="Search or create branch"
           />
         </div>
         <div className="-mx-1 my-1 h-px bg-border/50" />
@@ -85,10 +86,17 @@ export function BranchSwitcherMenu({
                 onClick={() => {
                   void onCreateBranch();
                 }}
+                aria-label={`${branchActionLabel} ${trimmedQuery}`}
                 disabled={isBusy}
               >
-                <GitBranchIcon />
-                Create branch "{trimmedQuery}"
+                {isBusy ? (
+                  <LoaderCircleIcon className="animate-spin" />
+                ) : (
+                  <GitBranchIcon />
+                )}
+                <span className="truncate">
+                  {branchActionLabel} "{trimmedQuery}"
+                </span>
               </button>
               <div className="-mx-1 my-1 h-px bg-border/50" />
             </>

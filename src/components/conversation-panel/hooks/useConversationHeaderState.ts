@@ -74,7 +74,7 @@ export function useConversationHeaderState(binding?: ChatBinding | null) {
   const { resolvedPreferredAppId, setPreferredAppId } =
     usePreferredOpenTarget(openTargets);
 
-  const normalizedBranchQuery = normalizeSearchText(branchQuery);
+  const normalizedBranchQuery = normalizeBranchNameForComparison(branchQuery);
   const filteredBranches = (() => {
     if (normalizedBranchQuery.length === 0) {
       return branchNames;
@@ -96,7 +96,8 @@ export function useConversationHeaderState(binding?: ChatBinding | null) {
   const canCreateBranch =
     branchQuery.trim().length > 0 &&
     !branchNames.some(
-      (candidate) => normalizeSearchText(candidate) === normalizedBranchQuery,
+      (candidate) =>
+        normalizeBranchNameForComparison(candidate) === normalizedBranchQuery,
     );
 
   const isGitActionPending =
@@ -167,13 +168,15 @@ export function useConversationHeaderState(binding?: ChatBinding | null) {
   }
 
   async function handleBranchCreate() {
-    if (!canCreateBranch) {
+    const trimmedBranchName = branchQuery.trim();
+    if (!canCreateBranch || trimmedBranchName.length === 0) {
       return;
     }
 
     setPendingHeaderAction("create-branch");
     try {
-      await createBranch(branchQuery.trim());
+      await createBranch(trimmedBranchName);
+      setBranchQuery("");
       setIsBranchMenuOpen(false);
     } finally {
       setPendingHeaderAction(null);
@@ -366,6 +369,10 @@ export function useConversationHeaderState(binding?: ChatBinding | null) {
     openCommitDialog,
     showGitActions,
   };
+}
+
+function normalizeBranchNameForComparison(value: string): string {
+  return normalizeSearchText(value).replace(/^origin\//, "");
 }
 
 function isProjectWorkspace(workspace: WorkspaceSession) {
