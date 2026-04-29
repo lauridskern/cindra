@@ -1,6 +1,11 @@
 import { describe, expect, test } from "bun:test";
+import { renderToStaticMarkup } from "react-dom/server";
 
 import type { TranscriptMessage } from "../../services/desktop/types/contracts";
+import {
+  ChatErrorEventRow,
+  parseToolFailureLimitMessage,
+} from "./event-rows/ChatErrorEventRow";
 import { getWorkHeaderLabelText } from "./utils/workHeaderLabel";
 import { buildChatThreadItems } from "./utils/chatThread";
 
@@ -42,6 +47,35 @@ function buildAssistantMessage(
     text,
   };
 }
+
+describe("ChatErrorEventRow", () => {
+  test("parses tool failure limit messages", () => {
+    expect(
+      parseToolFailureLimitMessage(
+        "Stopped after reaching the tool failure limit (3). fetch: 3",
+      ),
+    ).toEqual({
+      failures: [{ count: 3, name: "fetch" }],
+      limit: 3,
+    });
+  });
+
+  test("renders tool failure limit errors without exposing raw text by default", () => {
+    const html = renderToStaticMarkup(
+      ChatErrorEventRow({
+        message: "Stopped after reaching the tool failure limit (3). fetch: 3",
+      }),
+    );
+
+    expect(html).toContain("Tool failure limit reached");
+    expect(html).toContain("The agent stopped because fetch failed 3 times.");
+    expect(html).toContain(
+      "Try again, adjust the request, or continue with the available context.",
+    );
+    expect(html).toContain("Show technical details");
+    expect(html).not.toContain("Stopped after reaching the tool failure limit");
+  });
+});
 
 describe("getWorkHeaderLabelText", () => {
   test("reports completed requests with failed steps explicitly", () => {

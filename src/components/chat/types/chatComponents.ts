@@ -67,6 +67,14 @@ export interface ChatErrorEventRowProps {
   message: string;
 }
 
+export interface ChatToolFailureLimitMessage {
+  limit: number;
+  failures: Array<{
+    count: number;
+    name: string;
+  }>;
+}
+
 export interface ChatContextCompactedRowProps {
   text: string;
 }
