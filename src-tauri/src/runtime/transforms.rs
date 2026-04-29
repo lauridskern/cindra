@@ -10,7 +10,6 @@ use crate::dto::{
 use crate::runtime::WorkspaceKind;
 
 const DISPLAY_PROMPT_TAGS: &[&str] = &["feedback", "task"];
-const HIDDEN_PROMPT_TAGS: &[&str] = &["system_date"];
 const PARTIAL_SUMMARY_FRAME_PREFIX: &str = "Use the following summary frames as the authoritative reference for all coding suggestions and decisions. Do not re-explain or revisit it unless I ask. Additional summary frames will be added as the conversation progresses.";
 const PARTIAL_SUMMARY_FRAME_HEADING: &str = "## Summary";
 const PARTIAL_SUMMARY_FRAME_FOOTER: &str = "Proceed with implementation based on this context.";
@@ -182,8 +181,8 @@ pub(crate) fn user_prompt_text_for_display(value: &str) -> String {
     }
 
     match extract_structured_prompt_text(trimmed) {
-        Some(text) if !text.is_empty() => text,
-        _ => trimmed.to_string(),
+        Some(text) => text,
+        None => trimmed.to_string(),
     }
 }
 
@@ -669,7 +668,7 @@ fn extract_structured_prompt_text(value: &str) -> Option<String> {
         }
 
         let tag_name = child.tag_name().name();
-        if HIDDEN_PROMPT_TAGS.contains(&tag_name) {
+        if is_hidden_prompt_tag(tag_name) {
             continue;
         }
         if DISPLAY_PROMPT_TAGS.contains(&tag_name) == false {
@@ -682,11 +681,11 @@ fn extract_structured_prompt_text(value: &str) -> Option<String> {
         }
     }
 
-    if parts.is_empty() {
-        None
-    } else {
-        Some(parts.join(" "))
-    }
+    Some(parts.join(" "))
+}
+
+fn is_hidden_prompt_tag(tag_name: &str) -> bool {
+    tag_name.starts_with("system_")
 }
 
 fn collect_node_text(node: Node<'_, '_>) -> String {
@@ -893,6 +892,34 @@ mod tests {
         ];
 
         assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn test_session_messages_from_conversation_hides_system_prefixed_prompt_tags() {
+        let conversation_id = ConversationId::generate();
+        let fixture = Conversation::new(conversation_id).context(
+            Context::default()
+                .add_message(ContextMessage::user(
+                    "<system_reminder>You have pending todo items.</system_reminder>",
+                    None,
+                ))
+                .add_message(ContextMessage::user(
+                    "<feedback>Continue please.</feedback>\n<system_date>2026-04-28</system_date>",
+                    None,
+                )),
+        );
+
+        let actual = session_messages_from_conversation(&fixture);
+        let request_id = format!("history:{}", conversation_id.into_string());
+
+        assert_eq!(
+            actual,
+            vec![SessionMessageDto::User {
+                id: "history-user:1".to_string(),
+                request_id,
+                text: "Continue please.".to_string(),
+            }]
+        );
     }
 
     #[test]
