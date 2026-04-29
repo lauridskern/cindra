@@ -29,6 +29,7 @@ export function buildChatThreadItems(
   const scopeRequestIds = new Map<string, string>();
   const currentScopeIndexByRequestId = new Map<string, number>();
   const scopeAnchorMessageKeyByScopeId = new Map<string, string>();
+  const scopeFirstMessageKeyByScopeId = new Map<string, string>();
   let currentGroup: ActivityGroupBuilder | null = null;
 
   const buildScopeId = (requestId: string, scopeIndex: number) =>
@@ -170,6 +171,9 @@ export function buildChatThreadItems(
         if (!scopeAnchorMessageKeyByScopeId.has(scopeId)) {
           scopeAnchorMessageKeyByScopeId.set(scopeId, message.id);
         }
+        if (!scopeFirstMessageKeyByScopeId.has(scopeId)) {
+          scopeFirstMessageKeyByScopeId.set(scopeId, message.id);
+        }
         items.push({
           kind: "message",
           key: message.id,
@@ -182,6 +186,9 @@ export function buildChatThreadItems(
         flushGroup({ includeEmpty: true });
         const scopeId = getCurrentScopeId(message.requestId);
         trackScopeId(scopeId, message.requestId);
+        if (!scopeFirstMessageKeyByScopeId.has(scopeId)) {
+          scopeFirstMessageKeyByScopeId.set(scopeId, message.id);
+        }
         items.push({
           kind: "message",
           key: message.id,
@@ -249,6 +256,9 @@ export function buildChatThreadItems(
           {
             const scopeId = getCurrentScopeId(message.requestId);
             trackScopeId(scopeId, message.requestId);
+            if (!scopeFirstMessageKeyByScopeId.has(scopeId)) {
+              scopeFirstMessageKeyByScopeId.set(scopeId, message.id);
+            }
           }
           items.push({
             kind: "message",
@@ -326,6 +336,10 @@ export function buildChatThreadItems(
     string,
     Extract<ChatThreadItem, { kind: "request_work" }>[]
   >();
+  const workItemInsertionsBeforeMessageKey = new Map<
+    string,
+    Extract<ChatThreadItem, { kind: "request_work" }>[]
+  >();
   const trailingWorkItems: Extract<ChatThreadItem, { kind: "request_work" }>[] = [];
 
   for (const scopeId of scopeIdsInEncounterOrder) {
@@ -339,7 +353,18 @@ export function buildChatThreadItems(
       scopeAnchorMessageKeyByScopeId,
     );
     if (insertionKey == null) {
-      trailingWorkItems.push(workItem);
+      const firstMessageKey = scopeFirstMessageKeyByScopeId.get(scopeId);
+      if (firstMessageKey == null) {
+        trailingWorkItems.push(workItem);
+        continue;
+      }
+
+      const existingInsertions =
+        workItemInsertionsBeforeMessageKey.get(firstMessageKey) ?? [];
+      workItemInsertionsBeforeMessageKey.set(firstMessageKey, [
+        ...existingInsertions,
+        workItem,
+      ]);
       continue;
     }
 
@@ -353,6 +378,11 @@ export function buildChatThreadItems(
 
   const finalItems: ChatThreadItem[] = [];
   for (const item of items) {
+    const beforeInsertions = workItemInsertionsBeforeMessageKey.get(item.key);
+    if (beforeInsertions != null) {
+      finalItems.push(...beforeInsertions);
+    }
+
     finalItems.push(item);
     const insertions = workItemInsertionsAfterMessageKey.get(item.key);
     if (insertions != null) {
