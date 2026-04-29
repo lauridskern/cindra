@@ -1062,6 +1062,7 @@ dependencies = [
  "tonic",
  "ts-rs",
  "url",
+ "urlencoding",
  "uuid",
 ]
 
