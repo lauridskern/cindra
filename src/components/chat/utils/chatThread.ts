@@ -1,4 +1,8 @@
 import type {
+  SessionToast,
+  ToastLevel,
+} from "@/app/types/sessionStore";
+import type {
   TranscriptMessage,
 } from "@/services/desktop/types/contracts";
 
@@ -21,6 +25,7 @@ export function buildChatThreadItems(
   messages: TranscriptMessage[],
   activeRequestIds: string[],
 ): ChatThreadItem[] {
+  const visibleMessages = messages.filter((message) => !isTransientStatus(message));
   const items: ChatThreadItem[] = [];
   const activeRequestIdSet = new Set(activeRequestIds);
   const pendingActivitiesByScopeId = new Map<string, ActivityItem[]>();
@@ -161,7 +166,7 @@ export function buildChatThreadItems(
     return currentGroup;
   };
 
-  for (const message of messages) {
+  for (const message of visibleMessages) {
     switch (message.kind) {
       case "user":
       case "context_compacted": {
@@ -403,6 +408,48 @@ function isDecorativeToolStatus(
       message.title.startsWith("Execute [") ||
       message.title.startsWith("Search for '"))
   );
+}
+
+function isTransientStatus(message: TranscriptMessage): boolean {
+  return (
+    message.kind === "status" &&
+    message.category === "warning" &&
+    message.title === "Connection issue, retrying automatically"
+  );
+}
+
+export function extractSessionToasts(messages: TranscriptMessage[]): SessionToast[] {
+  const toastsByKey = new Map<string, SessionToast>();
+
+  for (const message of messages) {
+    if (!isTransientStatus(message)) {
+      continue;
+    }
+
+    toastsByKey.set(message.requestId, {
+      id: message.id,
+      level: getToastLevel(message),
+      title: message.title,
+      detail: message.subtitle,
+    });
+  }
+
+  return Array.from(toastsByKey.values());
+}
+
+function getToastLevel(message: TranscriptMessage): ToastLevel {
+  if (message.kind !== "status") {
+    return "info";
+  }
+
+  switch (message.category) {
+    case "error":
+      return "error";
+    case "warning":
+      return "warning";
+    default:
+      return "info";
+  }
 }
 
 function findOperationForOutput(

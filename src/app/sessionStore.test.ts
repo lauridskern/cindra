@@ -65,6 +65,7 @@ function createSnapshot(
       },
     ],
     savedWorkspaces: [{ id: "saved-1", name: "Workspace", updatedAt: 1n }],
+    sessionToasts: [],
     uiError: null,
     visibleActiveRequestIds: [],
     visibleFollowup: null,
@@ -161,6 +162,36 @@ describe("sessionStore", () => {
     expect((completedTiming?.completedAtMs ?? 0) >= startedTiming!.startedAtMs).toBe(
       true,
     );
+  });
+
+  test("applySessionSnapshot derives transient retry status toasts", () => {
+    sessionStore.getState().applySessionSnapshot(
+      createSnapshot({
+        visibleMessages: [
+          {
+            kind: "status",
+            id: "status-retry-1",
+            requestId: "req-1",
+            title: "Connection issue, retrying automatically",
+            subtitle: "Temporary network failure",
+            category: "warning",
+          },
+        ],
+      }),
+    );
+
+    expect(sessionStore.getState().sessionToasts).toEqual([
+      {
+        id: "status-retry-1",
+        level: "warning",
+        title: "Connection issue, retrying automatically",
+        detail: "Temporary network failure",
+      },
+    ]);
+
+    sessionStore.getState().dismissSessionToast("status-retry-1");
+
+    expect(sessionStore.getState().sessionToasts).toEqual([]);
   });
 
   test("applySessionSnapshot preserves saved workspace selection", () => {

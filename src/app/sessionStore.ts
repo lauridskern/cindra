@@ -1,6 +1,7 @@
 import { createStore } from "zustand/vanilla";
 
 import * as desktopClient from "../services/desktop/client";
+import { extractSessionToasts } from "../components/chat/utils/chatThread";
 import type {
   ChatBinding,
   ConversationSessionSummary,
@@ -318,11 +319,13 @@ function createSessionStoreState(set: SessionStoreSetter): SessionStoreState {
     activeWorkspacePath: null,
     conversationSummariesByKey: {},
     conversationViewsByKey: {},
+    dismissedSessionToastIds: {},
     isBootstrapped: false,
     isOpeningProject: false,
     promptDraftsByKey: {},
     requestTimingsByConversationId: {},
     savedWorkspaces: [],
+    sessionToasts: [],
     selection: { kind: "empty" },
     uiError: null,
     workspaceMetaByKey: {},
@@ -387,6 +390,8 @@ function createSessionStoreState(set: SessionStoreSetter): SessionStoreState {
           ] = view;
         }
 
+        const toastMessages = nextViews.flatMap((view) => view.messages);
+
         return {
           activeConversationId: snapshot.activeConversationId,
           activeWorkspacePath: snapshot.activeWorkspacePath,
@@ -396,6 +401,9 @@ function createSessionStoreState(set: SessionStoreSetter): SessionStoreState {
           conversationViewsByKey: nextConversationViewsByKey,
           requestTimingsByConversationId: nextRequestTimingsByConversationId,
           savedWorkspaces: snapshot.savedWorkspaces,
+          sessionToasts: extractSessionToasts(toastMessages).filter(
+            (toast) => current.dismissedSessionToastIds[toast.id] !== true,
+          ),
           selection: (() => {
             if (current.selection.kind === "demo-chat") {
               return current.selection;
@@ -425,6 +433,15 @@ function createSessionStoreState(set: SessionStoreSetter): SessionStoreState {
           workspacesByPath: buildWorkspacesByPath(snapshot.workspaces),
         };
       });
+    },
+    dismissSessionToast: (id) => {
+      set((current) => ({
+        dismissedSessionToastIds: {
+          ...current.dismissedSessionToastIds,
+          [id]: true,
+        },
+        sessionToasts: current.sessionToasts.filter((toast) => toast.id !== id),
+      }));
     },
     clearPromptDraft: (key) => {
       if (key == null) {
