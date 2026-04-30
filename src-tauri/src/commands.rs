@@ -103,6 +103,11 @@ pub(crate) async fn update_forge_config_file(
 }
 
 #[tauri::command]
+pub(crate) async fn reset_forge_config_file() -> Result<ForgeConfigFileDto, String> {
+    reset_forge_config_file_to_defaults().map_err(map_command_error)
+}
+
+#[tauri::command]
 pub(crate) async fn list_providers(
     workspace_path: Option<String>,
     state: tauri::State<'_, DesktopState>,
@@ -539,6 +544,18 @@ fn read_forge_config_file() -> anyhow::Result<ForgeConfigFileDto> {
 
 fn render_resolved_forge_config() -> anyhow::Result<String> {
     let config = forge_config::ForgeConfig::read().context("Failed to read Forge config")?;
+    render_forge_config(config)
+}
+
+fn render_default_forge_config() -> anyhow::Result<String> {
+    let config = forge_config::ConfigReader::default()
+        .read_defaults()
+        .build()
+        .context("Failed to read default Forge config")?;
+    render_forge_config(config)
+}
+
+fn render_forge_config(config: forge_config::ForgeConfig) -> anyhow::Result<String> {
     let temp_path =
         std::env::temp_dir().join(format!("cindra-forge-config-{}.toml", uuid::Uuid::new_v4()));
 
@@ -550,6 +567,10 @@ fn render_resolved_forge_config() -> anyhow::Result<String> {
     let _ = fs::remove_file(temp_path);
 
     Ok(contents)
+}
+
+fn reset_forge_config_file_to_defaults() -> anyhow::Result<ForgeConfigFileDto> {
+    write_forge_config_file(render_default_forge_config()?)
 }
 
 fn write_forge_config_file(contents: String) -> anyhow::Result<ForgeConfigFileDto> {

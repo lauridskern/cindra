@@ -26,9 +26,10 @@ use commands::{
     get_saved_workspace, get_session_snapshot, handoff_chat, list_providers, open_external_url,
     open_in_target, open_path_in_target, open_workspace, pick_directory, pick_workspace,
     push_git_branch, quick_start_project, remove_provider, rename_saved_workspace,
-    rename_workspace, respond_followup, save_conversation_layout, select_conversation, send_prompt,
-    start_new_chat, start_provider_auth, stop_prompt, terminal_close, terminal_open,
-    terminal_resize, terminal_write, update_forge_config_file, update_prompt_settings,
+    rename_workspace, reset_forge_config_file, respond_followup, save_conversation_layout,
+    select_conversation, send_prompt, start_new_chat, start_provider_auth, stop_prompt,
+    terminal_close, terminal_open, terminal_resize, terminal_write, update_forge_config_file,
+    update_prompt_settings,
     update_saved_workspace_layout,
 };
 use persistence::project_store::ProjectStore;
@@ -80,6 +81,7 @@ pub fn run() {
             get_prompt_settings,
             get_forge_config_file,
             update_forge_config_file,
+            reset_forge_config_file,
             list_providers,
             select_conversation,
             ensure_conversation_view,

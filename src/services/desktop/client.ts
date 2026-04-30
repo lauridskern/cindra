@@ -12,6 +12,7 @@ import type {
   ForgeConfigFile,
   HandoffChatInput,
   ChatBinding,
+  CheckoutGitBranchInput,
   CloneRepositoryInput,
   CompleteProviderAuthInput,
   CommitGitChangesInput,
@@ -99,6 +100,10 @@ export function updateForgeConfigFile(
   input: UpdateForgeConfigInput,
 ): Promise<ForgeConfigFile> {
   return invokeCommand("update_forge_config_file", { input });
+}
+
+export function resetForgeConfigFile(): Promise<ForgeConfigFile> {
+  return invokeCommand("reset_forge_config_file");
 }
 
 export function listProviders(
