@@ -13,6 +13,7 @@ import type {
 import type { WorkspaceBoardSelection } from "./types/sessionContext";
 import type {
   PromptDraftEntry,
+  QueuedPromptEntry,
   SessionStoreSetter,
   SessionStoreState,
   WorkspaceMetaState,
@@ -156,6 +157,51 @@ function movePromptDraftEntry(
   };
   delete nextDrafts[fromKey];
   return nextDrafts;
+}
+
+function writePromptQueueEntry(
+  queues: Record<string, QueuedPromptEntry[]>,
+  key: string,
+  entries: QueuedPromptEntry[],
+): Record<string, QueuedPromptEntry[]> {
+  if (entries.length === 0) {
+    if (queues[key] == null) {
+      return queues;
+    }
+
+    const nextQueues = { ...queues };
+    delete nextQueues[key];
+    return nextQueues;
+  }
+
+  return {
+    ...queues,
+    [key]: entries,
+  };
+}
+
+function movePromptQueueEntry(
+  queues: Record<string, QueuedPromptEntry[]>,
+  fromKey: string | null,
+  toKey: string | null,
+): Record<string, QueuedPromptEntry[]> {
+  if (fromKey == null || toKey == null || fromKey === toKey) {
+    return queues;
+  }
+
+  const queuedEntries = queues[fromKey];
+  if (queuedEntries == null || queuedEntries.length === 0) {
+    return queues;
+  }
+
+  const nextQueues = writePromptQueueEntry(queues, toKey, queuedEntries);
+  if (nextQueues === queues) {
+    return queues;
+  }
+
+  const result = { ...nextQueues };
+  delete result[fromKey];
+  return result;
 }
 
 export function getSelectionFromSnapshot(
@@ -321,6 +367,7 @@ function createSessionStoreState(set: SessionStoreSetter): SessionStoreState {
     isBootstrapped: false,
     isOpeningProject: false,
     promptDraftsByKey: {},
+    promptQueuesByKey: {},
     requestTimingsByConversationId: {},
     savedWorkspaces: [],
     selection: { kind: "empty" },
@@ -439,12 +486,50 @@ function createSessionStoreState(set: SessionStoreSetter): SessionStoreState {
         ),
       }));
     },
+    enqueuePrompt: (key, entry) => {
+      if (key == null) {
+        return;
+      }
+
+      const value = entry.value.trim();
+      if (value.length === 0) {
+        return;
+      }
+
+      set((current) => ({
+        promptQueuesByKey: writePromptQueueEntry(current.promptQueuesByKey, key, [
+          ...(current.promptQueuesByKey[key] ?? []),
+          {
+            isPlanningMode: entry.isPlanningMode,
+            value,
+          },
+        ]),
+      }));
+    },
     movePromptDraft: (fromKey, toKey) => {
       set((current) => ({
         promptDraftsByKey: movePromptDraftEntry(
           current.promptDraftsByKey,
           fromKey,
           toKey,
+        ),
+        promptQueuesByKey: movePromptQueueEntry(
+          current.promptQueuesByKey,
+          fromKey,
+          toKey,
+        ),
+      }));
+    },
+    shiftQueuedPrompt: (key) => {
+      if (key == null) {
+        return;
+      }
+
+      set((current) => ({
+        promptQueuesByKey: writePromptQueueEntry(
+          current.promptQueuesByKey,
+          key,
+          (current.promptQueuesByKey[key] ?? []).slice(1),
         ),
       }));
     },

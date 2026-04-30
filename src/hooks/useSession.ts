@@ -26,6 +26,9 @@ import type { ChatBinding } from "../services/desktop/types/contracts";
 
 const EMPTY_REQUEST_TIMINGS = {};
 const EMPTY_STRING_ARRAY: string[] = [];
+const EMPTY_QUEUED_PROMPTS: Array<
+  import("../app/types/sessionStore").QueuedPromptEntry
+> = [];
 const EMPTY_MESSAGES: Array<
   import("../services/desktop/types/contracts").TranscriptMessage
 > = [];
@@ -276,6 +279,10 @@ export function usePromptDraft(binding?: ChatBinding | null) {
         scopedPromptDraftKey == null
           ? null
           : (state.promptDraftsByKey[scopedPromptDraftKey] ?? null);
+      const queuedPrompts =
+        scopedPromptDraftKey == null
+          ? EMPTY_QUEUED_PROMPTS
+          : (state.promptQueuesByKey[scopedPromptDraftKey] ?? EMPTY_QUEUED_PROMPTS);
       const currentWorkspace = getScopedWorkspace(state, binding);
       const currentView = getScopedConversationView(state, binding);
       const followupRequest = currentView?.followup ?? null;
@@ -283,21 +290,19 @@ export function usePromptDraft(binding?: ChatBinding | null) {
         meta,
         currentWorkspace,
       );
-      const isConversationRunning =
-        getScopedConversationSummary(state, binding)?.isRunning ?? false;
 
       return {
         canCompose:
           currentWorkspacePath != null &&
           activeWorkspaceConfigured &&
           followupRequest == null &&
-          (draftEntry?.isPending ?? false) === false &&
-          !isConversationRunning,
+          (draftEntry?.isPending ?? false) === false,
         followupRequest,
         isPlanningMode: draftEntry?.isPlanningMode ?? false,
         isSendingPrompt: draftEntry?.isPending ?? false,
         promptDraft: draftEntry?.value ?? "",
         promptSettings: meta.promptSettings,
+        queuedPromptCount: queuedPrompts.length,
       };
     }),
   );

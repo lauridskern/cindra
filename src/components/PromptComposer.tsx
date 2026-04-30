@@ -16,6 +16,7 @@ export function PromptComposer({ binding }: PromptComposerProps) {
     isSendingPrompt,
     promptSettings,
     promptDraft,
+    queuedPromptCount,
     setPlanningMode,
     setPromptDraft,
     stopPrompt,
@@ -52,6 +53,7 @@ export function PromptComposer({ binding }: PromptComposerProps) {
             isPlanningMode={isPlanningMode}
             promptSettings={promptSettings}
             promptDraft={promptDraft}
+            queuedPromptCount={queuedPromptCount}
             isInputDisabled={requiresProviderSetup}
             setPlanningMode={setPlanningMode}
             setPromptDraft={setPromptDraft}

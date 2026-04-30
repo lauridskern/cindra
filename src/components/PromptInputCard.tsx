@@ -39,6 +39,7 @@ export function PromptInputCard({
   isPlanningMode,
   placeholder = "Ask about this workspace…",
   promptSettings,
+  queuedPromptCount,
   promptDraft,
   isInputDisabled = false,
   setPlanningMode,
@@ -48,8 +49,6 @@ export function PromptInputCard({
   updatePromptSettings,
 }: PromptInputCardProps) {
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
-  const isControlDisabled =
-    isSendingPrompt || isRequestActive || !canCompose || isInputDisabled;
   const isWorking = isRequestActive;
   const isSubmitDisabled =
     !canCompose ||
@@ -111,6 +110,13 @@ export function PromptInputCard({
           <CardDescription>Ask about the current workspace.</CardDescription>
         </CardHeader>
         <CardContent className="relative z-10 p-0">
+          {queuedPromptCount > 0 ? (
+            <div className="mx-1 mb-2 rounded-lg border border-border/70 bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
+              {queuedPromptCount === 1
+                ? "1 message queued. It will send when the current response finishes."
+                : `${queuedPromptCount} messages queued. They will send in order when the current response finishes.`}
+            </div>
+          ) : null}
           <Textarea
             ref={textareaRef}
             id="prompt"
@@ -127,7 +133,7 @@ export function PromptInputCard({
                 handleSubmit();
               }
             }}
-            disabled={isControlDisabled}
+            disabled={isInputDisabled || !canCompose || isSendingPrompt}
             rows={3}
           />
         </CardContent>
@@ -144,7 +150,7 @@ export function PromptInputCard({
                     variant="outline"
                     size="sm"
                     className="text-muted-foreground hover:bg-transparent hover:text-foreground"
-                    disabled={isControlDisabled || !hasAvailableModels}
+                    disabled={isInputDisabled || isSendingPrompt || !hasAvailableModels}
                   />
                 }
               >
@@ -208,7 +214,9 @@ export function PromptInputCard({
                     size="sm"
                     className="text-muted-foreground hover:bg-transparent hover:text-foreground"
                     disabled={
-                      isControlDisabled || selectedReasoningEfforts.length === 0
+                      isInputDisabled ||
+                      isSendingPrompt ||
+                      selectedReasoningEfforts.length === 0
                     }
                   />
                 }
@@ -246,7 +254,7 @@ export function PromptInputCard({
                 isPlanningMode &&
                   "border-yellow-500/60 bg-yellow-500/10 text-foreground hover:bg-yellow-500/15",
               )}
-              disabled={isControlDisabled}
+              disabled={isInputDisabled || isSendingPrompt}
               onClick={handlePlanningModeToggle}
             >
               <MapIcon data-icon="inline-start" />

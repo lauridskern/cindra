@@ -43,6 +43,7 @@ export interface SessionActionsContextValue {
   }) => Promise<void>;
   stopPrompt: () => Promise<void>;
   submitPrompt: () => Promise<void>;
+  processQueuedPrompt: () => Promise<void>;
   submitFollowup: (input: {
     cancelled: boolean;
     text?: string;

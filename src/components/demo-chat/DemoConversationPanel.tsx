@@ -458,6 +458,7 @@ export function DemoConversationPanel() {
             isPlanningMode={isPlanningMode}
             promptSettings={resolvedPromptSettings}
             promptDraft={promptDraft}
+            queuedPromptCount={0}
             setPlanningMode={setPlanningMode}
             setPromptDraft={setPromptDraft}
             stopPrompt={handlePromptStop}

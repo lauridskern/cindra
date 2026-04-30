@@ -21,6 +21,11 @@ export interface PromptDraftEntry {
   value: string;
 }
 
+export interface QueuedPromptEntry {
+  isPlanningMode: boolean;
+  value: string;
+}
+
 export interface WorkspaceMetaState {
   promptSettings: PromptSettings | null;
   promptSettingsLoaded: boolean;
@@ -36,6 +41,7 @@ export interface SessionStoreState {
   isBootstrapped: boolean;
   isOpeningProject: boolean;
   promptDraftsByKey: Record<string, PromptDraftEntry>;
+  promptQueuesByKey: Record<string, QueuedPromptEntry[]>;
   requestTimingsByConversationId: Record<
     string,
     Record<string, RequestTimingInfo>
@@ -48,7 +54,9 @@ export interface SessionStoreState {
   workspacesByPath: Record<string, WorkspaceSession>;
   applySessionSnapshot: (snapshot: SessionSnapshot) => void;
   clearPromptDraft: (key: string | null) => void;
+  enqueuePrompt: (key: string | null, entry: QueuedPromptEntry) => void;
   movePromptDraft: (fromKey: string | null, toKey: string | null) => void;
+  shiftQueuedPrompt: (key: string | null) => void;
   setBoardSelection: (selection: WorkspaceBoardSelection) => void;
   setIsBootstrapped: (value: boolean) => void;
   setIsOpeningProject: (value: boolean) => void;
