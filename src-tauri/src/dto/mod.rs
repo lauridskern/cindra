@@ -11,13 +11,13 @@ pub use chat::{ChatEventDto, ChatEventKind, StatusCategoryDto, map_chat_response
 pub use followup::{FollowupKind, FollowupOptionDto, FollowupRequestDto, FollowupResponseDto};
 pub use runtime::{
     ChatHandoffTargetDto, CheckoutGitBranchInput, CloneRepositoryInput, CommitGitChangesInput,
-    CompleteProviderAuthInput, CreateGitBranchInput, CreateSavedWorkspaceInput,
+    CompleteProviderAuthInput, CreateGitBranchInput, CreateSavedWorkspaceInput, ForgeConfigFileDto,
     GitWorkspaceKindDto, HandoffChatInput, PromptModelOptionDto, PromptSettingsDto,
     ProviderAuthMethodDto, ProviderAuthMethodKindDto, ProviderAuthSessionDto,
     ProviderAuthSessionKindDto, ProviderOAuthCallbackDto, ProviderSummaryDto, ProviderUrlParamDto,
     ProviderUrlParamValueDto, QuickStartProjectInput, QuickStartVisibility, RemoveProviderInput,
     RuntimeStatusDto, SaveConversationLayoutInput, SendPromptInput, StartProviderAuthInput,
-    UpdatePromptSettingsInput, UpdateSavedWorkspaceLayoutInput,
+    UpdateForgeConfigInput, UpdatePromptSettingsInput, UpdateSavedWorkspaceLayoutInput,
 };
 pub(crate) use runtime::{GitWorkspaceDetails, read_git_workspace_details};
 pub use session::{

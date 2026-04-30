@@ -9,8 +9,8 @@ import {
   PROVIDER_OAUTH_CALLBACK_EVENT_NAME,
 } from "./constants/events";
 import type {
+  ForgeConfigFile,
   HandoffChatInput,
-  CheckoutGitBranchInput,
   ChatBinding,
   CloneRepositoryInput,
   CompleteProviderAuthInput,
@@ -39,6 +39,7 @@ import type {
   TerminalWriteInput,
   UpdateSavedWorkspaceLayoutInput,
   StartProviderAuthInput,
+  UpdateForgeConfigInput,
   UpdatePromptSettingsInput,
 } from "./types/contracts";
 
@@ -88,6 +89,16 @@ export function getPromptSettings(
   return invokeCommand("get_prompt_settings", {
     workspacePath: workspacePath ?? null,
   });
+}
+
+export function getForgeConfigFile(): Promise<ForgeConfigFile> {
+  return invokeCommand("get_forge_config_file");
+}
+
+export function updateForgeConfigFile(
+  input: UpdateForgeConfigInput,
+): Promise<ForgeConfigFile> {
+  return invokeCommand("update_forge_config_file", { input });
 }
 
 export function listProviders(

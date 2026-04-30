@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-export type SettingsSection = "general" | "providers";
+export type SettingsSection = "general" | "providers" | "config";
 
 export interface AppSidebarControlProps {
   isSidebarVisible: boolean;

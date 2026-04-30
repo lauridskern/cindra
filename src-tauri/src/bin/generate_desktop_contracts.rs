@@ -5,7 +5,7 @@ use agent_ui_lib::dto::{
     ChatBindingDto, ChatHandoffTargetDto, CheckoutGitBranchInput, CloneRepositoryInput,
     CommitGitChangesInput, CompleteProviderAuthInput, ConversationSessionSummaryDto,
     ConversationViewSnapshotDto, CreateGitBranchInput, CreateSavedWorkspaceInput, FileOperationDto,
-    FollowupKind, FollowupOptionDto, FollowupRequestDto, FollowupResponseDto,
+    FollowupKind, FollowupOptionDto, FollowupRequestDto, FollowupResponseDto, ForgeConfigFileDto,
     GitWorkspaceKindDto, HandoffChatInput, OutputPreviewDto, PromptModelOptionDto,
     PromptSettingsDto, ProviderAuthMethodDto, ProviderAuthMethodKindDto, ProviderAuthSessionDto,
     ProviderAuthSessionKindDto, ProviderOAuthCallbackDto, ProviderSummaryDto, ProviderUrlParamDto,
@@ -15,7 +15,7 @@ use agent_ui_lib::dto::{
     SessionTodoDto, SessionTodoStatusDto, StartProviderAuthInput, StatusCategoryDto,
     TerminalCloseInput, TerminalErrorEventDto, TerminalExitEventDto, TerminalOpenInput,
     TerminalOutputEventDto, TerminalResizeInput, TerminalSessionDto, TerminalWriteInput,
-    ToolCallDetailDto, ToolResultDetailDto, UpdatePromptSettingsInput,
+    ToolCallDetailDto, ToolResultDetailDto, UpdateForgeConfigInput, UpdatePromptSettingsInput,
     UpdateSavedWorkspaceLayoutInput, WorkspaceKindDto, WorkspaceSessionDto,
 };
 use anyhow::Context;
@@ -58,6 +58,8 @@ fn main() -> anyhow::Result<()> {
         export_decl::<ProviderAuthSessionKindDto>(&config),
         export_decl::<ProviderAuthSessionDto>(&config),
         export_decl::<ProviderOAuthCallbackDto>(&config),
+        export_decl::<ForgeConfigFileDto>(&config),
+        export_decl::<UpdateForgeConfigInput>(&config),
         export_decl::<StartProviderAuthInput>(&config),
         export_decl::<CompleteProviderAuthInput>(&config),
         export_decl::<RemoveProviderInput>(&config),
