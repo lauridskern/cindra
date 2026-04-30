@@ -1,4 +1,5 @@
 mod actions;
+mod changed_files;
 mod conversation;
 mod errors;
 mod factory;

@@ -3,6 +3,7 @@ import {
   CHAT_BODY_TEXT_CLASS,
   CHAT_BODY_TONE_CLASS,
 } from "../constants/chatStyles";
+import { ChatMarkdown } from "../ChatMarkdown";
 import { ChatInlineText } from "../ChatInlineText";
 import type {
   ChatStatusEventRowProps,
@@ -52,10 +53,8 @@ function StatusRow({
 
 function StatusOutputRow({ text }: StatusOutputRowProps) {
   return (
-    <article className={`max-w-3xl min-w-0 select-text overflow-x-auto ${CHAT_BODY_TEXT_CLASS} text-neutral-950 dark:text-neutral-400`}>
-      <pre className="m-0 max-w-full overflow-x-auto whitespace-pre font-mono leading-6">
-        {text}
-      </pre>
+    <article className={`max-w-3xl min-w-0 select-text ${CHAT_BODY_TEXT_CLASS} text-neutral-950 dark:text-neutral-400`}>
+      <ChatMarkdown text={text} />
     </article>
   );
 }

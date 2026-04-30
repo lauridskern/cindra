@@ -1,16 +1,17 @@
+use std::path::Path;
+
 use forge_app::ForgeApp;
 use forge_domain::{AgentId, ChatRequest, ChatResponse, ConversationId, Event};
 use futures::StreamExt;
 use tokio::sync::oneshot;
 
-use crate::bridge::followup::{FollowupContext, with_followup_context};
-use crate::dto::{
-    ChatEventKind, SessionMessageDto, StatusCategoryDto, ToolCallDetailDto, ToolResultDetailDto,
-};
-
 use super::{
     ConversationSessionState, ForgeRuntime, RuntimeManager, apply_todo_result,
     derive_conversation_title_from_messages, format_error_chain,
+};
+use crate::bridge::followup::{FollowupContext, with_followup_context};
+use crate::dto::{
+    ChatEventKind, SessionMessageDto, StatusCategoryDto, ToolCallDetailDto, ToolResultDetailDto,
 };
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -57,6 +58,9 @@ impl RuntimeManager {
             .map(AgentId::new)
             .unwrap_or_default();
 
+        let before_change_snapshot =
+            super::changed_files::GitChangeSnapshot::capture(Path::new(&workspace_path));
+
         let stream = match with_followup_context(context, async {
             ForgeApp::new(runtime.services.clone())
                 .chat(
@@ -73,7 +77,13 @@ impl RuntimeManager {
                 self.record_stream_error(&conversation_id, &request_id, format_error_chain(&error))
                     .await;
                 let _ = self
-                    .finish_request(&workspace_path, &conversation_id, &request_id, false)
+                    .finish_request(
+                        &workspace_path,
+                        &conversation_id,
+                        &request_id,
+                        false,
+                        &before_change_snapshot,
+                    )
                     .await;
                 return;
             }
@@ -94,7 +104,13 @@ impl RuntimeManager {
                     )
                     .await;
                     let _ = self
-                        .finish_request(&workspace_path, &conversation_id, &request_id, false)
+                        .finish_request(
+                            &workspace_path,
+                            &conversation_id,
+                            &request_id,
+                            false,
+                            &before_change_snapshot,
+                        )
                         .await;
                     return;
                 }
@@ -166,7 +182,13 @@ impl RuntimeManager {
                     .await;
                     let _ = self.emit_session_snapshot().await;
                     let _ = self
-                        .finish_request(&workspace_path, &conversation_id, &request_id, false)
+                        .finish_request(
+                            &workspace_path,
+                            &conversation_id,
+                            &request_id,
+                            false,
+                            &before_change_snapshot,
+                        )
                         .await;
                     self.take_stop_request_sender(&request_id).await;
                     return;
@@ -187,14 +209,26 @@ impl RuntimeManager {
                 .await;
                 let _ = self.emit_session_snapshot().await;
             }
-            self.finish_request(&workspace_path, &conversation_id, &request_id, false)
-                .await
-                .ok();
+            self.finish_request(
+                &workspace_path,
+                &conversation_id,
+                &request_id,
+                false,
+                &before_change_snapshot,
+            )
+            .await
+            .ok();
             return;
         }
 
         let _ = self
-            .finish_request(&workspace_path, &conversation_id, &request_id, true)
+            .finish_request(
+                &workspace_path,
+                &conversation_id,
+                &request_id,
+                true,
+                &before_change_snapshot,
+            )
             .await;
     }
 
@@ -380,10 +414,12 @@ impl RuntimeManager {
         conversation_id: &str,
         request_id: &str,
         reload_from_persistence: bool,
+        before_change_snapshot: &super::changed_files::GitChangeSnapshot,
     ) -> anyhow::Result<()> {
         {
             let mut state = self.state.lock().await;
             if let Some(conversation) = state.conversations.get_mut(conversation_id) {
+                conversation.append_changed_files_summary(request_id, before_change_snapshot);
                 clear_request_tracking(conversation, request_id);
             }
         }
