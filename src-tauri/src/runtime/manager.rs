@@ -1027,7 +1027,7 @@ impl RuntimeManager {
             &workspace_name,
             &input.layout_json,
         )?;
-        let snapshot = self.snapshot().await?;
+        let snapshot = self.snapshot_with_next_revision().await?;
         self.emit_snapshot(snapshot)?;
 
         Ok(crate::dto::SavedWorkspaceDetailDto {
@@ -1045,7 +1045,7 @@ impl RuntimeManager {
         let record = self
             .projects
             .update_saved_workspace_layout(&input.workspace_id, &input.layout_json)?;
-        let snapshot = self.snapshot().await?;
+        let snapshot = self.snapshot_with_next_revision().await?;
         self.emit_snapshot(snapshot)?;
 
         Ok(crate::dto::SavedWorkspaceDetailDto {
@@ -1116,7 +1116,7 @@ impl RuntimeManager {
     }
 
     pub(super) async fn emit_session_snapshot(&self) -> anyhow::Result<()> {
-        let snapshot = self.snapshot().await?;
+        let snapshot = self.snapshot_with_next_revision().await?;
         self.emit_snapshot(snapshot)
     }
 
@@ -1142,7 +1142,7 @@ impl RuntimeManager {
             let mut state = self.state.lock().await;
             state.ui_error = Some(message.to_string());
         }
-        let snapshot = self.snapshot().await?;
+        let snapshot = self.snapshot_with_next_revision().await?;
         self.emit_snapshot(snapshot)
     }
 
@@ -1154,7 +1154,7 @@ impl RuntimeManager {
             }
             state.ui_error = None;
         }
-        let snapshot = self.snapshot().await?;
+        let snapshot = self.snapshot_with_next_revision().await?;
         self.emit_snapshot(snapshot)
     }
 
@@ -1256,9 +1256,17 @@ impl RuntimeManager {
     }
 
     async fn emit_current_snapshot(&self) -> anyhow::Result<SessionSnapshotDto> {
-        let snapshot = self.snapshot().await?;
+        let snapshot = self.snapshot_with_next_revision().await?;
         self.emit_snapshot(snapshot.clone())?;
         Ok(snapshot)
+    }
+
+    pub(super) async fn snapshot_with_next_revision(&self) -> anyhow::Result<SessionSnapshotDto> {
+        self.ensure_known_workspaces_loaded().await?;
+        let mut state = self.state.lock().await;
+        state.advance_snapshot_revision();
+        let saved_workspaces = self.projects.list_saved_workspaces()?;
+        Ok(build_snapshot(&state, &saved_workspaces))
     }
 
     async fn refresh_cached_runtime_config(&self, workspace_path: &str) {

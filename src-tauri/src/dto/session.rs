@@ -170,6 +170,7 @@ pub struct SavedWorkspaceDetailDto {
 #[serde(rename_all = "camelCase")]
 #[ts(rename = "SessionSnapshot")]
 pub struct SessionSnapshotDto {
+    pub snapshot_revision: u64,
     pub active_workspace_path: Option<String>,
     pub active_conversation_id: Option<String>,
     pub visible_messages: Vec<SessionMessageDto>,

@@ -42,6 +42,7 @@ export interface SessionStoreState {
   >;
   savedWorkspaces: SavedWorkspaceSummary[];
   selection: WorkspaceBoardSelection;
+  snapshotRevision: bigint;
   uiError: string | null;
   workspaceMetaByKey: Record<string, WorkspaceMetaState>;
   workspaces: WorkspaceSession[];
