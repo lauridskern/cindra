@@ -432,6 +432,14 @@ const successMessages: SessionMessage[] = [
       "- Dev controls for todo states and composer variants",
     ].join("\n"),
   ),
+  statusOutput(
+    "demo-changed-files-summary-1",
+    DEMO_REQUEST_SUCCESS_ID,
+    [
+      "Changed 1 file:",
+      "- `src/components/demo-chat/DemoConversationPanel.tsx` +1 -1",
+    ].join("\n"),
+  ),
   status(
     "demo-status-completion-1",
     DEMO_REQUEST_SUCCESS_ID,
