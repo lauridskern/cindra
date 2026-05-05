@@ -79,6 +79,7 @@ export interface ChatMessageRowProps {
 export interface ChatMarkdownProps {
   text: string;
   className?: string;
+  preserveSoftBreaks?: boolean;
   workspacePath?: string | null;
 }
 

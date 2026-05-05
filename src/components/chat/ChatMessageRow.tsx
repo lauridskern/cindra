@@ -14,6 +14,10 @@ interface UserChatMessageProps extends TextOnlyMessageProps {
   workspacePath: string | null;
 }
 
+interface MarkdownChatMessageWithBreaksProps extends MarkdownChatMessageProps {
+  preserveSoftBreaks?: boolean;
+}
+
 function UserChatMessage({ text, workspacePath }: UserChatMessageProps) {
   return (
     <article className="flex w-full justify-end select-text">
@@ -30,13 +34,15 @@ function UserChatMessage({ text, workspacePath }: UserChatMessageProps) {
 function MarkdownChatMessage({
   text,
   toneClassName,
+  preserveSoftBreaks = false,
   workspacePath,
-}: MarkdownChatMessageProps) {
+}: MarkdownChatMessageWithBreaksProps) {
   return (
     <article className="max-w-3xl">
       <ChatMarkdown
         text={text}
         className={toneClassName}
+        preserveSoftBreaks={preserveSoftBreaks}
         workspacePath={workspacePath}
       />
     </article>
@@ -60,6 +66,7 @@ export function ChatMessageRow({ message, workspacePath }: ChatMessageRowProps) 
         <MarkdownChatMessage
           text={message.text}
           toneClassName={CHAT_REASONING_TONE_CLASS}
+          preserveSoftBreaks
           workspacePath={workspacePath}
         />
       );
