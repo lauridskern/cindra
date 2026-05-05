@@ -19,7 +19,6 @@ let renameWorkspaceCallCount = 0;
 let renameSavedWorkspaceCallCount = 0;
 let selectConversationCallCount = 0;
 let stopPromptCallCount = 0;
-let sendPromptCallCount = 0;
 let createManagedChatImpl: () => Promise<SessionSnapshot>;
 let handoffChatImpl: (
   input: import("../services/desktop/types/contracts").HandoffChatInput,
@@ -161,7 +160,6 @@ mock.module("../services/desktop/client", () => ({
   sendPrompt: async (
     input: import("../services/desktop/types/contracts").SendPromptInput,
   ) => {
-    sendPromptCallCount += 1;
     return createSnapshot(input.workspacePath, input.conversationId ?? "chat-1");
   },
   stopPrompt: async (
@@ -189,7 +187,6 @@ describe("SessionProvider", () => {
     renameSavedWorkspaceCallCount = 0;
     selectConversationCallCount = 0;
     stopPromptCallCount = 0;
-    sendPromptCallCount = 0;
     lastStopPromptInput = null;
     createManagedChatImpl = async () =>
       createSnapshot("/workspace/managed-chat", "chat-1", {

@@ -3,6 +3,7 @@ import type {
   FollowupRequest,
   PromptSettings,
 } from "@/services/desktop/types/contracts";
+import type { QueuedPromptEntry } from "@/app/types/sessionStore";
 import type { WorkspacePromptSettingsUpdateInput } from "@/app/types/sessionClientActions";
 
 export interface FollowupSubmitInput {
@@ -30,8 +31,11 @@ export interface PromptInputCardProps {
   placeholder?: string;
   promptSettings: PromptSettings | null;
   promptDraft: string;
-  queuedPromptCount: number;
+  queuedPrompts: QueuedPromptEntry[];
   isInputDisabled?: boolean;
+  deleteQueuedPrompt: (id: string) => void;
+  editQueuedPrompt: (id: string) => void;
+  reorderQueuedPrompt: (sourceId: string, targetId: string | null) => void;
   setPlanningMode: (value: boolean) => void;
   setPromptDraft: (value: string) => void;
   stopPrompt: () => Promise<void>;

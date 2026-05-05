@@ -492,9 +492,7 @@ export function SessionProvider({ children }: SessionProviderProps) {
 
         await desktopClient.stopPrompt(activeBinding).catch(() => null);
       },
-      processQueuedPrompt: async () => {
-        return;
-      },
+      processQueuedPrompt: async () => {},
       submitPrompt: async () => {
         const workspacePath = getUiActiveWorkspacePath(sessionStore.getState());
         if (workspacePath == null) {

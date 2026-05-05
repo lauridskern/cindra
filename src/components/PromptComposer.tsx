@@ -10,13 +10,16 @@ import type { PromptComposerProps } from "./types/prompt";
 export function PromptComposer({ binding }: PromptComposerProps) {
   const {
     canCompose,
+    deleteQueuedPrompt,
+    editQueuedPrompt,
     followupRequest,
     isPlanningMode,
     isRequestActive,
     isSendingPrompt,
     promptSettings,
     promptDraft,
-    queuedPromptCount,
+    queuedPrompts,
+    reorderQueuedPrompt,
     setPlanningMode,
     setPromptDraft,
     stopPrompt,
@@ -53,8 +56,11 @@ export function PromptComposer({ binding }: PromptComposerProps) {
             isPlanningMode={isPlanningMode}
             promptSettings={promptSettings}
             promptDraft={promptDraft}
-            queuedPromptCount={queuedPromptCount}
+            queuedPrompts={queuedPrompts}
             isInputDisabled={requiresProviderSetup}
+            deleteQueuedPrompt={deleteQueuedPrompt}
+            editQueuedPrompt={editQueuedPrompt}
+            reorderQueuedPrompt={reorderQueuedPrompt}
             setPlanningMode={setPlanningMode}
             setPromptDraft={setPromptDraft}
             stopPrompt={stopPrompt}

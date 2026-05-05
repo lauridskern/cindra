@@ -51,14 +51,14 @@ function useRequiredContext<T>(
   return value;
 }
 
-function getScopedWorkspacePath(
+export function getScopedWorkspacePath(
   state: Pick<SessionStoreState, "activeWorkspacePath" | "selection">,
   binding: ChatBinding | null | undefined,
 ): string | null {
   return binding?.workspacePath ?? getUiActiveWorkspacePath(state);
 }
 
-function getScopedConversationId(
+export function getScopedConversationId(
   state: Pick<SessionStoreState, "activeConversationId" | "selection">,
   binding: ChatBinding | null | undefined,
 ): string | null {
@@ -302,6 +302,7 @@ export function usePromptDraft(binding?: ChatBinding | null) {
         isSendingPrompt: draftEntry?.isPending ?? false,
         promptDraft: draftEntry?.value ?? "",
         promptSettings: meta.promptSettings,
+        queuedPrompts,
         queuedPromptCount: queuedPrompts.length,
       };
     }),

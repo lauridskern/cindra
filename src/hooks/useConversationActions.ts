@@ -19,13 +19,14 @@ import { useSessionActions } from "./useSession";
 
 function isNextQueuedPrompt(
   promptDraftKey: string,
-  queuedInput: { isPlanningMode: boolean; prompt: string },
+  queuedInput: { id: string; isPlanningMode: boolean; prompt: string },
 ) {
   const nextQueuedPrompt = sessionStore.getState().promptQueuesByKey[
     promptDraftKey
   ]?.[0];
   return (
     nextQueuedPrompt != null &&
+    nextQueuedPrompt.id === queuedInput.id &&
     nextQueuedPrompt.isPlanningMode === queuedInput.isPlanningMode &&
     nextQueuedPrompt.value === queuedInput.prompt
   );
@@ -44,6 +45,7 @@ export function useConversationActions(binding?: ChatBinding | null) {
     const submitPromptFromDraft = async (
       queuedInput?: {
         fromQueue: true;
+        id: string;
         isPlanningMode: boolean;
         prompt: string;
       },
@@ -72,7 +74,8 @@ export function useConversationActions(binding?: ChatBinding | null) {
 
       if (
         isRunning ||
-        (queuedInput != null && !isNextQueuedPrompt(promptDraftKey, queuedInput))
+        (queuedInput != null &&
+          isNextQueuedPrompt(promptDraftKey, queuedInput) === false)
       ) {
         return;
       }
@@ -180,6 +183,7 @@ export function useConversationActions(binding?: ChatBinding | null) {
 
         await submitPromptFromDraft({
           fromQueue: true,
+          id: queuedPrompt.id,
           isPlanningMode: queuedPrompt.isPlanningMode,
           prompt: queuedPrompt.value,
         });

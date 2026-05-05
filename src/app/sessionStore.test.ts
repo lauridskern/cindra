@@ -272,6 +272,84 @@ describe("sessionStore", () => {
     expect(sessionStore.getState().promptDraftsByKey[destinationKey]).toBeUndefined();
   });
 
+  test("prompt queue entries can be reordered, deleted, and edited into the draft", () => {
+    const key = "/workspace/agent-ui::chat-1";
+
+    sessionStore
+      .getState()
+      .enqueuePrompt(key, { isPlanningMode: false, value: "first" });
+    sessionStore
+      .getState()
+      .enqueuePrompt(key, { isPlanningMode: true, value: "second" });
+    sessionStore
+      .getState()
+      .enqueuePrompt(key, { isPlanningMode: false, value: "third" });
+
+    const [first, second, third] = sessionStore.getState().promptQueuesByKey[key];
+    expect([first.value, second.value, third.value]).toEqual([
+      "first",
+      "second",
+      "third",
+    ]);
+
+    sessionStore.getState().reorderQueuedPrompt(key, third.id, first.id);
+    expect(
+      sessionStore.getState().promptQueuesByKey[key].map((entry) => entry.value),
+    ).toEqual(["third", "first", "second"]);
+
+    sessionStore.getState().deleteQueuedPrompt(key, second.id);
+    expect(
+      sessionStore.getState().promptQueuesByKey[key].map((entry) => entry.value),
+    ).toEqual(["third", "first"]);
+
+    sessionStore.getState().setPromptDraftValue(key, "replace me");
+    sessionStore.getState().editQueuedPrompt(key, third.id);
+
+    expect(getPromptDraftState(key)).toEqual({
+      editingQueuedPromptId: third.id,
+      isPending: false,
+      isPlanningMode: false,
+      value: "third",
+    });
+    expect(
+      sessionStore.getState().promptQueuesByKey[key].map((entry) => entry.value),
+    ).toEqual(["first"]);
+  });
+
+  test("editing another queued prompt restores the current queued edit", () => {
+    const key = "/workspace/agent-ui::chat-1";
+
+    sessionStore
+      .getState()
+      .enqueuePrompt(key, { isPlanningMode: false, value: "first" });
+    sessionStore
+      .getState()
+      .enqueuePrompt(key, { isPlanningMode: true, value: "second" });
+    sessionStore
+      .getState()
+      .enqueuePrompt(key, { isPlanningMode: false, value: "third" });
+
+    const [first, second, third] = sessionStore.getState().promptQueuesByKey[key];
+    sessionStore.getState().editQueuedPrompt(key, first.id);
+    sessionStore.getState().setPromptDraftValue(key, "edited first");
+    sessionStore.getState().editQueuedPrompt(key, second.id);
+
+    expect(getPromptDraftState(key)).toEqual({
+      editingQueuedPromptId: second.id,
+      isPending: false,
+      isPlanningMode: true,
+      value: "second",
+    });
+    expect(sessionStore.getState().promptQueuesByKey[key]).toEqual([
+      {
+        id: first.id,
+        isPlanningMode: false,
+        value: "edited first",
+      },
+      third,
+    ]);
+  });
+
   test("workspace meta loaders dedupe concurrent runtime requests and cache prompt settings", async () => {
     const pendingRuntimeStatus = deferred<RuntimeStatus | null>();
     runtimeStatusImpl = async () => pendingRuntimeStatus.promise;
