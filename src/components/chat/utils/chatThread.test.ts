@@ -19,6 +19,14 @@ function assistantMessage(
   return { kind: "assistant", id, requestId, text };
 }
 
+function statusOutputMessage(
+  id: string,
+  requestId: string,
+  text: string,
+): Extract<TranscriptMessage, { kind: "status_output" }> {
+  return { kind: "status_output", id, requestId, text };
+}
+
 function reasoningMessage(
   id: string,
   requestId: string,
@@ -297,5 +305,37 @@ describe("buildChatThreadItems", () => {
     expect(workItem).toBeDefined();
     expect(workItem?.failedStepCount).toBe(1);
     expect(workItem?.hasError).toBe(true);
+  });
+
+  test("keeps changed-files summaries as message rows after completed tool activity", () => {
+    const summary = "Changed 1 file:\n- `src/example.ts` +1 -1";
+    const items = buildChatThreadItems(
+      [
+        userMessage("user-1", "req-1", "change a file"),
+        toolStartMessage("tool-start-1", "req-1", "call-1", {
+          kind: "file_update",
+          path: "src/example.ts",
+          operation: "replace",
+        }),
+        toolEndMessage("tool-end-1", "req-1", "call-1", {
+          kind: "file_diff",
+          path: "src/example.ts",
+          patch: "diff --git a/src/example.ts b/src/example.ts",
+        }),
+        statusOutputMessage("changed-files-1", "req-1", summary),
+      ],
+      [],
+    );
+
+    expect(items.map((item) => item.kind)).toEqual([
+      "message",
+      "request_work",
+      "message",
+    ]);
+    expect(items[2]).toEqual({
+      kind: "message",
+      key: "changed-files-1",
+      message: statusOutputMessage("changed-files-1", "req-1", summary),
+    });
   });
 });

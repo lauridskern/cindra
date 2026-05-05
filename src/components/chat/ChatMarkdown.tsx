@@ -6,9 +6,11 @@ import remarkGfm from "remark-gfm";
 
 import { cn } from "@/utils/cn";
 import { CHAT_BODY_TEXT_CLASS } from "./constants/chatStyles";
-import { ChatInlineChildren, openFilePathFromChat, openUrlFromChat } from "./ChatInlineText";
+import { ChatInlineChildren } from "./ChatInlineText";
 import {
   isExternalHttpUrl,
+  openFilePathFromChat,
+  openUrlFromChat,
   resolveChatFilePathTarget,
   rewriteChatFileUriHref,
 } from "./utils/chatLinks";

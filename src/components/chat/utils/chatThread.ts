@@ -10,6 +10,7 @@ import type {
   ChatThreadItem,
   FlushActivityGroupOptions,
 } from "../types/chatThread";
+import { parseChangedFilesSummary } from "./changedFilesSummary";
 
 function shouldDisplayOperationInActivity(operation: ActivityOperation): boolean {
   return (
@@ -417,7 +418,11 @@ function findOperationForStatusOutput(
   group: ActivityGroupBuilder | null,
   message: Extract<TranscriptMessage, { kind: "status_output" }>,
 ): ActivityOperation | undefined {
-  if (group == null || group.requestId !== message.requestId) {
+  if (
+    group == null ||
+    group.requestId !== message.requestId ||
+    parseChangedFilesSummary(message.text) != null
+  ) {
     return undefined;
   }
 

@@ -3,14 +3,15 @@ import {
   CHAT_BODY_TEXT_CLASS,
   CHAT_BODY_TONE_CLASS,
 } from "../constants/chatStyles";
-import { ChatMarkdown } from "../ChatMarkdown";
 import { ChatInlineText } from "../ChatInlineText";
 import type {
   ChatStatusEventRowProps,
   StatusOutputRowProps,
   StatusRowProps,
 } from "../types/chatComponents";
+import { parseChangedFilesSummary } from "../utils/changedFilesSummary";
 import { getStatusToneClass } from "../utils/statusTone";
+import { ChangedFilesSummaryRow } from "./ChangedFilesSummaryRow";
 
 function StatusRow({
   category,
@@ -53,13 +54,18 @@ function StatusRow({
 
 function StatusOutputRow({ text }: StatusOutputRowProps) {
   return (
-    <article className={`max-w-3xl min-w-0 select-text ${CHAT_BODY_TEXT_CLASS} text-neutral-950 dark:text-neutral-400`}>
-      <ChatMarkdown text={text} />
+    <article className={`max-w-3xl min-w-0 select-text overflow-x-auto ${CHAT_BODY_TEXT_CLASS} text-neutral-950 dark:text-neutral-400`}>
+      <pre className="m-0 max-w-full overflow-x-auto whitespace-pre font-mono leading-6">
+        {text}
+      </pre>
     </article>
   );
 }
 
-export function ChatStatusEventRow({ message }: ChatStatusEventRowProps) {
+export function ChatStatusEventRow({
+  messages,
+  message,
+}: ChatStatusEventRowProps) {
   switch (message.kind) {
     case "status":
       return (
@@ -70,6 +76,18 @@ export function ChatStatusEventRow({ message }: ChatStatusEventRowProps) {
         />
       );
     case "status_output":
+      {
+        const changedFilesSummary = parseChangedFilesSummary(message.text);
+        if (changedFilesSummary != null) {
+          return (
+            <ChangedFilesSummaryRow
+              requestId={message.requestId}
+              messages={messages ?? []}
+              summary={changedFilesSummary}
+            />
+          );
+        }
+      }
       return <StatusOutputRow text={message.text} />;
     default:
       return null;

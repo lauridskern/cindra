@@ -25,9 +25,10 @@ export interface ActivityOperationRowProps {
 }
 
 export interface ActivityResultCardProps {
+  actions?: ReactNode;
   children: ReactNode;
   copyText?: string | null;
-  footer: {
+  footer?: {
     leading: ReactNode;
     trailing: ReactNode;
   };
@@ -60,6 +61,7 @@ export type ChatEventMessage = Extract<
 >;
 
 export interface ChatEventRowProps {
+  messages?: TranscriptMessage[];
   message: ChatEventMessage;
 }
 
@@ -105,6 +107,7 @@ export type ChatStatusMessage = Extract<
 >;
 
 export interface ChatStatusEventRowProps {
+  messages?: TranscriptMessage[];
   message: ChatStatusMessage;
 }
 
@@ -160,6 +163,7 @@ export interface InlineTextSegmentsProps {
 }
 
 export interface RenderChatThreadItemOptions {
+  messages: TranscriptMessage[];
   requestTimingsById: Record<string, RequestTimingInfo>;
   workspacePath: string | null;
   itemCount: number;

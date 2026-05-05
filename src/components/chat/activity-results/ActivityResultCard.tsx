@@ -21,6 +21,7 @@ export function ActivityResultPreformattedBody({
 }
 
 export function ActivityResultCard({
+  actions,
   children,
   copyText,
   footer,
@@ -35,6 +36,7 @@ export function ActivityResultCard({
         <div className="min-w-0 flex-1 truncate text-neutral-950 dark:text-neutral-200">
           {title}
         </div>
+        {actions}
         {canCopy ? (
           <Button
             variant="ghost"
@@ -50,10 +52,12 @@ export function ActivityResultCard({
         ) : null}
       </div>
       {children}
-      <div className="flex items-center justify-between gap-3 border-t border-neutral-200 px-3 py-2 text-xs/relaxed text-neutral-950 dark:border-neutral-800 dark:text-neutral-400">
-        <span className="min-w-0 flex-1 truncate">{footer.leading}</span>
-        <span className="shrink-0">{footer.trailing}</span>
-      </div>
+      {footer ? (
+        <div className="flex items-center justify-between gap-3 border-t border-neutral-200 px-3 py-2 text-xs/relaxed text-neutral-950 dark:border-neutral-800 dark:text-neutral-400">
+          <span className="min-w-0 flex-1 truncate">{footer.leading}</span>
+          <span className="shrink-0">{footer.trailing}</span>
+        </div>
+      ) : null}
     </div>
   );
 }
