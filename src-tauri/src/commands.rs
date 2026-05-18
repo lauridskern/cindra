@@ -1,15 +1,16 @@
 use crate::dto::{
     ChatBindingDto, CheckoutGitBranchInput, CloneRepositoryInput, CommitGitChangesInput,
     CompleteProviderAuthInput, CreateGitBranchInput, CreateSavedWorkspaceInput,
-    FollowupResponseDto, HandoffChatInput, PromptSettingsDto, ProviderAuthSessionDto,
-    ProviderSummaryDto, QuickStartProjectInput, QuickStartVisibility, RemoveProviderInput,
-    RuntimeStatusDto, SaveConversationLayoutInput, SendPromptInput, SessionSnapshotDto,
-    StartProviderAuthInput, TerminalCloseInput, TerminalOpenInput, TerminalResizeInput,
-    TerminalSessionDto, TerminalWriteInput, UpdatePromptSettingsInput,
-    UpdateSavedWorkspaceLayoutInput,
+    FollowupResponseDto, ForgeConfigFileDto, HandoffChatInput, PromptSettingsDto,
+    ProviderAuthSessionDto, ProviderSummaryDto, QuickStartProjectInput, QuickStartVisibility,
+    RemoveProviderInput, RuntimeStatusDto, SaveConversationLayoutInput, SendPromptInput,
+    SessionSnapshotDto, StartProviderAuthInput, TerminalCloseInput, TerminalOpenInput,
+    TerminalResizeInput, TerminalSessionDto, TerminalWriteInput, UpdateForgeConfigInput,
+    UpdatePromptSettingsInput, UpdateSavedWorkspaceLayoutInput,
 };
 use crate::runtime::{DesktopState, format_error_chain};
 use anyhow::Context;
+use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use tauri_plugin_dialog::{DialogExt, FilePath};
@@ -87,6 +88,23 @@ pub(crate) async fn get_prompt_settings(
         .get_prompt_settings(workspace_path)
         .await
         .map_err(map_command_error)
+}
+
+#[tauri::command]
+pub(crate) async fn get_forge_config_file() -> Result<ForgeConfigFileDto, String> {
+    read_forge_config_file().map_err(map_command_error)
+}
+
+#[tauri::command]
+pub(crate) async fn update_forge_config_file(
+    input: UpdateForgeConfigInput,
+) -> Result<ForgeConfigFileDto, String> {
+    write_forge_config_file(input.contents).map_err(map_command_error)
+}
+
+#[tauri::command]
+pub(crate) async fn reset_forge_config_file() -> Result<ForgeConfigFileDto, String> {
+    reset_forge_config_file_to_defaults().map_err(map_command_error)
 }
 
 #[tauri::command]
@@ -506,6 +524,73 @@ pub(crate) async fn terminal_close(
         .await
         .map_err(map_command_error)
 }
+fn read_forge_config_file() -> anyhow::Result<ForgeConfigFileDto> {
+    let config_path = forge_config::ConfigReader::config_path();
+    let contents = match fs::read_to_string(&config_path) {
+        Ok(contents) => contents,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            render_resolved_forge_config()?
+        }
+        Err(error) => {
+            return Err(error).with_context(|| format!("Failed to read {}", config_path.display()));
+        }
+    };
+
+    Ok(ForgeConfigFileDto {
+        config_path: config_path.to_string_lossy().into_owned(),
+        contents,
+    })
+}
+
+fn render_resolved_forge_config() -> anyhow::Result<String> {
+    let config = forge_config::ForgeConfig::read().context("Failed to read Forge config")?;
+    render_forge_config(config)
+}
+
+fn render_default_forge_config() -> anyhow::Result<String> {
+    let config = forge_config::ConfigReader::default()
+        .read_defaults()
+        .build()
+        .context("Failed to read default Forge config")?;
+    render_forge_config(config)
+}
+
+fn render_forge_config(config: forge_config::ForgeConfig) -> anyhow::Result<String> {
+    let temp_path =
+        std::env::temp_dir().join(format!("cindra-forge-config-{}.toml", uuid::Uuid::new_v4()));
+
+    forge_config::ConfigWriter::new(config)
+        .write(&temp_path)
+        .context("Failed to render Forge config")?;
+    let contents = fs::read_to_string(&temp_path)
+        .with_context(|| format!("Failed to read {}", temp_path.display()))?;
+    let _ = fs::remove_file(temp_path);
+
+    Ok(contents)
+}
+
+fn reset_forge_config_file_to_defaults() -> anyhow::Result<ForgeConfigFileDto> {
+    write_forge_config_file(render_default_forge_config()?)
+}
+
+fn write_forge_config_file(contents: String) -> anyhow::Result<ForgeConfigFileDto> {
+    forge_config::ConfigReader::default()
+        .read_defaults()
+        .read_toml(&contents)
+        .build()
+        .context("Forge config is not valid")?;
+
+    let config_path = forge_config::ConfigReader::config_path();
+    if let Some(parent) = config_path.parent() {
+        fs::create_dir_all(parent)
+            .with_context(|| format!("Failed to create {}", parent.display()))?;
+    }
+    fs::write(&config_path, contents)
+        .with_context(|| format!("Failed to write {}", config_path.display()))?;
+
+    read_forge_config_file()
+}
+
 fn file_path_to_string(path: FilePath) -> Option<String> {
     match path {
         FilePath::Path(path) => Some(path.to_string_lossy().into_owned()),

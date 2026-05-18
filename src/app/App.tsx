@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 
 import { NewChatTrigger } from "../components/NewChatTrigger";
+import { ConfigSettingsPane } from "../components/config-settings/ConfigSettingsPane";
 import { ProvidersSettingsPane } from "../components/providers-settings/ProvidersSettingsPane";
 import { ProjectSidebar } from "../components/ProjectSidebar";
 import { PaneSurface } from "../components/ui/PaneSurface";
@@ -91,9 +92,17 @@ function AppShell() {
     setSelectedSettingsSection("providers");
     setIsSettingsViewOpen(true);
   }, []);
+  const openConfigSettings = useCallback(() => {
+    setIsDesktopSidebarVisible(true);
+    setSelectedSettingsSection("config");
+    setIsSettingsViewOpen(true);
+  }, []);
   const settingsNavigation = useMemo(
-    () => ({ openProviderSettings: openProvidersSettings }),
-    [openProvidersSettings],
+    () => ({
+      openProviderSettings: openProvidersSettings,
+      openConfigSettings,
+    }),
+    [openConfigSettings, openProvidersSettings],
   );
 
   useLayoutEffect(() => {
@@ -202,6 +211,8 @@ function AppShell() {
                 {isSettingsViewOpen ? (
                   selectedSettingsSection === "providers" ? (
                     <ProvidersSettingsPane />
+                  ) : selectedSettingsSection === "config" ? (
+                    <ConfigSettingsPane />
                   ) : (
                     <PaneSurface
                       className="flex-1"

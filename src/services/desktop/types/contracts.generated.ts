@@ -63,6 +63,10 @@ export type ProviderAuthSession = { kind: ProviderAuthSessionKind, authSessionId
 
 export type ProviderOAuthCallback = { authSessionId: string, providerId: string, authorizationCode: string | null, errorMessage: string | null, };
 
+export type ForgeConfigFile = { configPath: string, contents: string, };
+
+export type UpdateForgeConfigInput = { contents: string, };
+
 export type StartProviderAuthInput = { workspacePath: string | null, providerId: string, authMethod: ProviderAuthMethodKind, };
 
 export type CompleteProviderAuthInput = { authSessionId: string, apiKey: string | null, authorizationCode: string | null, urlParameters: Array<ProviderUrlParamValue>, };

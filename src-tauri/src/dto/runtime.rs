@@ -302,6 +302,21 @@ pub enum ProviderAuthMethodKindDto {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, TS)]
 #[serde(rename_all = "camelCase")]
+#[ts(rename = "ForgeConfigFile")]
+pub struct ForgeConfigFileDto {
+    pub config_path: String,
+    pub contents: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(rename = "UpdateForgeConfigInput")]
+pub struct UpdateForgeConfigInput {
+    pub contents: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, TS)]
+#[serde(rename_all = "camelCase")]
 #[ts(rename = "ProviderAuthMethod")]
 pub struct ProviderAuthMethodDto {
     pub kind: ProviderAuthMethodKindDto,

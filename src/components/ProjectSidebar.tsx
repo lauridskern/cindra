@@ -5,6 +5,7 @@ import {
   PenSquare,
   Plug2Icon,
   Settings2Icon,
+  SlidersHorizontalIcon,
   Trash2Icon,
 } from "lucide-react";
 
@@ -182,6 +183,22 @@ export function ProjectSidebar({
                   >
                     <Plug2Icon strokeWidth={2} className="size-3.5 shrink-0" />
                     <span>Providers</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    isActive={selectedSettingsSection === "config"}
+                    tooltip="Config"
+                    className="font-medium [&_svg]:size-3.5"
+                    onClick={() => {
+                      onSelectSettingsSection("config");
+                    }}
+                  >
+                    <SlidersHorizontalIcon
+                      strokeWidth={2}
+                      className="size-3.5 shrink-0"
+                    />
+                    <span>Config</span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               </SidebarMenu>
