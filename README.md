@@ -52,3 +52,7 @@ bun run build
 Cindra is licensed under AGPL-3.0-or-later.
 
 This project includes Forgecode under Apache-2.0 in `vendor/forgecode`.
+
+
+## Atributions
+The app icon is basically a bad clone of one of Matthew Skiles icons for now it's gonna change.
