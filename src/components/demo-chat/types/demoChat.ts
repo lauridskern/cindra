@@ -38,7 +38,9 @@ export interface DemoBooleanToggleProps {
 
 export interface DemoControlsSheetProps {
   composerMode: DemoComposerMode;
+  fakeQueueMode: boolean;
   promptDraft: string;
+  queuedPromptCount: number;
   promptState: DemoPromptState;
   showCompaction: boolean;
   showFailure: boolean;
@@ -46,8 +48,11 @@ export interface DemoControlsSheetProps {
   showTodos: boolean;
   todoPreset: DemoTodoPreset;
   onClearDraft: () => void;
+  onClearQueue: () => void;
   onComposerModeChange: (value: DemoComposerMode) => void;
+  onFakeQueueModeChange: (value: boolean) => void;
   onPromptStateChange: (value: DemoPromptState) => void;
+  onSeedQueue: () => void;
   onSeedDraft: () => void;
   onShowCompactionChange: (value: boolean) => void;
   onShowFailureChange: (value: boolean) => void;

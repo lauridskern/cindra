@@ -157,6 +157,11 @@ mock.module("../services/desktop/client", () => ({
     selectConversationCallCount += 1;
     return createSnapshot(workspacePath, conversationId);
   },
+  sendPrompt: async (
+    input: import("../services/desktop/types/contracts").SendPromptInput,
+  ) => {
+    return createSnapshot(input.workspacePath, input.conversationId ?? "chat-1");
+  },
   stopPrompt: async (
     input: import("../services/desktop/types/contracts").ChatBinding,
   ) => {

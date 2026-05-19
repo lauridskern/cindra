@@ -7,7 +7,12 @@ import {
   SlidersHorizontal,
 } from "lucide-react";
 
-import type { PromptSettings } from "@/services/desktop/types/contracts";
+import {
+  removeQueuedPrompt,
+  replaceQueuedPromptWithDraftEdit,
+  reorderQueuedPrompts,
+} from "@/app/promptQueue";
+import type { QueuedPromptEntry } from "@/app/types/sessionStore";
 import { ChatThread } from "@/components/chat/ChatThread";
 import { FollowupComposer } from "@/components/FollowupComposer";
 import { ConversationSurface } from "@/components/conversation-panel/ConversationSurface";
@@ -23,6 +28,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/Sheet";
+import type { PromptSettings } from "@/services/desktop/types/contracts";
 import { cn } from "@/utils/cn";
 import { DEFAULT_PROMPT_DRAFT } from "./constants/demoChat";
 
@@ -47,6 +53,33 @@ import type {
   DemoTodoPreset,
 } from "./types/demoChat";
 import { buildPromptSettingsWithoutModels } from "./utils/promptSettings";
+
+const DEMO_QUEUE_SEED: Array<Omit<QueuedPromptEntry, "id">> = [
+  {
+    isPlanningMode: false,
+    value: "Autosaves after you stop typing.",
+  },
+  {
+    isPlanningMode: true,
+    value: "Check the queue edit path without sending this early.",
+  },
+];
+
+let nextDemoQueueId = 0;
+
+function createDemoQueueId(): string {
+  nextDemoQueueId += 1;
+  return `demo-queued-prompt-${nextDemoQueueId}`;
+}
+
+function createDemoQueuedPrompt(
+  entry: Omit<QueuedPromptEntry, "id">,
+): QueuedPromptEntry {
+  return {
+    ...entry,
+    id: createDemoQueueId(),
+  };
+}
 
 function DemoOptionGroup<T extends string>({
   label,
@@ -113,7 +146,9 @@ function DemoBooleanToggle({
 
 function DemoControlsSheet({
   composerMode,
+  fakeQueueMode,
   promptDraft,
+  queuedPromptCount,
   promptState,
   showCompaction,
   showFailure,
@@ -121,8 +156,11 @@ function DemoControlsSheet({
   showTodos,
   todoPreset,
   onClearDraft,
+  onClearQueue,
   onComposerModeChange,
+  onFakeQueueModeChange,
   onPromptStateChange,
+  onSeedQueue,
   onSeedDraft,
   onShowCompactionChange,
   onShowFailureChange,
@@ -258,6 +296,13 @@ function DemoControlsSheet({
                     onChange={onPromptStateChange}
                   />
 
+                  <DemoBooleanToggle
+                    label="Fake queue mode"
+                    description="Keeps the prompt editable while simulating a running request, so sends add local queue rows."
+                    value={fakeQueueMode}
+                    onChange={onFakeQueueModeChange}
+                  />
+
                   <div className="flex flex-wrap gap-2">
                     <Button
                       type="button"
@@ -275,6 +320,23 @@ function DemoControlsSheet({
                       disabled={promptDraft.length === 0}
                     >
                       Clear draft
+                    </Button>
+                    <Button
+                      type="button"
+                      size="xs"
+                      variant="outline"
+                      onClick={onSeedQueue}
+                    >
+                      Seed queue
+                    </Button>
+                    <Button
+                      type="button"
+                      size="xs"
+                      variant="outline"
+                      onClick={onClearQueue}
+                      disabled={queuedPromptCount === 0}
+                    >
+                      Clear queue
                     </Button>
                   </div>
                 </>
@@ -296,7 +358,12 @@ export function DemoConversationPanel() {
   const [composerMode, setComposerMode] = useState<DemoComposerMode>("prompt");
   const [promptState, setPromptState] =
     useState<DemoPromptState>("interactive");
+  const [fakeQueueMode, setFakeQueueMode] = useState(false);
   const [promptDraft, setPromptDraft] = useState(DEFAULT_PROMPT_DRAFT);
+  const [editingQueuedPromptId, setEditingQueuedPromptId] = useState<
+    string | null
+  >(null);
+  const [queuedPrompts, setQueuedPrompts] = useState<QueuedPromptEntry[]>([]);
   const [isPlanningMode, setPlanningMode] = useState(false);
   const [promptSettings, setPromptSettings] =
     useState<PromptSettings>(DEMO_PROMPT_SETTINGS);
@@ -330,6 +397,10 @@ export function DemoConversationPanel() {
         : composerMode === "followup-multi"
           ? DEMO_FOLLOWUP_REQUESTS.multi
           : null;
+  const isPromptRequestActive =
+    promptState === "sending" || (fakeQueueMode && composerMode === "prompt");
+  const isPromptSending =
+    promptState === "sending" && fakeQueueMode === false;
 
   function resetDemo() {
     setShowCompaction(true);
@@ -339,7 +410,11 @@ export function DemoConversationPanel() {
     setTodoPreset("mixed");
     setComposerMode("prompt");
     setPromptState("interactive");
+    setFakeQueueMode(false);
     setPromptDraft(DEFAULT_PROMPT_DRAFT);
+    setEditingQueuedPromptId(null);
+    setQueuedPrompts([]);
+    setPlanningMode(false);
     setPromptSettings(DEMO_PROMPT_SETTINGS);
     setDemoNotice("Demo mode is local-only. Send and follow-up actions are intercepted.");
   }
@@ -356,15 +431,71 @@ export function DemoConversationPanel() {
   }
 
   async function handlePromptSubmit() {
-    setDemoNotice(
-      promptDraft.trim().length === 0
-        ? "Demo send was blocked because the draft is empty."
-        : `Intercepted send for "${promptDraft.trim()}".`,
-    );
+    const prompt = promptDraft.trim();
+    if (prompt.length === 0) {
+      setDemoNotice("Demo send was blocked because the draft is empty.");
+      return;
+    }
+
+    if (fakeQueueMode) {
+      setQueuedPrompts((current) => [
+        ...current,
+        createDemoQueuedPrompt({
+          isPlanningMode,
+          value: prompt,
+        }),
+      ]);
+      setPromptDraft("");
+      setEditingQueuedPromptId(null);
+      setDemoNotice(`Added "${prompt}" to the fake queue.`);
+      return;
+    }
+
+    setDemoNotice(`Intercepted send for "${prompt}".`);
   }
 
   async function handlePromptStop() {
     setDemoNotice("Intercepted a local stop action.");
+  }
+
+  function handleQueuedPromptDelete(id: string) {
+    setQueuedPrompts((current) => removeQueuedPrompt(current, id));
+    setDemoNotice("Removed a fake queued message.");
+  }
+
+  function handleQueuedPromptEdit(id: string) {
+    const queuedPrompt = queuedPrompts.find((entry) => entry.id === id);
+    if (queuedPrompt == null) {
+      return;
+    }
+
+    setQueuedPrompts((current) =>
+      replaceQueuedPromptWithDraftEdit(current, id, {
+        editingQueuedPromptId,
+        isPending: false,
+        isPlanningMode,
+        value: promptDraft,
+      }),
+    );
+    setPromptDraft(queuedPrompt.value);
+    setEditingQueuedPromptId(queuedPrompt.id);
+    setPlanningMode(queuedPrompt.isPlanningMode);
+    setDemoNotice("Moved a fake queued message back into the prompt input.");
+  }
+
+  function handleQueuedPromptReorder(sourceId: string, targetId: string | null) {
+    setQueuedPrompts((current) =>
+      reorderQueuedPrompts(current, sourceId, targetId),
+    );
+  }
+
+  function seedFakeQueue() {
+    setQueuedPrompts(DEMO_QUEUE_SEED.map(createDemoQueuedPrompt));
+    setFakeQueueMode(true);
+    setComposerMode("prompt");
+    setPromptState("interactive");
+    setEditingQueuedPromptId(null);
+    setDemoNotice("Seeded the fake queue.");
   }
 
   async function handleFollowupSubmit(input: DemoFollowupSubmitInput) {
@@ -408,17 +539,31 @@ export function DemoConversationPanel() {
           </Button>
           <DemoControlsSheet
             composerMode={composerMode}
+            fakeQueueMode={fakeQueueMode}
             promptDraft={promptDraft}
+            queuedPromptCount={queuedPrompts.length}
             promptState={promptState}
             showCompaction={showCompaction}
             showFailure={showFailure}
             showLiveRequest={showLiveRequest}
             showTodos={showTodos}
             todoPreset={todoPreset}
-            onClearDraft={() => setPromptDraft("")}
+            onClearDraft={() => {
+              setPromptDraft("");
+              setEditingQueuedPromptId(null);
+            }}
+            onClearQueue={() => {
+              setQueuedPrompts([]);
+              setDemoNotice("Cleared the fake queue.");
+            }}
             onComposerModeChange={setComposerMode}
+            onFakeQueueModeChange={setFakeQueueMode}
             onPromptStateChange={setPromptState}
-            onSeedDraft={() => setPromptDraft(DEFAULT_PROMPT_DRAFT)}
+            onSeedQueue={seedFakeQueue}
+            onSeedDraft={() => {
+              setPromptDraft(DEFAULT_PROMPT_DRAFT);
+              setEditingQueuedPromptId(null);
+            }}
             onShowCompactionChange={setShowCompaction}
             onShowFailureChange={setShowFailure}
             onShowLiveRequestChange={setShowLiveRequest}
@@ -453,11 +598,15 @@ export function DemoConversationPanel() {
         ) : (
           <PromptInputCard
             canCompose={promptState !== "disabled"}
-            isRequestActive={promptState === "sending"}
-            isSendingPrompt={promptState === "sending"}
+            isRequestActive={isPromptRequestActive}
+            isSendingPrompt={isPromptSending}
             isPlanningMode={isPlanningMode}
             promptSettings={resolvedPromptSettings}
             promptDraft={promptDraft}
+            queuedPrompts={queuedPrompts}
+            deleteQueuedPrompt={handleQueuedPromptDelete}
+            editQueuedPrompt={handleQueuedPromptEdit}
+            reorderQueuedPrompt={handleQueuedPromptReorder}
             setPlanningMode={setPlanningMode}
             setPromptDraft={setPromptDraft}
             stopPrompt={handlePromptStop}

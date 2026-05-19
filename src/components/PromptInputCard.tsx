@@ -1,11 +1,15 @@
-import { useRef } from "react";
+import { useRef, useState, type DragEvent } from "react";
 import {
   ArrowUpIcon,
   ChevronDownIcon,
+  GripVerticalIcon,
   MapIcon,
+  PencilLineIcon,
   SquareIcon,
+  Trash2Icon,
 } from "lucide-react";
 
+import type { QueuedPromptEntry } from "@/app/types/sessionStore";
 import { Button } from "@/components/ui/Button";
 import { ButtonGroup } from "@/components/ui/ButtonGroup";
 import {
@@ -32,6 +36,13 @@ import { cn } from "@/utils/cn";
 import { formatReasoningEffortLabel } from "@/utils/reasoning";
 import type { PromptInputCardProps } from "./types/prompt";
 
+interface QueuedPromptListProps {
+  queuedPrompts: QueuedPromptEntry[];
+  deleteQueuedPrompt: (id: string) => void;
+  editQueuedPrompt: (id: string) => void;
+  reorderQueuedPrompt: (sourceId: string, targetId: string | null) => void;
+}
+
 export function PromptInputCard({
   canCompose,
   isRequestActive,
@@ -39,8 +50,12 @@ export function PromptInputCard({
   isPlanningMode,
   placeholder = "Ask about this workspace…",
   promptSettings,
+  queuedPrompts,
   promptDraft,
   isInputDisabled = false,
+  deleteQueuedPrompt,
+  editQueuedPrompt,
+  reorderQueuedPrompt,
   setPlanningMode,
   setPromptDraft,
   stopPrompt,
@@ -48,14 +63,15 @@ export function PromptInputCard({
   updatePromptSettings,
 }: PromptInputCardProps) {
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
-  const isControlDisabled =
-    isSendingPrompt || isRequestActive || !canCompose || isInputDisabled;
   const isWorking = isRequestActive;
+  const hasQueuedPrompts = queuedPrompts.length > 0;
+  const hasPromptDraft = promptDraft.trim().length > 0;
+  const isStopAction = isWorking && hasPromptDraft === false;
   const isSubmitDisabled =
-    !canCompose ||
+    canCompose === false ||
     isSendingPrompt ||
     isInputDisabled ||
-    promptDraft.trim().length === 0;
+    hasPromptDraft === false;
   const {
     handleModelChange,
     handleModelMenuOpenChange,
@@ -85,7 +101,7 @@ export function PromptInputCard({
   }
 
   function handlePrimaryAction() {
-    if (isWorking) {
+    if (isStopAction) {
       void stopPrompt();
       return;
     }
@@ -94,7 +110,7 @@ export function PromptInputCard({
   }
 
   function handlePlanningModeToggle() {
-    setPlanningMode(!isPlanningMode);
+    setPlanningMode(isPlanningMode === false);
   }
 
   return (
@@ -111,6 +127,14 @@ export function PromptInputCard({
           <CardDescription>Ask about the current workspace.</CardDescription>
         </CardHeader>
         <CardContent className="relative z-10 p-0">
+          {hasQueuedPrompts ? (
+            <QueuedPromptList
+              queuedPrompts={queuedPrompts}
+              deleteQueuedPrompt={deleteQueuedPrompt}
+              editQueuedPrompt={editQueuedPrompt}
+              reorderQueuedPrompt={reorderQueuedPrompt}
+            />
+          ) : null}
           <Textarea
             ref={textareaRef}
             id="prompt"
@@ -122,12 +146,12 @@ export function PromptInputCard({
               if (
                 event.key === "Enter" &&
                 (event.metaKey || event.ctrlKey) &&
-                !isSubmitDisabled
+                isSubmitDisabled === false
               ) {
                 handleSubmit();
               }
             }}
-            disabled={isControlDisabled}
+            disabled={isInputDisabled || canCompose === false || isSendingPrompt}
             rows={3}
           />
         </CardContent>
@@ -144,7 +168,11 @@ export function PromptInputCard({
                     variant="outline"
                     size="sm"
                     className="text-muted-foreground hover:bg-transparent hover:text-foreground"
-                    disabled={isControlDisabled || !hasAvailableModels}
+                    disabled={
+                      isInputDisabled ||
+                      isSendingPrompt ||
+                      hasAvailableModels === false
+                    }
                   />
                 }
               >
@@ -208,7 +236,9 @@ export function PromptInputCard({
                     size="sm"
                     className="text-muted-foreground hover:bg-transparent hover:text-foreground"
                     disabled={
-                      isControlDisabled || selectedReasoningEfforts.length === 0
+                      isInputDisabled ||
+                      isSendingPrompt ||
+                      selectedReasoningEfforts.length === 0
                     }
                   />
                 }
@@ -246,7 +276,7 @@ export function PromptInputCard({
                 isPlanningMode &&
                   "border-yellow-500/60 bg-yellow-500/10 text-foreground hover:bg-yellow-500/15",
               )}
-              disabled={isControlDisabled}
+              disabled={isInputDisabled || isSendingPrompt}
               onClick={handlePlanningModeToggle}
             >
               <MapIcon data-icon="inline-start" />
@@ -257,14 +287,118 @@ export function PromptInputCard({
             type="button"
             size="icon-lg"
             className="rounded-full"
-            aria-label={isWorking ? "Stop" : "Send"}
+            aria-label={isStopAction ? "Stop" : "Send"}
             onClick={handlePrimaryAction}
-            disabled={isWorking ? false : isSubmitDisabled}
+            disabled={isStopAction ? false : isSubmitDisabled}
           >
-            {isWorking ? <SquareIcon /> : <ArrowUpIcon />}
+            {isStopAction ? <SquareIcon /> : <ArrowUpIcon />}
           </Button>
         </CardFooter>
       </Card>
+    </div>
+  );
+}
+
+function QueuedPromptList({
+  queuedPrompts,
+  deleteQueuedPrompt,
+  editQueuedPrompt,
+  reorderQueuedPrompt,
+}: QueuedPromptListProps) {
+  const [draggedQueuedPromptId, setDraggedQueuedPromptId] = useState<
+    string | null
+  >(null);
+
+  function handleDragOver(event: DragEvent, targetId: string | null) {
+    event.preventDefault();
+    if (draggedQueuedPromptId == null || draggedQueuedPromptId === targetId) {
+      return;
+    }
+
+    reorderQueuedPrompt(draggedQueuedPromptId, targetId);
+  }
+
+  return (
+    <div
+      className="mx-1 mb-2 overflow-hidden rounded-lg border border-border/70 bg-muted/35"
+      onDragOver={(event) => handleDragOver(event, null)}
+      onDrop={(event) => {
+        event.preventDefault();
+        setDraggedQueuedPromptId(null);
+      }}
+    >
+      <div className="flex flex-col divide-y divide-border/70">
+        {queuedPrompts.map((queuedPrompt, index) => {
+          const isDragging = draggedQueuedPromptId === queuedPrompt.id;
+
+          return (
+            <div
+              key={queuedPrompt.id}
+              className={cn(
+                "flex items-start gap-2 px-2 py-2 text-xs transition-colors",
+                isDragging && "bg-background/80 opacity-60",
+              )}
+              onDragOver={(event) => {
+                event.stopPropagation();
+                const targetRect = event.currentTarget.getBoundingClientRect();
+                const isAfterTarget =
+                  event.clientY > targetRect.top + targetRect.height / 2;
+                handleDragOver(
+                  event,
+                  isAfterTarget
+                    ? (queuedPrompts[index + 1]?.id ?? null)
+                    : queuedPrompt.id,
+                );
+              }}
+              onDrop={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                setDraggedQueuedPromptId(null);
+              }}
+            >
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                className="-ml-1 cursor-grab text-muted-foreground active:cursor-grabbing"
+                aria-label="Reorder queued message"
+                draggable
+                onDragStart={(event) => {
+                  setDraggedQueuedPromptId(queuedPrompt.id);
+                  event.dataTransfer.effectAllowed = "move";
+                  event.dataTransfer.setData("text/plain", queuedPrompt.id);
+                }}
+                onDragEnd={() => setDraggedQueuedPromptId(null)}
+              >
+                <GripVerticalIcon />
+              </Button>
+              <div className="min-w-0 flex-1 whitespace-pre-wrap break-words pt-0.5 text-muted-foreground">
+                {queuedPrompt.value}
+              </div>
+              <div className="flex shrink-0 items-center gap-1">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label="Edit queued message"
+                  onClick={() => editQueuedPrompt(queuedPrompt.id)}
+                >
+                  <PencilLineIcon />
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label="Delete queued message"
+                  onClick={() => deleteQueuedPrompt(queuedPrompt.id)}
+                >
+                  <Trash2Icon />
+                </Button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

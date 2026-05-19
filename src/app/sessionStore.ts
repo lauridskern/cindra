@@ -1,6 +1,11 @@
 import { createStore } from "zustand/vanilla";
 
 import * as desktopClient from "../services/desktop/client";
+import {
+  removeQueuedPrompt,
+  replaceQueuedPromptWithDraftEdit,
+  reorderQueuedPrompts,
+} from "./promptQueue";
 import type {
   ChatBinding,
   ConversationSessionSummary,
@@ -13,6 +18,7 @@ import type {
 import type { WorkspaceBoardSelection } from "./types/sessionContext";
 import type {
   PromptDraftEntry,
+  QueuedPromptEntry,
   SessionStoreSetter,
   SessionStoreState,
   WorkspaceMetaState,
@@ -66,10 +72,15 @@ function writePromptDraftEntry(
   entry: PromptDraftEntry | null,
 ): Record<string, PromptDraftEntry> {
   const current = drafts[key] ?? null;
+  const normalizedEntry = normalizePromptDraftEntry(entry);
   const nextEntry =
-    entry == null || (entry.value === "" && !entry.isPending && !entry.isPlanningMode)
+    normalizedEntry == null ||
+    (normalizedEntry.value === "" &&
+      normalizedEntry.isPending === false &&
+      normalizedEntry.isPlanningMode === false &&
+      normalizedEntry.editingQueuedPromptId == null)
       ? null
-      : entry;
+      : normalizedEntry;
 
   if (nextEntry == null) {
     if (current == null) {
@@ -84,7 +95,8 @@ function writePromptDraftEntry(
   if (
     current?.value === nextEntry.value &&
     current?.isPending === nextEntry.isPending &&
-    current?.isPlanningMode === nextEntry.isPlanningMode
+    current?.isPlanningMode === nextEntry.isPlanningMode &&
+    current?.editingQueuedPromptId === nextEntry.editingQueuedPromptId
   ) {
     return drafts;
   }
@@ -95,16 +107,42 @@ function writePromptDraftEntry(
   };
 }
 
+function normalizePromptDraftEntry(
+  entry: PromptDraftEntry | null,
+): PromptDraftEntry | null {
+  if (entry == null) {
+    return null;
+  }
+
+  if (entry.editingQueuedPromptId == null) {
+    return {
+      isPending: entry.isPending,
+      isPlanningMode: entry.isPlanningMode,
+      value: entry.value,
+    };
+  }
+
+  return entry;
+}
+
+function createPromptDraftEntry(
+  overrides: Partial<PromptDraftEntry> = {},
+): PromptDraftEntry {
+  return {
+    isPending: false,
+    isPlanningMode: false,
+    value: "",
+    ...overrides,
+  };
+}
+
 function setPromptDraftEntryValue(
   drafts: Record<string, PromptDraftEntry>,
   key: string,
   value: string,
 ): Record<string, PromptDraftEntry> {
-  const current = getConversationDraftEntry(drafts, key) ?? {
-    isPending: false,
-    isPlanningMode: false,
-    value: "",
-  };
+  const current =
+    getConversationDraftEntry(drafts, key) ?? createPromptDraftEntry();
 
   return writePromptDraftEntry(drafts, key, { ...current, value });
 }
@@ -114,11 +152,8 @@ function setPromptDraftEntryPending(
   key: string,
   isPending: boolean,
 ): Record<string, PromptDraftEntry> {
-  const current = getConversationDraftEntry(drafts, key) ?? {
-    isPending: false,
-    isPlanningMode: false,
-    value: "",
-  };
+  const current =
+    getConversationDraftEntry(drafts, key) ?? createPromptDraftEntry();
 
   return writePromptDraftEntry(drafts, key, { ...current, isPending });
 }
@@ -128,13 +163,24 @@ function setPromptDraftEntryPlanningMode(
   key: string,
   isPlanningMode: boolean,
 ): Record<string, PromptDraftEntry> {
-  const current = getConversationDraftEntry(drafts, key) ?? {
-    isPending: false,
-    isPlanningMode: false,
-    value: "",
-  };
+  const current =
+    getConversationDraftEntry(drafts, key) ?? createPromptDraftEntry();
 
   return writePromptDraftEntry(drafts, key, { ...current, isPlanningMode });
+}
+
+function setPromptDraftEntryEditingQueuedPromptId(
+  drafts: Record<string, PromptDraftEntry>,
+  key: string,
+  editingQueuedPromptId: string | null,
+): Record<string, PromptDraftEntry> {
+  const current =
+    getConversationDraftEntry(drafts, key) ?? createPromptDraftEntry();
+
+  return writePromptDraftEntry(drafts, key, {
+    ...current,
+    editingQueuedPromptId,
+  });
 }
 
 function movePromptDraftEntry(
@@ -156,6 +202,84 @@ function movePromptDraftEntry(
   };
   delete nextDrafts[fromKey];
   return nextDrafts;
+}
+
+function writePromptQueueEntry(
+  queues: Record<string, QueuedPromptEntry[]>,
+  key: string,
+  entries: QueuedPromptEntry[],
+): Record<string, QueuedPromptEntry[]> {
+  if (entries.length === 0) {
+    if (queues[key] == null) {
+      return queues;
+    }
+
+    const nextQueues = { ...queues };
+    delete nextQueues[key];
+    return nextQueues;
+  }
+
+  return {
+    ...queues,
+    [key]: entries,
+  };
+}
+
+function movePromptQueueEntry(
+  queues: Record<string, QueuedPromptEntry[]>,
+  fromKey: string | null,
+  toKey: string | null,
+): Record<string, QueuedPromptEntry[]> {
+  if (fromKey == null || toKey == null || fromKey === toKey) {
+    return queues;
+  }
+
+  const queuedEntries = queues[fromKey];
+  if (queuedEntries == null || queuedEntries.length === 0) {
+    return queues;
+  }
+
+  const nextQueues = writePromptQueueEntry(queues, toKey, queuedEntries);
+  if (nextQueues === queues) {
+    return queues;
+  }
+
+  const result = { ...nextQueues };
+  delete result[fromKey];
+  return result;
+}
+
+function createPromptQueueId(): string {
+  return crypto.randomUUID();
+}
+
+function deletePromptQueueEntry(
+  queues: Record<string, QueuedPromptEntry[]>,
+  key: string,
+  id: string,
+): Record<string, QueuedPromptEntry[]> {
+  const entries = queues[key] ?? [];
+  const nextEntries = removeQueuedPrompt(entries, id);
+  if (nextEntries === entries) {
+    return queues;
+  }
+
+  return writePromptQueueEntry(queues, key, nextEntries);
+}
+
+function reorderPromptQueueEntry(
+  queues: Record<string, QueuedPromptEntry[]>,
+  key: string,
+  sourceId: string,
+  targetId: string | null,
+): Record<string, QueuedPromptEntry[]> {
+  const entries = queues[key] ?? [];
+  const nextEntries = reorderQueuedPrompts(entries, sourceId, targetId);
+  if (nextEntries === entries) {
+    return queues;
+  }
+
+  return writePromptQueueEntry(queues, key, nextEntries);
 }
 
 export function getSelectionFromSnapshot(
@@ -321,6 +445,7 @@ function createSessionStoreState(set: SessionStoreSetter): SessionStoreState {
     isBootstrapped: false,
     isOpeningProject: false,
     promptDraftsByKey: {},
+    promptQueuesByKey: {},
     requestTimingsByConversationId: {},
     savedWorkspaces: [],
     selection: { kind: "empty" },
@@ -432,11 +557,95 @@ function createSessionStoreState(set: SessionStoreSetter): SessionStoreState {
       }
 
       set((current) => ({
-        promptDraftsByKey: setPromptDraftEntryValue(
+        promptDraftsByKey: writePromptDraftEntry(
           current.promptDraftsByKey,
           key,
-          "",
+          {
+            ...(getConversationDraftEntry(current.promptDraftsByKey, key) ??
+              createPromptDraftEntry()),
+            editingQueuedPromptId: null,
+            value: "",
+          },
         ),
+      }));
+    },
+    deleteQueuedPrompt: (key, id) => {
+      if (key == null) {
+        return;
+      }
+
+      set((current) => ({
+        promptQueuesByKey: deletePromptQueueEntry(
+          current.promptQueuesByKey,
+          key,
+          id,
+        ),
+      }));
+    },
+    editQueuedPrompt: (key, id) => {
+      if (key == null) {
+        return;
+      }
+
+      set((current) => {
+        const queuedPrompt = current.promptQueuesByKey[key]?.find(
+          (entry) => entry.id === id,
+        );
+        if (queuedPrompt == null) {
+          return current;
+        }
+
+        const draftEntry = getConversationDraftEntry(
+          current.promptDraftsByKey,
+          key,
+        );
+        const nextQueue = replaceQueuedPromptWithDraftEdit(
+          current.promptQueuesByKey[key] ?? [],
+          id,
+          draftEntry,
+        );
+
+        return {
+          promptDraftsByKey: setPromptDraftEntryEditingQueuedPromptId(
+            setPromptDraftEntryPlanningMode(
+              setPromptDraftEntryValue(
+                current.promptDraftsByKey,
+                key,
+                queuedPrompt.value,
+              ),
+              key,
+              queuedPrompt.isPlanningMode,
+            ),
+            key,
+            queuedPrompt.id,
+          ),
+          promptQueuesByKey: writePromptQueueEntry(
+            current.promptQueuesByKey,
+            key,
+            nextQueue,
+          ),
+        };
+      });
+    },
+    enqueuePrompt: (key, entry) => {
+      if (key == null) {
+        return;
+      }
+
+      const value = entry.value.trim();
+      if (value.length === 0) {
+        return;
+      }
+
+      set((current) => ({
+        promptQueuesByKey: writePromptQueueEntry(current.promptQueuesByKey, key, [
+          ...(current.promptQueuesByKey[key] ?? []),
+          {
+            id: createPromptQueueId(),
+            isPlanningMode: entry.isPlanningMode,
+            value,
+          },
+        ]),
       }));
     },
     movePromptDraft: (fromKey, toKey) => {
@@ -445,6 +654,38 @@ function createSessionStoreState(set: SessionStoreSetter): SessionStoreState {
           current.promptDraftsByKey,
           fromKey,
           toKey,
+        ),
+        promptQueuesByKey: movePromptQueueEntry(
+          current.promptQueuesByKey,
+          fromKey,
+          toKey,
+        ),
+      }));
+    },
+    reorderQueuedPrompt: (key, sourceId, targetId) => {
+      if (key == null) {
+        return;
+      }
+
+      set((current) => ({
+        promptQueuesByKey: reorderPromptQueueEntry(
+          current.promptQueuesByKey,
+          key,
+          sourceId,
+          targetId,
+        ),
+      }));
+    },
+    shiftQueuedPrompt: (key) => {
+      if (key == null) {
+        return;
+      }
+
+      set((current) => ({
+        promptQueuesByKey: writePromptQueueEntry(
+          current.promptQueuesByKey,
+          key,
+          (current.promptQueuesByKey[key] ?? []).slice(1),
         ),
       }));
     },

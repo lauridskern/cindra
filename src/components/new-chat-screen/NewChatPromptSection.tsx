@@ -21,6 +21,10 @@ export function NewChatPromptSection({
     isSendingPrompt,
     promptSettings,
     promptDraft,
+    queuedPrompts,
+    deleteQueuedPrompt,
+    editQueuedPrompt,
+    reorderQueuedPrompt,
     setPlanningMode,
     setPromptDraft,
     stopPrompt,
@@ -66,7 +70,11 @@ export function NewChatPromptSection({
         isPlanningMode={isPlanningMode}
         promptDraft={promptDraft}
         promptSettings={promptSettings}
+        queuedPrompts={queuedPrompts}
         isInputDisabled={showProviderSetupPrompt}
+        deleteQueuedPrompt={deleteQueuedPrompt}
+        editQueuedPrompt={editQueuedPrompt}
+        reorderQueuedPrompt={reorderQueuedPrompt}
         setPlanningMode={setPlanningMode}
         setPromptDraft={setPromptDraft}
         stopPrompt={stopPrompt}

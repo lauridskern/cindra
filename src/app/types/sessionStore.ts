@@ -16,7 +16,14 @@ import type {
 } from "./sessionContext";
 
 export interface PromptDraftEntry {
+  editingQueuedPromptId?: string | null;
   isPending: boolean;
+  isPlanningMode: boolean;
+  value: string;
+}
+
+export interface QueuedPromptEntry {
+  id: string;
   isPlanningMode: boolean;
   value: string;
 }
@@ -36,6 +43,7 @@ export interface SessionStoreState {
   isBootstrapped: boolean;
   isOpeningProject: boolean;
   promptDraftsByKey: Record<string, PromptDraftEntry>;
+  promptQueuesByKey: Record<string, QueuedPromptEntry[]>;
   requestTimingsByConversationId: Record<
     string,
     Record<string, RequestTimingInfo>
@@ -48,7 +56,19 @@ export interface SessionStoreState {
   workspacesByPath: Record<string, WorkspaceSession>;
   applySessionSnapshot: (snapshot: SessionSnapshot) => void;
   clearPromptDraft: (key: string | null) => void;
+  deleteQueuedPrompt: (key: string | null, id: string) => void;
+  editQueuedPrompt: (key: string | null, id: string) => void;
+  enqueuePrompt: (
+    key: string | null,
+    entry: Omit<QueuedPromptEntry, "id">,
+  ) => void;
   movePromptDraft: (fromKey: string | null, toKey: string | null) => void;
+  reorderQueuedPrompt: (
+    key: string | null,
+    sourceId: string,
+    targetId: string | null,
+  ) => void;
+  shiftQueuedPrompt: (key: string | null) => void;
   setBoardSelection: (selection: WorkspaceBoardSelection) => void;
   setIsBootstrapped: (value: boolean) => void;
   setIsOpeningProject: (value: boolean) => void;
