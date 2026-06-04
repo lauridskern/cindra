@@ -1,6 +1,7 @@
 use forge_app::ForgeApp;
 use forge_domain::{AgentId, ChatRequest, ChatResponse, ConversationId, Event};
 use futures::StreamExt;
+use serde_json::json;
 use tokio::sync::oneshot;
 
 use crate::bridge::followup::{FollowupContext, with_followup_context};
@@ -237,6 +238,7 @@ impl RuntimeManager {
                     subtitle,
                     category,
                 } => {
+                    remove_retry_statuses(conversation, request_id);
                     let next_index = conversation.messages.len();
                     conversation.messages.push(SessionMessageDto::Status {
                         id: create_message_id("status", request_id, next_index),
@@ -287,16 +289,18 @@ impl RuntimeManager {
                     });
                 }
                 ChatEventKind::Retry { cause, duration_ms } => {
+                    remove_retry_statuses(conversation, request_id);
                     let next_index = conversation.messages.len();
                     conversation.messages.push(SessionMessageDto::Status {
-                        id: create_message_id("status", request_id, next_index),
+                        id: create_message_id("retry-status", request_id, next_index),
                         request_id: request_id.to_string(),
-                        title: "Retrying request".to_string(),
-                        subtitle: Some(format!("{cause} ({duration_ms} ms)")),
+                        title: "Connection issue, retrying...".to_string(),
+                        subtitle: Some(format_retry_status_detail(&cause, duration_ms)),
                         category: StatusCategoryDto::Warning,
                     });
                 }
                 ChatEventKind::Interrupt { reason } => {
+                    remove_retry_statuses(conversation, request_id);
                     let next_index = conversation.messages.len();
                     conversation.messages.push(SessionMessageDto::Status {
                         id: create_message_id("status", request_id, next_index),
@@ -307,9 +311,11 @@ impl RuntimeManager {
                     });
                 }
                 ChatEventKind::Complete => {
+                    remove_retry_statuses(conversation, request_id);
                     clear_request_tracking(conversation, request_id);
                 }
                 ChatEventKind::Error { message } => {
+                    remove_retry_statuses(conversation, request_id);
                     should_clear_followup = true;
                     next_ui_error = Some(message.clone());
                     clear_request_tracking(conversation, request_id);
@@ -340,6 +346,7 @@ impl RuntimeManager {
     async fn record_stream_error(&self, conversation_id: &str, request_id: &str, message: String) {
         let mut state = self.state.lock().await;
         if let Some(conversation) = state.conversations.get_mut(conversation_id) {
+            remove_retry_statuses(conversation, request_id);
             clear_request_tracking(conversation, request_id);
             let next_index = conversation.messages.len();
             conversation.messages.push(SessionMessageDto::Error {
@@ -384,6 +391,7 @@ impl RuntimeManager {
         {
             let mut state = self.state.lock().await;
             if let Some(conversation) = state.conversations.get_mut(conversation_id) {
+                remove_retry_statuses(conversation, request_id);
                 clear_request_tracking(conversation, request_id);
             }
         }
@@ -443,6 +451,36 @@ fn clear_request_tracking(conversation: &mut ConversationSessionState, request_i
     conversation
         .pending_anonymous_file_updates
         .retain(|pending| pending.request_id != request_id);
+}
+
+fn remove_retry_statuses(conversation: &mut ConversationSessionState, request_id: &str) {
+    conversation.messages.retain(|message| {
+        !matches!(
+            message,
+            SessionMessageDto::Status {
+                id,
+                request_id: current_request_id,
+                title,
+                ..
+            } if current_request_id == request_id && is_retry_status_message(id, title)
+        )
+    });
+}
+
+fn is_retry_status_message(id: &str, title: &str) -> bool {
+    id.starts_with("retry-status:") || title == "Retrying request"
+}
+
+fn format_retry_status_detail(cause: &str, duration_ms: u64) -> String {
+    let retry_seconds = (duration_ms as f64 / 1000.0).max(0.1);
+    let detail = json!({
+        "cause": cause,
+        "retryAfterMs": duration_ms,
+    });
+    format!(
+        "Temporary network or service issue. Retrying automatically in {retry_seconds:.1}s.\n\nTechnical details:\n```json\n{}\n```",
+        detail
+    )
 }
 
 fn append_streamed_message(
@@ -544,6 +582,10 @@ fn build_unexpected_stream_end_message(messages: &[SessionMessageDto], request_i
                     StatusCategoryDto::Error | StatusCategoryDto::Warning
                 ) =>
             {
+                if is_retry_status_message("", title) {
+                    continue;
+                }
+
                 return match subtitle
                     .as_deref()
                     .map(str::trim)

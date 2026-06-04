@@ -298,4 +298,44 @@ describe("buildChatThreadItems", () => {
     expect(workItem?.failedStepCount).toBe(1);
     expect(workItem?.hasError).toBe(true);
   });
+
+  test("renders retry status as temporary chat message while active", () => {
+    const items = buildChatThreadItems(
+      [
+        {
+          kind: "status",
+          id: "retry-status:req-1:1",
+          requestId: "req-1",
+          title: "Connection issue, retrying...",
+          subtitle: "Temporary network or service issue. Retrying automatically in 1.7s.",
+          category: "warning",
+        },
+      ],
+      ["req-1"],
+    );
+
+    expect(items).toEqual([
+      {
+        kind: "message",
+        key: "retry-status:req-1:1",
+        message: {
+          kind: "status",
+          id: "retry-status:req-1:1",
+          requestId: "req-1",
+          title: "Connection issue, retrying...",
+          subtitle: "Temporary network or service issue. Retrying automatically in 1.7s.",
+          category: "warning",
+        },
+      },
+      {
+        kind: "request_work",
+        key: "request-work:req-1:0",
+        requestId: "req-1",
+        activities: [],
+        isRunning: true,
+        hasError: false,
+        failedStepCount: 0,
+      },
+    ]);
+  });
 });
