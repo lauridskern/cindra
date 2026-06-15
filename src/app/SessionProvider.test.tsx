@@ -131,6 +131,8 @@ mock.module("../services/desktop/client", () => ({
     getRuntimeStatusCallCount += 1;
     return runtimeStatusFixture;
   },
+  openExternalUrl: async () => {},
+  openPathInTarget: async () => {},
   renameWorkspace: async (workspacePath: string, displayName: string | null) => {
     renameWorkspaceCallCount += 1;
     return await renameWorkspaceImpl(workspacePath, displayName);

@@ -107,6 +107,8 @@ mock.module("../services/desktop/client", () => ({
     runtimeStatusCallCount += 1;
     return await runtimeStatusImpl(workspacePath);
   },
+  openExternalUrl: async () => {},
+  openPathInTarget: async () => {},
 }));
 
 const {

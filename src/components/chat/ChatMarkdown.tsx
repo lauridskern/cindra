@@ -17,6 +17,8 @@ import type { ChatMarkdownProps } from "./types/chatComponents";
 const headingClassName = cn("m-0 font-medium text-current", CHAT_BODY_TEXT_CLASS);
 const codeBlockClassName =
   "group/code relative max-w-full overflow-hidden rounded-xl border border-black/10 bg-neutral-100/70 dark:border-white/10 dark:bg-neutral-900/70";
+const gluedReasoningSectionPattern =
+  /([.!?])((?:\*\*)?[A-Z][^\n.!?]{2,80}(?:\*\*)?\n{1,2}(?=[A-Z]))/g;
 
 function nodeToPlainText(node: ReactNode): string {
   if (typeof node === "string" || typeof node === "number") {
@@ -50,6 +52,10 @@ function extractCodeBlock(children: ReactNode): string | null {
 
 function chatMarkdownUrlTransform(url: string): string {
   return rewriteChatFileUriHref(url) ?? defaultUrlTransform(url);
+}
+
+function normalizeSoftBreakText(text: string): string {
+  return text.replace(gluedReasoningSectionPattern, "$1\n\n$2");
 }
 
 function handleLinkClick(
@@ -118,11 +124,19 @@ function ChatCodeBlock({ children, code }: { children: ReactNode; code: string }
   );
 }
 
-export function ChatMarkdown({ text, className, workspacePath }: ChatMarkdownProps) {
+export function ChatMarkdown({
+  text,
+  className,
+  preserveSoftBreaks = false,
+  workspacePath,
+}: ChatMarkdownProps) {
+  const markdownText = preserveSoftBreaks ? normalizeSoftBreakText(text) : text;
+
   return (
     <div
       className={cn(
         "grid min-w-0 gap-2 select-text [&_blockquote]:border-l-2 [&_blockquote]:border-neutral-300 [&_blockquote]:pl-3 [&_blockquote]:text-neutral-600 dark:[&_blockquote]:border-neutral-700 dark:[&_blockquote]:text-neutral-400 [&_code]:rounded-md [&_code]:bg-neutral-200/60 [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-xs [&_code]:text-neutral-900 dark:[&_code]:bg-neutral-800/60 dark:[&_code]:text-neutral-100 [&_hr]:border-black/10 dark:[&_hr]:border-white/10 [&_li]:m-0 [&_li>p]:m-0 [&_ol]:m-0 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:m-0 [&_pre]:m-0 [&_pre]:max-w-full [&_pre]:overflow-x-auto [&_pre]:overflow-y-hidden [&_pre]:whitespace-pre [&_pre]:break-normal [&_pre]:p-3 [&_pre]:pr-12 [&_pre_code]:inline-block [&_pre_code]:min-w-full [&_pre_code]:w-max [&_pre_code]:align-top [&_pre_code]:whitespace-pre [&_pre_code]:rounded-none [&_pre_code]:bg-transparent [&_pre_code]:p-0 [&_table]:block [&_table]:max-w-full [&_table]:overflow-x-auto [&_table]:border-collapse [&_td]:border [&_td]:border-black/10 [&_td]:px-2 [&_td]:py-1 dark:[&_td]:border-white/10 [&_th]:border [&_th]:border-black/10 [&_th]:px-2 [&_th]:py-1 [&_th]:font-medium dark:[&_th]:border-white/10 [&_ul]:m-0 [&_ul]:list-disc [&_ul]:pl-5",
+        preserveSoftBreaks && "[&_li]:whitespace-pre-wrap [&_p]:whitespace-pre-wrap",
         CHAT_BODY_TEXT_CLASS,
         className,
       )}
@@ -191,7 +205,7 @@ export function ChatMarkdown({ text, className, workspacePath }: ChatMarkdownPro
           ),
         }}
       >
-        {text}
+        {markdownText}
       </ReactMarkdown>
     </div>
   );

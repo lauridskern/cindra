@@ -137,7 +137,11 @@ export function ChatActivityRow({ item, workspacePath }: ChatActivityRowProps) {
           {item.reasoningText ? (
             <CollapsibleContent className="min-w-0 max-w-full">
               <article className="max-w-3xl">
-                <ChatMarkdown text={item.reasoningText} className={CHAT_BODY_TONE_CLASS} />
+                <ChatMarkdown
+                  text={item.reasoningText}
+                  className={CHAT_BODY_TONE_CLASS}
+                  preserveSoftBreaks
+                />
               </article>
             </CollapsibleContent>
           ) : null}
