@@ -1,3 +1,5 @@
+import { openExternalUrl, openPathInTarget } from "@/services/desktop/client";
+
 const URL_PATTERN = /https?:\/\/[^\s"'`<>]+/giu;
 const FILE_PATH_PATTERN =
   /(?:file:\/\/[^\s"'`<>]+|~\/[^\s"'`<>]+|\.{1,2}\/[^\s"'`<>]+|\/[^\s"'`<>]+|[A-Za-z]:[\\/][^\s"'`<>]+|\\\\[^\s"'`<>]+|[A-Za-z0-9._@-]+(?:\/[A-Za-z0-9._@-]+)+(?::\d+){0,2}|[A-Za-z0-9._@-]+\.[A-Za-z0-9_-]+(?::\d+){0,2})/gu;
@@ -51,6 +53,31 @@ interface PathPositionParts {
 
 export function isExternalHttpUrl(href: string): boolean {
   return /^https?:\/\//iu.test(href);
+}
+
+export async function openFilePathFromChat(
+  workspacePath: string | null | undefined,
+  path: string,
+) {
+  if (workspacePath == null) {
+    return;
+  }
+
+  try {
+    await openPathInTarget(workspacePath, "cursor", path);
+  } catch (ideError) {
+    try {
+      await openPathInTarget(workspacePath, "file-manager", path);
+    } catch (fileManagerError) {
+      console.error("Failed to open file path", { ideError, fileManagerError });
+    }
+  }
+}
+
+export function openUrlFromChat(url: string) {
+  void openExternalUrl(url).catch((error) => {
+    console.error("Failed to open external link", error);
+  });
 }
 
 function trimLinkCandidate(candidate: string): string {

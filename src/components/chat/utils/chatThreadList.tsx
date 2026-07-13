@@ -56,14 +56,23 @@ function estimateRequestWorkItemSize(
   return item.isRunning ? 40 : 44;
 }
 
-function renderChatMessage(message: TranscriptMessage, workspacePath: string | null) {
+function renderChatMessage(
+  message: TranscriptMessage,
+  workspacePath: string | null,
+  messages: TranscriptMessage[],
+) {
   switch (message.kind) {
     case "user":
     case "assistant":
     case "reasoning":
       return <ChatMessageRow message={message} workspacePath={workspacePath} />;
     default:
-      return <ChatEventRow message={message} />;
+      return (
+        <ChatEventRow
+          message={message}
+          messages={messages}
+        />
+      );
   }
 }
 
@@ -78,11 +87,16 @@ export function estimateChatThreadItemSize(item: ChatThreadItem): number {
 
 export function renderChatThreadItem(
   { item, index }: ChatThreadRenderItem,
-  { itemCount, requestTimingsById, workspacePath }: RenderChatThreadItemOptions,
+  {
+    itemCount,
+    messages,
+    requestTimingsById,
+    workspacePath,
+  }: RenderChatThreadItemOptions,
 ) {
   const row =
     item.kind === "message" ? (
-      renderChatMessage(item.message, workspacePath)
+      renderChatMessage(item.message, workspacePath, messages)
     ) : (
       <ChatWorkRow
         key={`${item.key}:${item.isRunning ? "running" : item.hasError ? "error" : "idle"}`}

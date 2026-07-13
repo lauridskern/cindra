@@ -24,7 +24,7 @@ const LazyPatchDiff = lazy(async () => {
   return { default: module.PatchDiff };
 });
 
-function FileDiffLoadingBody() {
+export function FileDiffLoadingBody() {
   return (
     <div className="flex min-h-32 items-center justify-center gap-2 px-3 py-6 text-xs/relaxed text-neutral-500 dark:text-neutral-400">
       <LoadingSpinner className="size-4" />
@@ -33,9 +33,36 @@ function FileDiffLoadingBody() {
   );
 }
 
+export function FileDiffBody({
+  patch,
+}: {
+  patch: string;
+}) {
+  const isGitPatch = patch.startsWith("diff --git ");
+
+  return isGitPatch ? (
+    <Suspense fallback={<FileDiffLoadingBody />}>
+      <LazyPatchDiff
+        patch={patch}
+        disableWorkerPool
+        className="block max-w-full overflow-hidden text-xs/relaxed"
+        options={{
+          diffIndicators: "bars",
+          diffStyle: "unified",
+          lineDiffType: "word-alt",
+          overflow: "scroll",
+          disableFileHeader: true,
+          themeType: "system",
+        }}
+      />
+    </Suspense>
+  ) : (
+    <ActivityResultPreformattedBody text={patch} />
+  );
+}
+
 export function FileDiffResult({ result, workspacePath }: FileDiffResultProps) {
   const workspaceMeta = useWorkspaceMeta(workspacePath);
-  const isGitPatch = result.patch.startsWith("diff --git ");
   const patchStats = getFileDiffPatchStats(result.patch);
   const displayName = getFileDiffDisplayName(result.path);
   const displayPath = getFileDiffDisplayPath(result.path, workspacePath);
@@ -101,25 +128,7 @@ export function FileDiffResult({ result, workspacePath }: FileDiffResultProps) {
       copyText={result.copyText}
       footer={footer}
     >
-      {isGitPatch ? (
-        <Suspense fallback={<FileDiffLoadingBody />}>
-          <LazyPatchDiff
-            patch={result.patch}
-            disableWorkerPool
-            className="block max-w-full overflow-hidden text-xs/relaxed"
-            options={{
-              diffIndicators: "bars",
-              diffStyle: "unified",
-              lineDiffType: "word-alt",
-              overflow: "scroll",
-              disableFileHeader: true,
-              themeType: "system",
-            }}
-          />
-        </Suspense>
-      ) : (
-        <ActivityResultPreformattedBody text={result.patch} />
-      )}
+      <FileDiffBody patch={result.patch} />
     </ActivityResultCard>
   );
 }

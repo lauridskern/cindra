@@ -9,7 +9,9 @@ import type {
   StatusOutputRowProps,
   StatusRowProps,
 } from "../types/chatComponents";
+import { parseChangedFilesSummary } from "../utils/changedFilesSummary";
 import { getStatusToneClass } from "../utils/statusTone";
+import { ChangedFilesSummaryRow } from "./ChangedFilesSummaryRow";
 
 function StatusRow({
   category,
@@ -60,7 +62,10 @@ function StatusOutputRow({ text }: StatusOutputRowProps) {
   );
 }
 
-export function ChatStatusEventRow({ message }: ChatStatusEventRowProps) {
+export function ChatStatusEventRow({
+  messages,
+  message,
+}: ChatStatusEventRowProps) {
   switch (message.kind) {
     case "status":
       return (
@@ -71,6 +76,18 @@ export function ChatStatusEventRow({ message }: ChatStatusEventRowProps) {
         />
       );
     case "status_output":
+      {
+        const changedFilesSummary = parseChangedFilesSummary(message.text);
+        if (changedFilesSummary != null) {
+          return (
+            <ChangedFilesSummaryRow
+              requestId={message.requestId}
+              messages={messages ?? []}
+              summary={changedFilesSummary}
+            />
+          );
+        }
+      }
       return <StatusOutputRow text={message.text} />;
     default:
       return null;

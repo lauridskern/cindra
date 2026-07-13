@@ -22,6 +22,7 @@ export function ChatThread({
       data={items}
       renderItem={(props) =>
         renderChatThreadItem(props, {
+          messages,
           requestTimingsById,
           workspacePath,
           itemCount: items.length,
