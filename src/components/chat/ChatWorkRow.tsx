@@ -11,6 +11,9 @@ import type {
   WorkHeaderLabelProps,
 } from "./types/chatComponents";
 
+const workContentClassName =
+  "grid min-w-0 max-h-[min(22rem,45vh)] gap-1 overflow-y-auto overscroll-contain pr-2 [-webkit-mask-image:linear-gradient(to_bottom,transparent,black_12px,black_calc(100%-12px),transparent)] [mask-image:linear-gradient(to_bottom,transparent,black_12px,black_calc(100%-12px),transparent)]";
+
 function WorkHeaderLabel({
   failedStepCount,
   isRunning,
@@ -68,7 +71,7 @@ export function ChatWorkRow({
         </div>
       )}
       {canExpand && (item.isRunning || open) ? (
-        <div className="grid min-w-0 gap-1">
+        <div className={workContentClassName}>
           {item.activities.map((activityItem) => (
             <ChatActivityRow
               key={`${activityItem.key}:${activityItem.isRunning ? "running" : activityItem.hasError ? "error" : "idle"}`}
