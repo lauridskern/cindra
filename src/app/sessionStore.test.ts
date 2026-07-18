@@ -52,6 +52,7 @@ function createSnapshot(
   overrides: Partial<SessionSnapshot> = {},
 ): SessionSnapshot {
   return {
+    snapshotRevision: 0n,
     activeConversationId: "chat-1",
     activeWorkspacePath: "/workspace/agent-ui",
     conversationViews: [
@@ -197,6 +198,85 @@ describe("sessionStore", () => {
         updatedAt: 1n,
       },
     });
+  });
+
+  test("applySessionSnapshot ignores older snapshots to preserve stream order", () => {
+    sessionStore.getState().applySessionSnapshot(
+      createSnapshot({
+        snapshotRevision: 2n,
+        conversationViews: [
+          {
+            activeRequestIds: ["req-1"],
+            conversationId: "chat-1",
+            followup: null,
+            messages: [
+              {
+                id: "assistant:req-1:1",
+                kind: "assistant",
+                requestId: "req-1",
+                text: "Hello world",
+              },
+            ],
+            todos: [],
+            workspacePath: "/workspace/agent-ui",
+          },
+        ],
+        visibleActiveRequestIds: ["req-1"],
+        visibleMessages: [
+          {
+            id: "assistant:req-1:1",
+            kind: "assistant",
+            requestId: "req-1",
+            text: "Hello world",
+          },
+        ],
+      }),
+    );
+
+    sessionStore.getState().applySessionSnapshot(
+      createSnapshot({
+        snapshotRevision: 1n,
+        conversationViews: [
+          {
+            activeRequestIds: ["req-1"],
+            conversationId: "chat-1",
+            followup: null,
+            messages: [
+              {
+                id: "assistant:req-1:1",
+                kind: "assistant",
+                requestId: "req-1",
+                text: "Hello",
+              },
+            ],
+            todos: [],
+            workspacePath: "/workspace/agent-ui",
+          },
+        ],
+        visibleActiveRequestIds: ["req-1"],
+        visibleMessages: [
+          {
+            id: "assistant:req-1:1",
+            kind: "assistant",
+            requestId: "req-1",
+            text: "Hello",
+          },
+        ],
+      }),
+    );
+
+    const currentView =
+      sessionStore.getState().conversationViewsByKey["/workspace/agent-ui::chat-1"];
+
+    expect(currentView.messages).toEqual([
+      {
+        id: "assistant:req-1:1",
+        kind: "assistant",
+        requestId: "req-1",
+        text: "Hello world",
+      },
+    ]);
+    expect(sessionStore.getState().snapshotRevision).toBe(2n);
   });
 
   test("applySessionSnapshot refreshes saved workspace metadata", () => {

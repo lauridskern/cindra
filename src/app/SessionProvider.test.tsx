@@ -52,6 +52,7 @@ function createSnapshot(
   overrides: Partial<SessionSnapshot> = {},
 ): SessionSnapshot {
   return {
+    snapshotRevision: 0n,
     activeConversationId: conversationId,
     activeWorkspacePath: workspacePath,
     conversationViews: [

@@ -63,12 +63,18 @@ pub(crate) struct RuntimeState {
     pub(crate) pending_followups_by_conversation: HashMap<String, FollowupRequestDto>,
     pub(crate) ui_error: Option<String>,
     pub(crate) next_order: u64,
+    pub(crate) snapshot_revision: u64,
 }
 
 impl RuntimeState {
     pub(crate) fn allocate_order(&mut self) -> u64 {
         self.next_order += 1;
         self.next_order
+    }
+
+    pub(crate) fn advance_snapshot_revision(&mut self) -> u64 {
+        self.snapshot_revision += 1;
+        self.snapshot_revision
     }
 }
 

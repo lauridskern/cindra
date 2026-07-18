@@ -49,6 +49,7 @@ pub(crate) fn build_snapshot(
     });
 
     SessionSnapshotDto {
+        snapshot_revision: state.snapshot_revision,
         active_workspace_path,
         active_conversation_id,
         visible_messages,

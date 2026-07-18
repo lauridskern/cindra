@@ -401,7 +401,7 @@ impl RuntimeManager {
                 .reload_conversation_from_persistence(workspace_path, conversation_id, order_hint)
                 .await;
         }
-        let snapshot = self.snapshot().await?;
+        let snapshot = self.snapshot_with_next_revision().await?;
         self.emit_snapshot(snapshot)?;
         Ok(())
     }

@@ -312,6 +312,13 @@ const defaultWorkspaceMetaState: WorkspaceMetaState = {
   runtimeStatusLoaded: false,
 };
 
+function isNewerSnapshot(
+  nextSnapshot: SessionSnapshot,
+  currentRevision: bigint,
+): boolean {
+  return nextSnapshot.snapshotRevision >= currentRevision;
+}
+
 function createSessionStoreState(set: SessionStoreSetter): SessionStoreState {
   return {
     activeConversationId: null,
@@ -324,13 +331,18 @@ function createSessionStoreState(set: SessionStoreSetter): SessionStoreState {
     requestTimingsByConversationId: {},
     savedWorkspaces: [],
     selection: { kind: "empty" },
+    snapshotRevision: -1n,
     uiError: null,
     workspaceMetaByKey: {},
     workspaces: [],
     workspacesByPath: {},
     applySessionSnapshot: (snapshot) => {
-      const nextViews = deriveConversationViews(snapshot);
       set((current) => {
+        if (!isNewerSnapshot(snapshot, current.snapshotRevision)) {
+          return current;
+        }
+
+        const nextViews = deriveConversationViews(snapshot);
         const now = Date.now();
         let nextRequestTimingsByConversationId =
           current.requestTimingsByConversationId;
@@ -396,6 +408,7 @@ function createSessionStoreState(set: SessionStoreSetter): SessionStoreState {
           conversationViewsByKey: nextConversationViewsByKey,
           requestTimingsByConversationId: nextRequestTimingsByConversationId,
           savedWorkspaces: snapshot.savedWorkspaces,
+          snapshotRevision: snapshot.snapshotRevision,
           selection: (() => {
             if (current.selection.kind === "demo-chat") {
               return current.selection;
