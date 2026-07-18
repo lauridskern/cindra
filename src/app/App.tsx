@@ -7,6 +7,7 @@ import {
   PenSquare,
 } from "lucide-react";
 
+import { CommandMenu } from "../components/CommandMenu";
 import { NewChatTrigger } from "../components/NewChatTrigger";
 import { ProvidersSettingsPane } from "../components/providers-settings/ProvidersSettingsPane";
 import { ProjectSidebar } from "../components/ProjectSidebar";
@@ -86,6 +87,10 @@ function AppShell() {
   const [selectedSettingsSection, setSelectedSettingsSection] =
     useState<SettingsSection>("general");
   const sidebarPanelRef = useRef<PanelImperativeHandle | null>(null);
+  const showDesktopSidebar = useCallback(() => {
+    setIsDesktopSidebarVisible(true);
+    setIsSettingsViewOpen(false);
+  }, []);
   const openProvidersSettings = useCallback(() => {
     setIsDesktopSidebarVisible(true);
     setSelectedSettingsSection("providers");
@@ -126,6 +131,16 @@ function AppShell() {
     <TooltipProvider>
       <SidebarProvider className="min-h-screen bg-transparent">
         <main className="app-shell relative flex h-screen w-full overflow-hidden bg-transparent">
+          <CommandMenu
+            isSidebarVisible={isDesktopSidebarVisible}
+            isSettingsViewOpen={isSettingsViewOpen}
+            onOpenSettings={() => {
+              setIsDesktopSidebarVisible(true);
+              setIsSettingsViewOpen(true);
+            }}
+            onSelectSettingsSection={setSelectedSettingsSection}
+            onShowSidebar={showDesktopSidebar}
+          />
           <AppSidebarControl
             isSidebarVisible={isDesktopSidebarVisible}
             isSettingsViewOpen={isSettingsViewOpen}
