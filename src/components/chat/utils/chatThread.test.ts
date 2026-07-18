@@ -1,7 +1,8 @@
 import { describe, expect, test } from "bun:test";
 
+import type { SessionToast } from "@/app/types/sessionStore";
 import type { TranscriptMessage } from "@/services/desktop/types/contracts";
-import { buildChatThreadItems } from "./chatThread";
+import { buildChatThreadItems, extractSessionToasts } from "./chatThread";
 
 function userMessage(
   id: string,
@@ -249,6 +250,43 @@ describe("buildChatThreadItems", () => {
     expect(workItems[1]?.activities.map((activity) => activity.summary)).toEqual([
       "Updated 1 file",
     ]);
+  });
+
+  test("keeps transient retry statuses out of chat items and exposes them as toasts", () => {
+    const retryStatus: Extract<TranscriptMessage, { kind: "status" }> = {
+      kind: "status",
+      id: "status-retry-1",
+      requestId: "req-1",
+      title: "Connection issue, retrying automatically",
+      subtitle: "POST https://chatgpt.com/backend-api/codex/responses failed",
+      category: "warning",
+    };
+
+    const items = buildChatThreadItems(
+      [
+        userMessage("user-1", "req-1", "write tests"),
+        retryStatus,
+        assistantMessage("assistant-1", "req-1", "Continuing after retry."),
+      ],
+      ["req-1"],
+    );
+
+    expect(items.map((item) => item.kind)).toEqual(["message", "message"]);
+    expect(
+      items.some(
+        (item) => item.kind === "message" && item.message.id === retryStatus.id,
+      ),
+    ).toBe(false);
+    const expectedToasts: SessionToast[] = [
+      {
+        id: "status-retry-1",
+        level: "warning",
+        title: "Connection issue, retrying automatically",
+        detail: "POST https://chatgpt.com/backend-api/codex/responses failed",
+      },
+    ];
+
+    expect(extractSessionToasts([retryStatus])).toEqual(expectedToasts);
   });
 
   test("tracks the number of failed activity steps on a completed request", () => {

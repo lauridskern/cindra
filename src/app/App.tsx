@@ -10,6 +10,7 @@ import {
 import { NewChatTrigger } from "../components/NewChatTrigger";
 import { ProvidersSettingsPane } from "../components/providers-settings/ProvidersSettingsPane";
 import { ProjectSidebar } from "../components/ProjectSidebar";
+import { SessionToastStack } from "../components/SessionToastStack";
 import { PaneSurface } from "../components/ui/PaneSurface";
 import { WorkspaceBoard } from "../components/workspace-board/WorkspaceBoard";
 import { Button } from "../components/ui/Button";
@@ -80,6 +81,10 @@ function AppShell() {
   useSystemThemeClass();
   const isSessionBootstrapped = useSessionStore(
     (state) => state.isBootstrapped,
+  );
+  const sessionToasts = useSessionStore((state) => state.sessionToasts);
+  const dismissSessionToast = useSessionStore(
+    (state) => state.dismissSessionToast,
   );
   const [isDesktopSidebarVisible, setIsDesktopSidebarVisible] = useState(true);
   const [isSettingsViewOpen, setIsSettingsViewOpen] = useState(false);
@@ -216,6 +221,10 @@ function AppShell() {
               </section>
             </ResizablePanel>
           </ResizablePanelGroup>
+          <SessionToastStack
+            toasts={sessionToasts}
+            onDismiss={dismissSessionToast}
+          />
         </main>
       </SidebarProvider>
     </TooltipProvider>

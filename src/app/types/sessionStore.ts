@@ -15,6 +15,15 @@ import type {
   WorkspaceBoardSelection,
 } from "./sessionContext";
 
+export type ToastLevel = "info" | "warning" | "error";
+
+export interface SessionToast {
+  id: string;
+  title: string;
+  detail?: string | null;
+  level: ToastLevel;
+}
+
 export interface PromptDraftEntry {
   isPending: boolean;
   isPlanningMode: boolean;
@@ -40,6 +49,8 @@ export interface SessionStoreState {
     string,
     Record<string, RequestTimingInfo>
   >;
+  dismissedSessionToastIds: Record<string, true>;
+  sessionToasts: SessionToast[];
   savedWorkspaces: SavedWorkspaceSummary[];
   selection: WorkspaceBoardSelection;
   uiError: string | null;
@@ -47,6 +58,7 @@ export interface SessionStoreState {
   workspaces: WorkspaceSession[];
   workspacesByPath: Record<string, WorkspaceSession>;
   applySessionSnapshot: (snapshot: SessionSnapshot) => void;
+  dismissSessionToast: (id: string) => void;
   clearPromptDraft: (key: string | null) => void;
   movePromptDraft: (fromKey: string | null, toKey: string | null) => void;
   setBoardSelection: (selection: WorkspaceBoardSelection) => void;
