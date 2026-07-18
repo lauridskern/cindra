@@ -1,7 +1,9 @@
-import { useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowUpIcon,
   ChevronDownIcon,
+  FileTextIcon,
+  Loader2Icon,
   MapIcon,
   SquareIcon,
 } from "lucide-react";
@@ -28,9 +30,13 @@ import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
 import { useAutosizeTextarea } from "@/hooks/useAutosizeTextarea";
 import { usePromptModelPicker } from "@/hooks/usePromptModelPicker";
+import { searchWorkspaceFiles } from "@/services/desktop/client";
 import { cn } from "@/utils/cn";
 import { formatReasoningEffortLabel } from "@/utils/reasoning";
 import type { PromptInputCardProps } from "./types/prompt";
+
+const FILE_MENTION_LIMIT = 20;
+const FILE_MENTION_PATTERN = /(^|\s)@([\w./\\-]*)$/;
 
 export function PromptInputCard({
   canCompose,
@@ -40,6 +46,7 @@ export function PromptInputCard({
   placeholder = "Ask about this workspace…",
   promptSettings,
   promptDraft,
+  workspacePath,
   isInputDisabled = false,
   setPlanningMode,
   setPromptDraft,
@@ -48,6 +55,12 @@ export function PromptInputCard({
   updatePromptSettings,
 }: PromptInputCardProps) {
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const [fileMentionResults, setFileMentionResults] = useState<string[]>([]);
+  const [fileMentionQuery, setFileMentionQuery] = useState<string | null>(null);
+  const [fileMentionIndex, setFileMentionIndex] = useState(0);
+  const [dismissedFileMentionKey, setDismissedFileMentionKey] = useState<string | null>(null);
+  const [isFileMentionLoading, setIsFileMentionLoading] = useState(false);
+  const [fileMentionError, setFileMentionError] = useState<string | null>(null);
   const isControlDisabled =
     isSendingPrompt || isRequestActive || !canCompose || isInputDisabled;
   const isWorking = isRequestActive;
@@ -75,6 +88,109 @@ export function PromptInputCard({
   });
 
   useAutosizeTextarea(textareaRef, promptDraft);
+
+  const fileMentionRange = useMemo(() => {
+    const cursor = textareaRef.current?.selectionStart ?? promptDraft.length;
+    const beforeCursor = promptDraft.slice(0, cursor);
+    const match = FILE_MENTION_PATTERN.exec(beforeCursor);
+    if (match == null) {
+      return null;
+    }
+
+    const prefix = match[1] ?? "";
+    return {
+      end: cursor,
+      query: match[2] ?? "",
+      start: beforeCursor.length - match[0].length + prefix.length,
+    };
+  }, [promptDraft]);
+
+  const fileMentionKey =
+    fileMentionRange == null
+      ? null
+      : `${fileMentionRange.start}:${fileMentionRange.end}:${fileMentionRange.query}`;
+  const fileMentionOpen =
+    !isControlDisabled &&
+    workspacePath != null &&
+    fileMentionRange != null &&
+    fileMentionKey !== dismissedFileMentionKey;
+
+  const selectedFileMention = fileMentionResults[fileMentionIndex] ?? null;
+
+  useEffect(() => {
+    if (!fileMentionOpen || workspacePath == null || fileMentionRange == null) {
+      setFileMentionResults([]);
+      setFileMentionQuery(null);
+      setFileMentionIndex(0);
+      setIsFileMentionLoading(false);
+      setFileMentionError(null);
+      return;
+    }
+
+    let cancelled = false;
+    setFileMentionQuery(fileMentionRange.query);
+    setFileMentionIndex(0);
+    setIsFileMentionLoading(true);
+    setFileMentionError(null);
+
+    const timeoutId = window.setTimeout(() => {
+      searchWorkspaceFiles(
+        workspacePath,
+        fileMentionRange.query,
+        FILE_MENTION_LIMIT,
+      )
+        .then((paths) => {
+          if (!cancelled) {
+            setFileMentionResults(paths);
+          }
+        })
+        .catch((error: unknown) => {
+          if (!cancelled) {
+            setFileMentionResults([]);
+            setFileMentionError(
+              error instanceof Error ? error.message : "Unable to search files.",
+            );
+          }
+        })
+        .finally(() => {
+          if (!cancelled) {
+            setIsFileMentionLoading(false);
+          }
+        });
+    }, 120);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeoutId);
+    };
+  }, [fileMentionOpen, fileMentionRange, workspacePath]);
+
+  const insertFileMention = useCallback(
+    (path: string) => {
+      if (fileMentionRange == null) {
+        return;
+      }
+
+      const insertedText = `@[${path}] `;
+      const nextDraft =
+        promptDraft.slice(0, fileMentionRange.start) +
+        insertedText +
+        promptDraft.slice(fileMentionRange.end);
+      const nextCursor = fileMentionRange.start + insertedText.length;
+
+      setPromptDraft(nextDraft);
+      setFileMentionResults([]);
+      setFileMentionQuery(null);
+      setFileMentionIndex(0);
+      setDismissedFileMentionKey(null);
+
+      window.requestAnimationFrame(() => {
+        textareaRef.current?.focus();
+        textareaRef.current?.setSelectionRange(nextCursor, nextCursor);
+      });
+    },
+    [fileMentionRange, promptDraft, setPromptDraft],
+  );
 
   function handleSubmit() {
     if (isSubmitDisabled) {
@@ -119,6 +235,39 @@ export function PromptInputCard({
             value={promptDraft}
             onChange={(event) => setPromptDraft(event.target.value)}
             onKeyDown={(event) => {
+              if (fileMentionOpen) {
+                if (event.key === "ArrowDown" && fileMentionResults.length > 0) {
+                  event.preventDefault();
+                  setFileMentionIndex((index) =>
+                    Math.min(index + 1, fileMentionResults.length - 1),
+                  );
+                  return;
+                }
+
+                if (event.key === "ArrowUp" && fileMentionResults.length > 0) {
+                  event.preventDefault();
+                  setFileMentionIndex((index) => Math.max(index - 1, 0));
+                  return;
+                }
+
+                if (
+                  (event.key === "Enter" || event.key === "Tab") &&
+                  selectedFileMention != null
+                ) {
+                  event.preventDefault();
+                  insertFileMention(selectedFileMention);
+                  return;
+                }
+
+                if (event.key === "Escape") {
+                  event.preventDefault();
+                  setFileMentionResults([]);
+                  setFileMentionQuery(null);
+                  setDismissedFileMentionKey(fileMentionKey);
+                  return;
+                }
+              }
+
               if (
                 event.key === "Enter" &&
                 (event.metaKey || event.ctrlKey) &&
@@ -130,6 +279,53 @@ export function PromptInputCard({
             disabled={isControlDisabled}
             rows={3}
           />
+          {fileMentionOpen ? (
+            <div className="absolute inset-x-0 bottom-full z-30 mb-2 overflow-hidden rounded-xl border border-border bg-popover text-popover-foreground shadow-lg">
+              <div className="flex items-center gap-2 border-b border-border/60 px-3 py-2 text-xs text-muted-foreground">
+                {isFileMentionLoading ? (
+                  <Loader2Icon className="size-3 animate-spin" />
+                ) : (
+                  <FileTextIcon className="size-3" />
+                )}
+                <span>
+                  {fileMentionQuery == null || fileMentionQuery.length === 0
+                    ? "Search files"
+                    : `Search files matching “${fileMentionQuery}”`}
+                </span>
+              </div>
+              <div className="max-h-56 overflow-y-auto p-1">
+                {fileMentionError != null ? (
+                  <div className="px-2 py-2 text-xs text-destructive">
+                    {fileMentionError}
+                  </div>
+                ) : fileMentionResults.length === 0 ? (
+                  <div className="px-2 py-2 text-xs text-muted-foreground">
+                    {isFileMentionLoading ? "Searching…" : "No files found."}
+                  </div>
+                ) : (
+                  fileMentionResults.map((path, index) => (
+                    <button
+                      key={path}
+                      type="button"
+                      className={cn(
+                        "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs outline-none transition-colors",
+                        index === fileMentionIndex
+                          ? "bg-accent text-accent-foreground"
+                          : "text-popover-foreground hover:bg-accent/70 hover:text-accent-foreground",
+                      )}
+                      onMouseDown={(event) => {
+                        event.preventDefault();
+                        insertFileMention(path);
+                      }}
+                    >
+                      <FileTextIcon className="size-3 shrink-0 text-muted-foreground" />
+                      <span className="truncate font-mono">{path}</span>
+                    </button>
+                  ))
+                )}
+              </div>
+            </div>
+          ) : null}
         </CardContent>
         <CardFooter className="relative z-10 items-center justify-between p-0">
           <ButtonGroup aria-label="Prompt controls" className="-mb-1.5">

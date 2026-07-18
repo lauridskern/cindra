@@ -22,7 +22,7 @@ export function PromptComposer({ binding }: PromptComposerProps) {
     submitPrompt,
     updatePromptSettings,
   } = usePrompt(binding);
-  const { todos } = useConversationSession(binding);
+  const { todos, workspacePath } = useConversationSession(binding);
   const { openProviderSettings } = useSettingsNavigation();
   const requiresProviderSetup =
     promptSettings != null && promptSettings.availableModels.length === 0;
@@ -52,6 +52,7 @@ export function PromptComposer({ binding }: PromptComposerProps) {
             isPlanningMode={isPlanningMode}
             promptSettings={promptSettings}
             promptDraft={promptDraft}
+            workspacePath={workspacePath}
             isInputDisabled={requiresProviderSetup}
             setPlanningMode={setPlanningMode}
             setPromptDraft={setPromptDraft}
